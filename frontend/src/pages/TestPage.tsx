@@ -4,11 +4,29 @@ import Card from '@/components/Card';
 const TestPage: React.FC = () => {
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setUploadedFileName(file.name);
-      // Here you would handle the file upload to the server or file system
+
+      // Placeholder for sending the file to the backend
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch('/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok) {
+          console.log('File uploaded successfully');
+        } else {
+          console.error('File upload failed');
+        }
+      } catch (error) {
+        console.error('Error uploading file:', error);
+      }
     }
   };
 
