@@ -1,0 +1,6 @@
+**/*.env
+**/*.venv
+bmad-agent/
+
+.DS_Store
+
