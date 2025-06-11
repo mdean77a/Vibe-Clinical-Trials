@@ -1,35 +1,28 @@
 import React, { useState } from 'react';
-import Button from '@/components/Button';
-import Input from '@/components/Input';
-import Textarea from '@/components/Textarea';
 import Card from '@/components/Card';
 
 const TestPage: React.FC = () => {
-  const [inputValue, setInputValue] = useState('');
-  const [textareaValue, setTextareaValue] = useState('');
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadedFileName(file.name);
+      // Here you would handle the file upload to the server or file system
+    }
+  };
 
   return (
     <div className="p-4 space-y-4">
+      <h1 className="text-2xl font-bold mb-4">Clinical Trial Accelerator</h1>
       <Card>
-        <h2 className="text-xl font-bold mb-2">Test Components</h2>
-        <Button onClick={() => alert('Button clicked!')}>Click Me</Button>
+        <input type="file" accept="application/pdf" onChange={handleFileUpload} />
       </Card>
-
-      <Card>
-        <Input
-          placeholder="Type something..."
-          value={inputValue}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInputValue(e.target.value)}
-        />
-      </Card>
-
-      <Card>
-        <Textarea
-          placeholder="Type more..."
-          value={textareaValue}
-          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setTextareaValue(e.target.value)}
-        />
-      </Card>
+      {uploadedFileName && (
+        <Card>
+          <p>Uploaded File: {uploadedFileName}</p>
+        </Card>
+      )}
     </div>
   );
 };
