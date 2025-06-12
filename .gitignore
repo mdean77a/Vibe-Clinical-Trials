@@ -3,4 +3,5 @@
 bmad-agent/
 
 .DS_Store
+**/.vite/
 
