@@ -169,7 +169,7 @@ const InformedConsentPage: React.FC = () => {
             marginBottom: '24px'
           }}>
             <h3 style={{ fontWeight: '600', color: '#7c3aed', marginBottom: '12px' }}>
-              What will be generated:
+              Some of the sections that will be included in the informed consent form:
             </h3>
             <ul style={{ color: '#6d28d9', fontSize: '0.875rem', margin: 0, paddingLeft: '20px' }}>
               <li style={{ marginBottom: '8px', display: 'flex', alignItems: 'center' }}>
