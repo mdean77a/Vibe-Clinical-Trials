@@ -7,6 +7,7 @@ interface ButtonProps {
   style?: React.CSSProperties;
   onMouseEnter?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   onMouseLeave?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  disabled?: boolean;
 }
 
 const Button: React.FC<ButtonProps> = ({ 
@@ -15,13 +16,15 @@ const Button: React.FC<ButtonProps> = ({
   className = '', 
   style,
   onMouseEnter,
-  onMouseLeave 
+  onMouseLeave,
+  disabled = false
 }) => {
   return (
     <button
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      disabled={disabled}
       className={`px-4 py-2 bg-blue-500 text-white rounded ${className}`}
       style={style}
     >

@@ -12,8 +12,8 @@ const SiteChecklistPage: React.FC = () => {
     alert('This is not yet implemented.');
   };
 
-  const handleReturnToMain = () => {
-    navigate('/', { 
+  const handleReturnToDocumentSelection = () => {
+    navigate('/document-selection', { 
       state: { uploadedFileName } 
     });
   };
@@ -162,7 +162,7 @@ const SiteChecklistPage: React.FC = () => {
               Make Checklist
             </Button>
             <Button 
-              onClick={handleReturnToMain} 
+              onClick={handleReturnToDocumentSelection} 
               style={{
                 background: 'linear-gradient(to right, #6b7280, #4b5563)',
                 color: 'white',
@@ -189,7 +189,7 @@ const SiteChecklistPage: React.FC = () => {
               }}
             >
               <span style={{ marginRight: '8px' }}>←</span>
-              Return to Main Page
+              Return to Document Selection
             </Button>
           </div>
         </div>

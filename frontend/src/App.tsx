@@ -1,16 +1,18 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import HomePage from './pages/HomePage';
+import DocumentTypeSelection from './pages/DocumentTypeSelection';
 import InformedConsentPage from './pages/InformedConsentPage';
 import SiteChecklistPage from './pages/SiteChecklistPage';
 import './App.css'
 
 const App: React.FC = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+    <div className="min-h-screen">
       <Router>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/document-selection" element={<DocumentTypeSelection />} />
           <Route path="/informed-consent" element={<InformedConsentPage />} />
           <Route path="/site-checklist" element={<SiteChecklistPage />} />
         </Routes>

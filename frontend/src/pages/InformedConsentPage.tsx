@@ -1,22 +1,72 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import type { Protocol } from '../utils/mockData';
 
 const InformedConsentPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const uploadedFileName = location.state?.uploadedFileName || localStorage.getItem('uploadedFileName');
+  const [selectedProtocol, setSelectedProtocol] = useState<Protocol | null>(null);
+
+  useEffect(() => {
+    // First try to get protocol from navigation state
+    if (location.state?.protocol) {
+      setSelectedProtocol(location.state.protocol);
+    } else {
+      // Fallback to localStorage
+      const savedProtocol = localStorage.getItem('selectedProtocol');
+      if (savedProtocol) {
+        try {
+          setSelectedProtocol(JSON.parse(savedProtocol));
+        } catch (error) {
+          console.error('Error parsing selected protocol:', error);
+          // Redirect back to home if no valid protocol
+          navigate('/');
+        }
+      } else {
+        // No protocol selected, redirect to home
+        navigate('/');
+      }
+    }
+  }, [location.state, navigate]);
 
   const handleBuildForms = () => {
     alert('The consent form builder is not yet implemented.');
   };
 
-  const handleReturnToMain = () => {
-    navigate('/', { 
-      state: { uploadedFileName } 
+  const handleReturnToDocumentSelection = () => {
+    navigate('/document-selection', {
+      state: selectedProtocol ? { protocol: selectedProtocol } : undefined
     });
   };
+
+  if (!selectedProtocol) {
+    return (
+      <div style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        padding: '24px',
+        maxWidth: '1024px',
+        margin: '0 auto'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            border: '2px solid #d8b4fe',
+            borderTop: '2px solid #8b5cf6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 16px'
+          }}></div>
+          <p style={{ color: '#6b7280' }}>Loading protocol...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ 
@@ -42,46 +92,49 @@ const InformedConsentPage: React.FC = () => {
         </p>
       </div>
       
-      {uploadedFileName && (
-        <Card style={{ marginBottom: '24px' }}>
-          <div style={{
-            padding: '16px',
-            background: 'linear-gradient(to right, #eff6ff, #e0e7ff)',
-            border: '1px solid #c7d2fe',
-            borderRadius: '12px',
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                background: '#dbeafe',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: '12px'
-              }}>
-                <span style={{ color: '#2563eb', fontSize: '1.25rem' }}>📄</span>
-              </div>
-              <div>
-                <p style={{ color: '#1e40af', fontWeight: '600' }}>
-                  Working with Protocol
-                </p>
-                <p style={{ color: '#3730a3', fontSize: '0.875rem' }}>
-                  {uploadedFileName}
-                </p>
-              </div>
+      <Card style={{ marginBottom: '24px' }}>
+        <div style={{
+          padding: '16px',
+          background: 'linear-gradient(to right, #faf5ff, #f3e8ff)',
+          border: '1px solid #d8b4fe',
+          borderRadius: '12px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              background: '#e9d5ff',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: '12px'
+            }}>
+              <span style={{ color: '#8b5cf6', fontWeight: '600' }}>
+                {selectedProtocol.study_acronym.substring(0, 2).toUpperCase()}
+              </span>
+            </div>
+            <div>
+              <p style={{ color: '#7c3aed', fontWeight: '600', fontSize: '1.125rem' }}>
+                {selectedProtocol.study_acronym}
+              </p>
+              <p style={{ color: '#6d28d9', fontSize: '0.875rem' }}>
+                {selectedProtocol.protocol_title}
+              </p>
+              <p style={{ color: '#8b5cf6', fontSize: '0.75rem' }}>
+                Status: {selectedProtocol.status}
+              </p>
             </div>
           </div>
-        </Card>
-      )}
+        </div>
+      </Card>
       
       <Card>
         <div style={{
           padding: '32px',
           background: 'white',
-          border: '1px solid #c7d2fe',
+          border: '1px solid #d8b4fe',
           borderRadius: '12px',
           boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
         }}>
@@ -89,40 +142,52 @@ const InformedConsentPage: React.FC = () => {
             <div style={{
               width: '48px',
               height: '48px',
-              background: '#dbeafe',
+              background: '#e9d5ff',
               borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               marginRight: '16px'
             }}>
-              <span style={{ color: '#2563eb', fontSize: '1.5rem' }}>📋</span>
+              <span style={{ color: '#8b5cf6', fontSize: '1.5rem' }}>📋</span>
             </div>
             <div>
               <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#1f2937' }}>
                 Informed Consent Form
               </h2>
               <p style={{ color: '#6b7280' }}>
-                Generate an informed consent form based on your uploaded protocol document.
+                Generate an informed consent form based on your selected protocol.
               </p>
             </div>
           </div>
           
           <div style={{
-            background: '#eff6ff',
-            border: '1px solid #c7d2fe',
+            background: '#faf5ff',
+            border: '1px solid #d8b4fe',
             borderRadius: '8px',
             padding: '24px',
             marginBottom: '24px'
           }}>
-            <h3 style={{ fontWeight: '600', color: '#1e40af', marginBottom: '8px' }}>
+            <h3 style={{ fontWeight: '600', color: '#7c3aed', marginBottom: '12px' }}>
               What will be generated:
             </h3>
-            <ul style={{ color: '#3730a3', fontSize: '0.875rem', margin: 0, paddingLeft: '20px' }}>
-              <li style={{ marginBottom: '4px' }}>Study purpose and procedures</li>
-              <li style={{ marginBottom: '4px' }}>Risks and benefits analysis</li>
-              <li style={{ marginBottom: '4px' }}>Participant rights and responsibilities</li>
-              <li style={{ marginBottom: '4px' }}>Contact information and withdrawal procedures</li>
+            <ul style={{ color: '#6d28d9', fontSize: '0.875rem', margin: 0, paddingLeft: '20px' }}>
+              <li style={{ marginBottom: '8px', display: 'flex', alignItems: 'center' }}>
+                <span style={{ width: '8px', height: '8px', background: '#8b5cf6', borderRadius: '50%', marginRight: '12px' }}></span>
+                Study purpose and procedures
+              </li>
+              <li style={{ marginBottom: '8px', display: 'flex', alignItems: 'center' }}>
+                <span style={{ width: '8px', height: '8px', background: '#8b5cf6', borderRadius: '50%', marginRight: '12px' }}></span>
+                Risks and benefits analysis
+              </li>
+              <li style={{ marginBottom: '8px', display: 'flex', alignItems: 'center' }}>
+                <span style={{ width: '8px', height: '8px', background: '#8b5cf6', borderRadius: '50%', marginRight: '12px' }}></span>
+                Participant rights and responsibilities
+              </li>
+              <li style={{ marginBottom: '4px', display: 'flex', alignItems: 'center' }}>
+                <span style={{ width: '8px', height: '8px', background: '#8b5cf6', borderRadius: '50%', marginRight: '12px' }}></span>
+                Contact information and withdrawal procedures
+              </li>
             </ul>
           </div>
           
@@ -134,7 +199,7 @@ const InformedConsentPage: React.FC = () => {
             <Button 
               onClick={handleBuildForms}
               style={{
-                background: 'linear-gradient(to right, #10b981, #059669)',
+                background: 'linear-gradient(to right, #8b5cf6, #7c3aed)',
                 color: 'white',
                 fontWeight: '600',
                 padding: '16px 32px',
@@ -150,19 +215,20 @@ const InformedConsentPage: React.FC = () => {
                 width: '100%'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(to right, #059669, #047857)';
+                e.currentTarget.style.background = 'linear-gradient(to right, #7c3aed, #6d28d9)';
                 e.currentTarget.style.transform = 'scale(1.05)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(to right, #10b981, #059669)';
+                e.currentTarget.style.background = 'linear-gradient(to right, #8b5cf6, #7c3aed)';
                 e.currentTarget.style.transform = 'scale(1)';
               }}
             >
               <span style={{ marginRight: '8px' }}>🚀</span>
-              Build the Forms
+              Build Informed Consent Forms
             </Button>
+            
             <Button 
-              onClick={handleReturnToMain} 
+              onClick={handleReturnToDocumentSelection} 
               style={{
                 background: 'linear-gradient(to right, #6b7280, #4b5563)',
                 color: 'white',
@@ -189,7 +255,7 @@ const InformedConsentPage: React.FC = () => {
               }}
             >
               <span style={{ marginRight: '8px' }}>←</span>
-              Return to Main Page
+              Return to Document Selection
             </Button>
           </div>
         </div>
