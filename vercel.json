@@ -1,46 +1,16 @@
 {
-  "version": 2,
-  "routes": [
-    {
-      "src": "/api/simple",
-      "dest": "/api/simple.js"
-    },
-    {
-      "src": "/api/?$",
-      "dest": "/api/index.py"
-    },
-    {
-      "src": "/api/test",
-      "dest": "/api/test.py"
-    },
-    {
-      "src": "/api/protocols/(.*)",
-      "dest": "/api/protocols.py"
-    },
-    {
-      "src": "/api/(health|$)",
-      "dest": "/api/health.py"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/frontend/$1"
-    }
-  ],
+  "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
   "installCommand": "cd frontend && npm install",
-  "buildCommand": "cd frontend && npm run build",
   "functions": {
-    "api/index.py": {
-      "runtime": "python3.9"
-    },
-    "api/test.py": {
-      "runtime": "python3.9"
-    },
-    "api/protocols.py": {
-      "runtime": "python3.9"
-    },
-    "api/health.py": {
+    "api/*.py": {
       "runtime": "python3.9"
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/((?!api).*)",
+      "destination": "/index.html"
+    }
+  ]
 } 
