@@ -26,7 +26,14 @@ const HomePage: React.FC = () => {
         
         // Check API health first
         try {
-          await healthApi.check();
+          const healthResponse = await healthApi.check() as any;
+          console.log('Health check response:', healthResponse);
+          
+          // Check if backend is actually available
+          if (healthResponse.backend_available === false) {
+            throw new Error(`Backend unavailable: ${healthResponse.backend_error}`);
+          }
+          
           setApiHealthy(true);
           console.log('✅ API is healthy - using backend');
           
