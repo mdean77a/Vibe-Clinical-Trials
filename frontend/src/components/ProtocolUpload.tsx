@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import Card from './Card';
 import Button from './Button';
 import Input from './Input';
-import { protocolsApi } from '../utils/api';
 
 interface ProtocolUploadProps {
   onUploadComplete: (fileName: string, acronym: string) => void;
@@ -91,20 +90,10 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
         });
       }, 200);
 
-      // Extract protocol title from filename
-      const protocolTitle = selectedFile.name.replace('.pdf', '').replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      
-      // Create protocol via API
-      await protocolsApi.create({
-        study_acronym: acronym.trim().toUpperCase(),
-        protocol_title: protocolTitle,
-        file_path: `/uploads/${selectedFile.name}` // Simulated file path
-      });
-      
       clearInterval(progressInterval);
       setUploadProgress(100);
       
-      // Complete upload
+      // Complete upload - let HomePage handle the API creation
       setTimeout(() => {
         onUploadComplete(selectedFile.name, acronym.trim().toUpperCase());
       }, 500);
