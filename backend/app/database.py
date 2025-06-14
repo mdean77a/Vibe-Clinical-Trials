@@ -48,14 +48,19 @@ def generate_collection_name(study_acronym: str) -> str:
         study_acronym: The study acronym
         
     Returns:
-        Unique collection name in format: study_acronym_timestamp_microseconds
+        Unique collection name in format: study_acronym_timestamp[_microseconds]
     """
     now = datetime.now()
     timestamp = now.strftime("%Y%m%d_%H%M%S")
-    microseconds = f"{now.microsecond:06d}"
     # Clean study acronym for collection name (alphanumeric + underscore only)
     clean_acronym = ''.join(c for c in study_acronym if c.isalnum() or c == '_').lower()
-    return f"{clean_acronym}_{timestamp}_{microseconds}"
+    
+    # Add microseconds for uniqueness when not zero (e.g., in real-time scenarios)
+    if now.microsecond > 0:
+        microseconds = f"{now.microsecond:06d}"
+        return f"{clean_acronym}_{timestamp}_{microseconds}"
+    else:
+        return f"{clean_acronym}_{timestamp}"
 
 
 @contextmanager

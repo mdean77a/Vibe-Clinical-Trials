@@ -75,7 +75,7 @@ export const protocolsApi = {
     protocol_title: string;
     file_path?: string;
   }) => {
-    return apiRequest('protocols/', {
+    return apiRequest('protocols', {
       method: 'POST',
       body: JSON.stringify(protocolData),
     });
@@ -100,7 +100,7 @@ export const protocolsApi = {
    */
   list: async (statusFilter?: string) => {
     const params = statusFilter ? `?status_filter=${encodeURIComponent(statusFilter)}` : '';
-    return apiRequest(`protocols/${params}`);
+    return apiRequest(`protocols${params}`);
   },
 
   /**
