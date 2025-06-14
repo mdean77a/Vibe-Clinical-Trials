@@ -1,10 +1,26 @@
-def handler(request):
-    """Simple test handler to verify Vercel Python functions work."""
-    return {
-        "statusCode": 200,
-        "headers": {
-            "content-type": "application/json",
-            "access-control-allow-origin": "*"
-        },
-        "body": '{"message": "Test function works!", "request_method": "' + request.get("httpMethod", "unknown") + '"}'
-    } 
+from http.server import BaseHTTPRequestHandler
+import json
+
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        
+        response = {
+            "message": "Python test function works!",
+            "method": "GET",
+            "status": "success"
+        }
+        
+        self.wfile.write(json.dumps(response).encode('utf-8'))
+        return
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+        return 
