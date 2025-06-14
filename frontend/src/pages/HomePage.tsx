@@ -4,27 +4,74 @@ import ProtocolSelector from '../components/ProtocolSelector';
 import ProtocolUpload from '../components/ProtocolUpload';
 import { initializeMockData } from '../utils/mockData';
 import type { Protocol } from '../utils/mockData';
+import { protocolsApi, healthApi, logApiConfig } from '../utils/api';
 
 const HomePage: React.FC = () => {
   const [protocols, setProtocols] = useState<Protocol[]>([]);
   const [showUpload, setShowUpload] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [apiHealthy, setApiHealthy] = useState<boolean | null>(null);
   const navigate = useNavigate();
 
-  // Load protocols from localStorage (simulating database)
+  // Load protocols from API or fallback to localStorage
   useEffect(() => {
-    // Initialize mock data if no protocols exist
-    initializeMockData();
-    
-    const savedProtocols = localStorage.getItem('protocols');
-    if (savedProtocols) {
+    const loadProtocols = async () => {
       try {
-        setProtocols(JSON.parse(savedProtocols));
+        setLoading(true);
+        setError(null);
+        
+        // Log API configuration for debugging
+        logApiConfig();
+        
+        // Check API health first
+        try {
+          await healthApi.check();
+          setApiHealthy(true);
+          console.log('✅ API is healthy - using backend');
+          
+          // Load protocols from API
+          const apiProtocols = await protocolsApi.list() as Protocol[];
+          setProtocols(apiProtocols);
+        } catch (apiError) {
+          console.warn('⚠️ API unavailable - falling back to localStorage:', apiError);
+          setApiHealthy(false);
+          
+          // Fallback to localStorage (for development when backend is not running)
+          initializeMockData();
+          const savedProtocols = localStorage.getItem('protocols');
+          if (savedProtocols) {
+            try {
+              setProtocols(JSON.parse(savedProtocols));
+            } catch (parseError) {
+              console.error('Error parsing saved protocols:', parseError);
+              setProtocols([]);
+            }
+          }
+        }
       } catch (error) {
-        console.error('Error parsing saved protocols:', error);
-        setProtocols([]);
+        console.error('Error loading protocols:', error);
+        setError('Failed to load protocols');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProtocols();
+  }, []);
+
+  // Function to refresh protocols (can be called after creating a new one)
+  const refreshProtocols = async () => {
+    if (apiHealthy) {
+      try {
+        const apiProtocols = await protocolsApi.list() as Protocol[];
+        setProtocols(apiProtocols);
+        console.log('🔄 Protocols refreshed from API');
+      } catch (error) {
+        console.error('Error refreshing protocols:', error);
       }
     }
-  }, []);
+  };
 
   // Save protocols to localStorage (simulating database)
   const saveProtocols = (updatedProtocols: Protocol[]) => {
@@ -50,30 +97,67 @@ const HomePage: React.FC = () => {
     setShowUpload(true);
   };
 
-  const handleUploadComplete = (fileName: string, acronym: string) => {
-    // Create a new protocol entry (simulating backend processing)
-    const newProtocol: Protocol = {
-      id: `protocol_${Date.now()}`,
-      study_acronym: acronym,
-      protocol_title: extractProtocolTitle(fileName),
-      upload_date: new Date().toISOString(),
-      status: 'processed'
-    };
+  const handleUploadComplete = async (fileName: string, acronym: string) => {
+    try {
+      const protocolTitle = extractProtocolTitle(fileName);
+      
+      if (apiHealthy) {
+        // Use API to create protocol
+        console.log('📤 Creating protocol via API...');
+        const newProtocol = await protocolsApi.create({
+          study_acronym: acronym,
+          protocol_title: protocolTitle,
+          file_path: `/uploads/${fileName}` // Simulated file path
+        }) as Protocol;
+        
+        console.log('✅ Protocol created via API:', newProtocol);
+        
+        // Update local state
+        const updatedProtocols = [newProtocol, ...protocols];
+        setProtocols(updatedProtocols);
+        
+        // Store the new protocol as selected
+        localStorage.setItem('selectedProtocol', JSON.stringify(newProtocol));
+        
+        // Navigate to document type selection page
+        navigate('/document-selection', { 
+          state: { 
+            protocol: newProtocol,
+            protocolId: newProtocol.id,
+            studyAcronym: newProtocol.study_acronym 
+          } 
+        });
+      } else {
+        // Fallback to localStorage approach
+        console.log('📝 Creating protocol via localStorage fallback...');
+        const newProtocol: Protocol = {
+          id: `protocol_${Date.now()}`,
+          study_acronym: acronym,
+          protocol_title: protocolTitle,
+          upload_date: new Date().toISOString(),
+          status: 'processed'
+        };
 
-    const updatedProtocols = [newProtocol, ...protocols];
-    saveProtocols(updatedProtocols);
-    
-    // Store the new protocol as selected
-    localStorage.setItem('selectedProtocol', JSON.stringify(newProtocol));
-    
-    // Navigate to document type selection page
-    navigate('/document-selection', { 
-      state: { 
-        protocol: newProtocol,
-        protocolId: newProtocol.id,
-        studyAcronym: newProtocol.study_acronym 
-      } 
-    });
+        const updatedProtocols = [newProtocol, ...protocols];
+        saveProtocols(updatedProtocols);
+        
+        // Store the new protocol as selected
+        localStorage.setItem('selectedProtocol', JSON.stringify(newProtocol));
+        
+        // Navigate to document type selection page
+        navigate('/document-selection', { 
+          state: { 
+            protocol: newProtocol,
+            protocolId: newProtocol.id,
+            studyAcronym: newProtocol.study_acronym 
+          } 
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error creating protocol:', error);
+      // Could show an error message to user here
+      alert('Failed to create protocol. Please try again.');
+    }
   };
 
   const handleUploadCancel = () => {
@@ -109,9 +193,47 @@ const HomePage: React.FC = () => {
         <p style={{ color: '#6b7280', fontSize: '1.125rem' }}>
           Streamline your clinical trial document generation
         </p>
+        
+        {/* API Status Indicator */}
+        {!loading && (
+          <div style={{ 
+            marginTop: '12px', 
+            padding: '8px 16px', 
+            borderRadius: '20px', 
+            display: 'inline-block',
+            fontSize: '0.875rem',
+            backgroundColor: apiHealthy ? '#dcfce7' : '#fef3c7',
+            color: apiHealthy ? '#166534' : '#92400e',
+            border: `1px solid ${apiHealthy ? '#bbf7d0' : '#fde68a'}`
+          }}>
+            {apiHealthy ? '🟢 Connected to API' : '🟡 Using Local Data'}
+          </div>
+        )}
       </div>
 
-      {showUpload ? (
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '48px' }}>
+          <div style={{ fontSize: '1.125rem', color: '#6b7280' }}>
+            Loading protocols...
+          </div>
+        </div>
+      ) : error ? (
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '48px',
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fecaca',
+          borderRadius: '8px',
+          color: '#dc2626'
+        }}>
+          <div style={{ fontSize: '1.125rem', marginBottom: '8px' }}>
+            ⚠️ Error Loading Protocols
+          </div>
+          <div style={{ fontSize: '0.875rem' }}>
+            {error}
+          </div>
+        </div>
+      ) : showUpload ? (
         <ProtocolUpload 
           onUploadComplete={handleUploadComplete}
           onCancel={handleUploadCancel}

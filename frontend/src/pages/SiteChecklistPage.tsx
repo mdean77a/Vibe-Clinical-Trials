@@ -1,22 +1,72 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import type { Protocol } from '../utils/mockData';
 
 const SiteChecklistPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const uploadedFileName = location.state?.uploadedFileName || localStorage.getItem('uploadedFileName');
+  const [selectedProtocol, setSelectedProtocol] = useState<Protocol | null>(null);
+
+  useEffect(() => {
+    // First try to get protocol from navigation state
+    if (location.state?.protocol) {
+      setSelectedProtocol(location.state.protocol);
+    } else {
+      // Fallback to localStorage
+      const savedProtocol = localStorage.getItem('selectedProtocol');
+      if (savedProtocol) {
+        try {
+          setSelectedProtocol(JSON.parse(savedProtocol));
+        } catch (error) {
+          console.error('Error parsing selected protocol:', error);
+          // Redirect back to home if no valid protocol
+          navigate('/');
+        }
+      } else {
+        // No protocol selected, redirect to home
+        navigate('/');
+      }
+    }
+  }, [location.state, navigate]);
 
   const handleMakeChecklist = () => {
     alert('This is not yet implemented.');
   };
 
   const handleReturnToDocumentSelection = () => {
-    navigate('/document-selection', { 
-      state: { uploadedFileName } 
+    navigate('/document-selection', {
+      state: selectedProtocol ? { protocol: selectedProtocol } : undefined
     });
   };
+
+  if (!selectedProtocol) {
+    return (
+      <div style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        padding: '24px',
+        maxWidth: '1024px',
+        margin: '0 auto'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            border: '2px solid #d8b4fe',
+            borderTop: '2px solid #8b5cf6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 16px'
+          }}></div>
+          <p style={{ color: '#6b7280' }}>Loading protocol...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ 
@@ -42,40 +92,43 @@ const SiteChecklistPage: React.FC = () => {
         </p>
       </div>
       
-      {uploadedFileName && (
-        <Card style={{ marginBottom: '24px' }}>
-          <div style={{
-            padding: '16px',
-            background: 'linear-gradient(to right, #faf5ff, #f3e8ff)',
-            border: '1px solid #d8b4fe',
-            borderRadius: '12px',
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                background: '#e9d5ff',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: '12px'
-              }}>
-                <span style={{ color: '#8b5cf6', fontSize: '1.25rem' }}>📄</span>
-              </div>
-              <div>
-                <p style={{ color: '#7c3aed', fontWeight: '600' }}>
-                  Working with Protocol
-                </p>
-                <p style={{ color: '#6d28d9', fontSize: '0.875rem' }}>
-                  {uploadedFileName}
-                </p>
-              </div>
+      <Card style={{ marginBottom: '24px' }}>
+        <div style={{
+          padding: '16px',
+          background: 'linear-gradient(to right, #faf5ff, #f3e8ff)',
+          border: '1px solid #d8b4fe',
+          borderRadius: '12px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              background: '#e9d5ff',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: '12px'
+            }}>
+              <span style={{ color: '#8b5cf6', fontWeight: '600' }}>
+                {selectedProtocol.study_acronym.substring(0, 2).toUpperCase()}
+              </span>
+            </div>
+            <div>
+              <p style={{ color: '#7c3aed', fontWeight: '600', fontSize: '1.125rem' }}>
+                {selectedProtocol.study_acronym}
+              </p>
+              <p style={{ color: '#6d28d9', fontSize: '0.875rem' }}>
+                {selectedProtocol.protocol_title}
+              </p>
+              <p style={{ color: '#8b5cf6', fontSize: '0.75rem' }}>
+                Status: {selectedProtocol.status}
+              </p>
             </div>
           </div>
-        </Card>
-      )}
+        </div>
+      </Card>
       
       <Card>
         <div style={{
