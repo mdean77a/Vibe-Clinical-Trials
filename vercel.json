@@ -10,10 +10,10 @@
   ],
   "functions": {
     "api/*.py": {
-      "runtime": "@vercel/python@4.3.1"
+      "runtime": "python3.9"
     },
     "api/*.js": {
-      "runtime": "@vercel/node@22.11.0"
+      "runtime": "nodejs18.x"
     }
   },
   "routes": [
