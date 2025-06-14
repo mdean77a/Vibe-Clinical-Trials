@@ -15,27 +15,28 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         
-        # Mock protocol data
+        # Mock protocol data matching frontend Protocol interface
         protocols = [
             {
-                "id": "NCT12345678",
-                "title": "Phase II Study of Novel Cancer Treatment",
-                "status": "Recruiting",
-                "phase": "Phase 2",
-                "condition": "Breast Cancer",
-                "sponsor": "University Medical Center",
-                "location": "Multiple Sites",
-                "enrollment": 150
+                "id": "protocol_1",
+                "study_acronym": "CARDIO-TRIAL",
+                "protocol_title": "A Phase III Randomized Study of Novel Cardiac Drug in Heart Failure Patients",
+                "upload_date": "2024-12-15T10:30:00Z",
+                "status": "processed"
             },
             {
-                "id": "NCT87654321", 
-                "title": "Cardiovascular Prevention Trial",
-                "status": "Active",
-                "phase": "Phase 3",
-                "condition": "Heart Disease",
-                "sponsor": "Pharma Corp",
-                "location": "US & Canada",
-                "enrollment": 500
+                "id": "protocol_2",
+                "study_acronym": "ONCO-STUDY", 
+                "protocol_title": "Phase II Clinical Trial of Immunotherapy in Advanced Lung Cancer",
+                "upload_date": "2024-12-10T14:20:00Z",
+                "status": "processed"
+            },
+            {
+                "id": "protocol_3",
+                "study_acronym": "NEURO-RCT",
+                "protocol_title": "Randomized Controlled Trial of Neuroprotective Agent in Stroke Recovery",
+                "upload_date": "2024-12-05T09:15:00Z",
+                "status": "processed"
             }
         ]
         
