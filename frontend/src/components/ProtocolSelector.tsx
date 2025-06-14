@@ -33,6 +33,12 @@ const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
     });
   };
 
+  const truncateFilename = (title: string, maxLength: number = 35) => {
+    return title.length > maxLength 
+      ? title.substring(0, maxLength) + '...' 
+      : title;
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ textAlign: 'center' }}>
@@ -158,11 +164,16 @@ const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
                           e.currentTarget.style.outline = 'none';
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontWeight: '600', color: '#1f2937' }}>
-                            {protocol.study_acronym}
-                          </span>
-                          <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                            <span style={{ fontWeight: '600', color: '#1f2937', flexShrink: 0 }}>
+                              {protocol.study_acronym}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {truncateFilename(protocol.protocol_title)}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: '0.75rem', color: '#6b7280', flexShrink: 0, marginLeft: '8px' }}>
                             {formatDate(protocol.upload_date)}
                           </span>
                         </div>
