@@ -9,6 +9,10 @@
       }
     },
     {
+      "src": "api/test.py",
+      "use": "@vercel/python"
+    },
+    {
       "src": "api/protocols.py",
       "use": "@vercel/python"
     },
@@ -18,6 +22,10 @@
     }
   ],
   "routes": [
+    {
+      "src": "/api/test",
+      "dest": "/api/test.py"
+    },
     {
       "src": "/api/protocols/(.*)",
       "dest": "/api/protocols.py"
@@ -35,6 +43,9 @@
   "installCommand": "cd frontend && npm install",
   "buildCommand": "cd frontend && npm run build",
   "functions": {
+    "api/test.py": {
+      "runtime": "python3.11"
+    },
     "api/protocols.py": {
       "runtime": "python3.11"
     },
