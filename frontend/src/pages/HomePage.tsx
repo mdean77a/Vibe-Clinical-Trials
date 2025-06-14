@@ -60,18 +60,7 @@ const HomePage: React.FC = () => {
     loadProtocols();
   }, []);
 
-  // Function to refresh protocols (can be called after creating a new one)
-  const refreshProtocols = async () => {
-    if (apiHealthy) {
-      try {
-        const apiProtocols = await protocolsApi.list() as Protocol[];
-        setProtocols(apiProtocols);
-        console.log('🔄 Protocols refreshed from API');
-      } catch (error) {
-        console.error('Error refreshing protocols:', error);
-      }
-    }
-  };
+
 
   // Save protocols to localStorage (simulating database)
   const saveProtocols = (updatedProtocols: Protocol[]) => {
