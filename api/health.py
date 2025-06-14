@@ -1,28 +1,13 @@
 """
-Vercel Function handler for health check endpoints.
-
-This module provides the serverless function handler for health check
-and root endpoints.
+Simple Vercel Function handler for health check endpoints.
 """
 
-import sys
-import os
-import logging
-from typing import Dict, Any
-
-# Add backend to Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
-
-from app.vercel_adapter import convert_vercel_request, convert_fastapi_response, handle_cors_preflight
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+import json
 
 
-def handler(request: Dict[str, Any]) -> Dict[str, Any]:
+def handler(request):
     """
-    Vercel Function handler for health check endpoints.
+    Simple Vercel Function handler for health check endpoints.
     
     Args:
         request: Vercel function request object
@@ -31,40 +16,62 @@ def handler(request: Dict[str, Any]) -> Dict[str, Any]:
         Vercel function response object
     """
     try:
+        method = request.get("httpMethod", "GET")
+        path = request.get("path", "/")
+        
         # Handle CORS preflight
-        if request.get("httpMethod") == "OPTIONS":
-            return handle_cors_preflight()
-        
-        # Convert Vercel request to FastAPI format
-        fastapi_request = convert_vercel_request(request)
-        method = fastapi_request["method"]
-        path = fastapi_request["path"]
-        
-        logger.info(f"Processing {method} {path}")
+        if method == "OPTIONS":
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "access-control-allow-origin": "*",
+                    "access-control-allow-methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+                    "access-control-allow-headers": "Content-Type, Authorization",
+                    "access-control-max-age": "86400"
+                },
+                "body": ""
+            }
         
         # Route to appropriate handler
         if method == "GET" and path == "/":
-            return handle_root()
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "content-type": "application/json",
+                    "access-control-allow-origin": "*"
+                },
+                "body": json.dumps({
+                    "message": "Clinical Trial Accelerator API",
+                    "version": "0.1.0",
+                    "status": "healthy"
+                })
+            }
         elif method == "GET" and path == "/health":
-            return handle_health_check()
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "content-type": "application/json",
+                    "access-control-allow-origin": "*"
+                },
+                "body": json.dumps({"status": "healthy"})
+            }
         
         # Route not found
-        return convert_fastapi_response(404, {"detail": "Not found"})
+        return {
+            "statusCode": 404,
+            "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "*"
+            },
+            "body": json.dumps({"detail": "Not found"})
+        }
         
     except Exception as e:
-        logger.error(f"Error in health handler: {e}")
-        return convert_fastapi_response(500, {"detail": "Internal server error"})
-
-
-def handle_root() -> Dict[str, Any]:
-    """Handle GET /"""
-    return convert_fastapi_response(200, {
-        "message": "Clinical Trial Accelerator API",
-        "version": "0.1.0",
-        "status": "healthy"
-    })
-
-
-def handle_health_check() -> Dict[str, Any]:
-    """Handle GET /health"""
-    return convert_fastapi_response(200, {"status": "healthy"}) 
+        return {
+            "statusCode": 500,
+            "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "*"
+            },
+            "body": json.dumps({"detail": f"Internal server error: {str(e)}"})
+        } 
