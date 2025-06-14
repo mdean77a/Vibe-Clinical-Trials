@@ -1,27 +1,14 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    },
-    {
-      "src": "api/test.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "api/protocols.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "api/health.py", 
-      "use": "@vercel/python"
-    }
-  ],
   "routes": [
+    {
+      "src": "/api/simple",
+      "dest": "/api/simple.js"
+    },
+    {
+      "src": "/api/?$",
+      "dest": "/api/index.py"
+    },
     {
       "src": "/api/test",
       "dest": "/api/test.py"
@@ -43,17 +30,17 @@
   "installCommand": "cd frontend && npm install",
   "buildCommand": "cd frontend && npm run build",
   "functions": {
+    "api/index.py": {
+      "runtime": "python3.9"
+    },
     "api/test.py": {
-      "runtime": "python3.11"
+      "runtime": "python3.9"
     },
     "api/protocols.py": {
-      "runtime": "python3.11"
+      "runtime": "python3.9"
     },
     "api/health.py": {
-      "runtime": "python3.11"
+      "runtime": "python3.9"
     }
-  },
-  "env": {
-    "PYTHONPATH": "./backend"
   }
 } 
