@@ -31,8 +31,9 @@ const HomePage: React.FC = () => {
           console.log('✅ API is healthy - using backend');
           
           // Load protocols from API
-          const apiProtocols = await protocolsApi.list() as Protocol[];
-          setProtocols(apiProtocols);
+          const apiResponse = await protocolsApi.list() as any;
+          const apiProtocols = apiResponse.protocols || apiResponse || [];
+          setProtocols(Array.isArray(apiProtocols) ? apiProtocols : []);
         } catch (apiError) {
           console.warn('⚠️ API unavailable - falling back to localStorage:', apiError);
           setApiHealthy(false);
@@ -102,7 +103,7 @@ const HomePage: React.FC = () => {
         console.log('✅ Protocol created via API:', newProtocol);
         
         // Update local state
-        const updatedProtocols = [newProtocol, ...protocols];
+        const updatedProtocols = [newProtocol, ...(Array.isArray(protocols) ? protocols : [])];
         setProtocols(updatedProtocols);
         
         // Store the new protocol as selected
