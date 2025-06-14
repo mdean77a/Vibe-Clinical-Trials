@@ -21,7 +21,12 @@ from .models import ProtocolCreate, ProtocolInDB, ProtocolUpdate
 logger = logging.getLogger(__name__)
 
 # Database configuration
-DATABASE_PATH = Path("protocols.db")
+# Use /tmp directory for Vercel serverless functions, fallback to local for development
+import os
+if os.environ.get('VERCEL'):
+    DATABASE_PATH = Path("/tmp/protocols.db")
+else:
+    DATABASE_PATH = Path("protocols.db")
 SCHEMA_VERSION = 1
 
 
