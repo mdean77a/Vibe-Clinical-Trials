@@ -4,10 +4,7 @@
   "installCommand": "cd frontend && npm install",
   "functions": {
     "api/*.py": {
-      "runtime": "@vercel/python"
-    },
-    "api/*.js": {
-      "runtime": "@vercel/node"
+      "maxDuration": 60
     }
   },
   "rewrites": [
