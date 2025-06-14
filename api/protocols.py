@@ -7,50 +7,73 @@ protocols router for deployment on Vercel.
 
 from http.server import BaseHTTPRequestHandler
 import json
+import sys
+import os
+
+# Add the backend directory to the Python path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
+
+from app.database import (
+    init_database, 
+    create_protocol, 
+    get_all_protocols,
+    ProtocolNotFoundError,
+    DatabaseError
+)
+from app.models import ProtocolCreate
+from app.vercel_adapter import convert_fastapi_response, handle_cors_preflight
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
-        
-        # Mock protocol data matching frontend Protocol interface
-        protocols = [
-            {
-                "id": "protocol_1",
-                "study_acronym": "CARDIO-TRIAL",
-                "protocol_title": "A Phase III Randomized Study of Novel Cardiac Drug in Heart Failure Patients",
-                "upload_date": "2024-12-15T10:30:00Z",
-                "status": "processed"
-            },
-            {
-                "id": "protocol_2",
-                "study_acronym": "ONCO-STUDY", 
-                "protocol_title": "Phase II Clinical Trial of Immunotherapy in Advanced Lung Cancer",
-                "upload_date": "2024-12-10T14:20:00Z",
-                "status": "processed"
-            },
-            {
-                "id": "protocol_3",
-                "study_acronym": "NEURO-RCT",
-                "protocol_title": "Randomized Controlled Trial of Neuroprotective Agent in Stroke Recovery",
-                "upload_date": "2024-12-05T09:15:00Z",
-                "status": "processed"
+        try:
+            # Initialize database if needed
+            init_database()
+            
+            # Get all protocols from database
+            protocols = get_all_protocols()
+            
+            # Convert to frontend format
+            protocol_list = []
+            for protocol in protocols:
+                protocol_list.append({
+                    "id": str(protocol.id),
+                    "study_acronym": protocol.study_acronym,
+                    "protocol_title": protocol.protocol_title,
+                    "upload_date": protocol.upload_date.isoformat() + "Z",
+                    "status": protocol.status
+                })
+            
+            response = {
+                "protocols": protocol_list,
+                "total": len(protocol_list),
+                "status": "success"
             }
-        ]
-        
-        response = {
-            "protocols": protocols,
-            "total": len(protocols),
-            "status": "success"
-        }
-        
-        self.wfile.write(json.dumps(response).encode('utf-8'))
-        return
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode('utf-8'))
+            return
+            
+        except Exception as e:
+            # Return error response
+            error_response = {
+                "detail": f"Failed to fetch protocols: {str(e)}",
+                "status": "error"
+            }
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(error_response).encode('utf-8'))
+            return
 
     def do_POST(self):
         try:
+            # Initialize database if needed
+            init_database()
+            
             # Read the request body
             content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length)
@@ -76,19 +99,22 @@ class handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps(error_response).encode('utf-8'))
                 return
             
-            # Create mock protocol response
-            import time
-            protocol_id = int(time.time())  # Simple ID generation
+            # Create protocol in database
+            protocol_data = ProtocolCreate(
+                study_acronym=study_acronym,
+                protocol_title=protocol_title,
+                file_path=file_path
+            )
             
+            created_protocol_db = create_protocol(protocol_data)
+            
+            # Convert to frontend format
             created_protocol = {
-                "id": protocol_id,
-                "study_acronym": study_acronym.upper(),
-                "protocol_title": protocol_title,
-                "collection_name": f"{study_acronym.lower().replace('-', '').replace('_', '')}_{int(time.time())}",
-                "upload_date": "2024-12-01T12:00:00Z",
-                "status": "processed",
-                "file_path": file_path,
-                "created_at": "2024-12-01T12:00:00Z"
+                "id": str(created_protocol_db.id),
+                "study_acronym": created_protocol_db.study_acronym,
+                "protocol_title": created_protocol_db.protocol_title,
+                "upload_date": created_protocol_db.upload_date.isoformat() + "Z",
+                "status": created_protocol_db.status
             }
             
             # Send success response
