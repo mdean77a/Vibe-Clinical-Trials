@@ -33,10 +33,18 @@ const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
     });
   };
 
+  const truncateText = (text: string, maxLength: number) => {
+    return text.length > maxLength 
+      ? text.substring(0, maxLength) + '...' 
+      : text;
+  };
+
+  const truncateAcronym = (acronym: string) => {
+    return truncateText(acronym, 15);
+  };
+
   const truncateFilename = (title: string, maxLength: number = 35) => {
-    return title.length > maxLength 
-      ? title.substring(0, maxLength) + '...' 
-      : title;
+    return truncateText(title, maxLength);
   };
 
   return (
@@ -164,10 +172,10 @@ const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
                           e.currentTarget.style.outline = 'none';
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
-                            <span style={{ fontWeight: '600', color: '#1f2937', flexShrink: 0 }}>
-                              {protocol.study_acronym}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', fontFamily: 'monospace' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                            <span style={{ fontWeight: '600', color: '#1f2937', width: '17ch', flexShrink: 0, display: 'inline-block' }}>
+                              {truncateAcronym(protocol.study_acronym)}
                             </span>
                             <span style={{ fontSize: '0.75rem', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {truncateFilename(protocol.protocol_title)}
