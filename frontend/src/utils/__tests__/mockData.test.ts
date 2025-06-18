@@ -1,332 +1,162 @@
 /**
- * Unit tests for mock data utilities
- * 
- * Tests mock data generation including:
- * - Data structure validation
- * - Data consistency
- * - Edge cases and variations
- * - Performance of data generation
+ * @jest-environment jsdom
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
+import type { Protocol } from '../mockData'
 import {
-  generateMockProtocol,
-  generateMockProtocols,
-  generateMockDocument,
-  generateMockUser,
-  generateMockProgress,
-  MOCK_PROTOCOL_TEMPLATES,
-  MOCK_STUDY_PHASES,
-  MOCK_THERAPEUTIC_AREAS
+  mockProtocols,
+  initializeMockData
 } from '../mockData'
 
 describe('Mock Data Utils', () => {
-  describe('generateMockProtocol', () => {
-    it('generates valid protocol with default values', () => {
-      const protocol = generateMockProtocol()
-      
-      expect(protocol).toHaveProperty('id')
-      expect(protocol).toHaveProperty('study_acronym')
-      expect(protocol).toHaveProperty('protocol_title')
-      expect(protocol).toHaveProperty('status')
-      expect(protocol).toHaveProperty('upload_date')
-      expect(protocol).toHaveProperty('document_id')
-      
-      expect(typeof protocol.id).toBe('number')
-      expect(typeof protocol.study_acronym).toBe('string')
-      expect(typeof protocol.protocol_title).toBe('string')
-      expect(['processing', 'completed', 'failed']).toContain(protocol.status)
-      expect(protocol.upload_date).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
-      expect(typeof protocol.document_id).toBe('string')
-    })
+  beforeEach(() => {
+    // Clear localStorage before each test
+    localStorage.clear()
+  })
 
-    it('accepts custom overrides', () => {
-      const customProtocol = generateMockProtocol({
-        study_acronym: 'CUSTOM-001',
-        protocol_title: 'Custom Protocol Title',
-        status: 'completed'
+  describe('Protocol interface', () => {
+    it('mock protocols match the Protocol interface', () => {
+      mockProtocols.forEach(protocol => {
+        expect(protocol).toHaveProperty('id')
+        expect(protocol).toHaveProperty('study_acronym')
+        expect(protocol).toHaveProperty('protocol_title')
+        expect(protocol).toHaveProperty('upload_date')
+        expect(protocol).toHaveProperty('status')
+        
+        expect(typeof protocol.id).toBe('string')
+        expect(typeof protocol.study_acronym).toBe('string')
+        expect(typeof protocol.protocol_title).toBe('string')
+        expect(typeof protocol.upload_date).toBe('string')
+        expect(typeof protocol.status).toBe('string')
       })
-      
-      expect(customProtocol.study_acronym).toBe('CUSTOM-001')
-      expect(customProtocol.protocol_title).toBe('Custom Protocol Title')
-      expect(customProtocol.status).toBe('completed')
     })
 
-    it('generates unique IDs for different protocols', () => {
-      const protocol1 = generateMockProtocol()
-      const protocol2 = generateMockProtocol()
-      
-      expect(protocol1.id).not.toBe(protocol2.id)
-      expect(protocol1.document_id).not.toBe(protocol2.document_id)
+    it('has valid study acronyms', () => {
+      mockProtocols.forEach(protocol => {
+        expect(protocol.study_acronym).toMatch(/^STUDY-\d{3}$/)
+      })
     })
 
-    it('generates realistic study acronyms', () => {
-      const protocol = generateMockProtocol()
-      
-      expect(protocol.study_acronym).toMatch(/^[A-Z0-9-]+$/)
-      expect(protocol.study_acronym.length).toBeGreaterThan(3)
-      expect(protocol.study_acronym.length).toBeLessThan(20)
+    it('has valid upload dates', () => {
+      mockProtocols.forEach(protocol => {
+        expect(protocol.upload_date).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/)
+        expect(new Date(protocol.upload_date)).toBeInstanceOf(Date)
+        expect(new Date(protocol.upload_date).getTime()).not.toBeNaN()
+      })
     })
 
-    it('generates realistic protocol titles', () => {
-      const protocol = generateMockProtocol()
-      
-      expect(protocol.protocol_title.length).toBeGreaterThan(10)
-      expect(protocol.protocol_title.length).toBeLessThan(200)
-      expect(protocol.protocol_title).toContain('Clinical')
-    })
-
-    it('generates valid upload dates within reasonable range', () => {
-      const protocol = generateMockProtocol()
-      const uploadDate = new Date(protocol.upload_date)
-      const now = new Date()
-      const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
-      
-      expect(uploadDate.getTime()).toBeGreaterThan(oneYearAgo.getTime())
-      expect(uploadDate.getTime()).toBeLessThanOrEqual(now.getTime())
+    it('has valid statuses', () => {
+      const validStatuses = ['processing', 'completed', 'failed', 'processed']
+      mockProtocols.forEach(protocol => {
+        expect(validStatuses).toContain(protocol.status)
+      })
     })
   })
 
-  describe('generateMockProtocols', () => {
-    it('generates specified number of protocols', () => {
-      const protocols = generateMockProtocols(5)
-      expect(protocols).toHaveLength(5)
+  describe('mockProtocols', () => {
+    it('exports array of mock protocols', () => {
+      expect(Array.isArray(mockProtocols)).toBe(true)
+      expect(mockProtocols.length).toBeGreaterThan(0)
     })
 
-    it('generates default number when count not specified', () => {
-      const protocols = generateMockProtocols()
-      expect(protocols.length).toBeGreaterThan(0)
-      expect(protocols.length).toBeLessThanOrEqual(10)
-    })
-
-    it('generates protocols with unique IDs', () => {
-      const protocols = generateMockProtocols(10)
-      const ids = protocols.map(p => p.id)
+    it('has unique IDs', () => {
+      const ids = mockProtocols.map(p => p.id)
       const uniqueIds = new Set(ids)
-      
-      expect(uniqueIds.size).toBe(protocols.length)
+      expect(uniqueIds.size).toBe(ids.length)
     })
 
-    it('generates protocols with different statuses', () => {
-      const protocols = generateMockProtocols(20)
-      const statuses = protocols.map(p => p.status)
-      const uniqueStatuses = new Set(statuses)
-      
-      expect(uniqueStatuses.size).toBeGreaterThan(1)
+    it('has unique study acronyms', () => {
+      const acronyms = mockProtocols.map(p => p.study_acronym)
+      const uniqueAcronyms = new Set(acronyms)
+      expect(uniqueAcronyms.size).toBe(acronyms.length)
     })
 
-    it('accepts custom generation options', () => {
-      const protocols = generateMockProtocols(5, {
-        status: 'completed'
-      })
-      
-      expect(protocols.every(p => p.status === 'completed')).toBe(true)
-    })
-
-    it('handles edge case of zero count', () => {
-      const protocols = generateMockProtocols(0)
-      expect(protocols).toHaveLength(0)
-    })
-
-    it('handles large counts efficiently', () => {
-      const startTime = Date.now()
-      const protocols = generateMockProtocols(1000)
-      const endTime = Date.now()
-      
-      expect(protocols).toHaveLength(1000)
-      expect(endTime - startTime).toBeLessThan(1000) // Should complete in under 1 second
-    })
-  })
-
-  describe('generateMockDocument', () => {
-    it('generates valid ICF document', () => {
-      const document = generateMockDocument('icf')
-      
-      expect(document.document_type).toBe('icf')
-      expect(document).toHaveProperty('sections')
-      expect(document.sections).toHaveProperty('title')
-      expect(document.sections).toHaveProperty('purpose')
-      expect(document.sections).toHaveProperty('procedures')
-      expect(document.sections).toHaveProperty('risks')
-      expect(document.sections).toHaveProperty('benefits')
-      expect(document.sections).toHaveProperty('rights')
-      expect(document.sections).toHaveProperty('contact')
-    })
-
-    it('generates valid site checklist document', () => {
-      const document = generateMockDocument('site_checklist')
-      
-      expect(document.document_type).toBe('site_checklist')
-      expect(document).toHaveProperty('sections')
-      expect(document.sections).toHaveProperty('regulatory')
-      expect(document.sections).toHaveProperty('training')
-      expect(document.sections).toHaveProperty('equipment')
-      expect(document.sections).toHaveProperty('documentation')
-    })
-
-    it('accepts custom section overrides', () => {
-      const document = generateMockDocument('icf', {
-        title: 'Custom ICF Title',
-        purpose: 'Custom Purpose Section'
-      })
-      
-      expect(document.sections.title).toBe('Custom ICF Title')
-      expect(document.sections.purpose).toBe('Custom Purpose Section')
-    })
-
-    it('generates realistic section content', () => {
-      const document = generateMockDocument('icf')
-      
-      Object.values(document.sections).forEach(section => {
-        expect(typeof section).toBe('string')
-        expect(section.length).toBeGreaterThan(10)
-        expect(section.length).toBeLessThan(1000)
-      })
-    })
-
-    it('includes metadata properties', () => {
-      const document = generateMockDocument('icf')
-      
-      expect(document).toHaveProperty('status')
-      expect(document).toHaveProperty('generated_at')
-      expect(document).toHaveProperty('word_count')
-      expect(['processing', 'completed', 'failed']).toContain(document.status)
-    })
-  })
-
-  describe('generateMockUser', () => {
-    it('generates valid user data', () => {
-      const user = generateMockUser()
-      
-      expect(user).toHaveProperty('id')
-      expect(user).toHaveProperty('name')
-      expect(user).toHaveProperty('email')
-      expect(user).toHaveProperty('role')
-      expect(user).toHaveProperty('organization')
-      
-      expect(typeof user.id).toBe('string')
-      expect(user.email).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)
-      expect(['researcher', 'admin', 'coordinator']).toContain(user.role)
-    })
-
-    it('accepts custom user properties', () => {
-      const user = generateMockUser({
-        name: 'Dr. Jane Smith',
-        role: 'admin'
-      })
-      
-      expect(user.name).toBe('Dr. Jane Smith')
-      expect(user.role).toBe('admin')
-    })
-  })
-
-  describe('generateMockProgress', () => {
-    it('generates valid progress data', () => {
-      const progress = generateMockProgress()
-      
-      expect(progress).toHaveProperty('current_step')
-      expect(progress).toHaveProperty('total_steps')
-      expect(progress).toHaveProperty('percentage')
-      expect(progress).toHaveProperty('status')
-      expect(progress).toHaveProperty('estimated_remaining')
-      
-      expect(progress.percentage).toBeGreaterThanOrEqual(0)
-      expect(progress.percentage).toBeLessThanOrEqual(100)
-      expect(progress.current_step).toBeLessThanOrEqual(progress.total_steps)
-    })
-
-    it('accepts custom progress values', () => {
-      const progress = generateMockProgress({
-        current_step: 3,
-        total_steps: 5,
-        status: 'analyzing'
-      })
-      
-      expect(progress.current_step).toBe(3)
-      expect(progress.total_steps).toBe(5)
-      expect(progress.status).toBe('analyzing')
-      expect(progress.percentage).toBe(60) // 3/5 * 100
-    })
-  })
-
-  describe('Mock data constants', () => {
-    it('provides valid protocol templates', () => {
-      expect(Array.isArray(MOCK_PROTOCOL_TEMPLATES)).toBe(true)
-      expect(MOCK_PROTOCOL_TEMPLATES.length).toBeGreaterThan(0)
-      
-      MOCK_PROTOCOL_TEMPLATES.forEach(template => {
-        expect(template).toHaveProperty('name')
-        expect(template).toHaveProperty('description')
-        expect(template).toHaveProperty('typical_sections')
-        expect(Array.isArray(template.typical_sections)).toBe(true)
-      })
-    })
-
-    it('provides valid study phases', () => {
-      expect(Array.isArray(MOCK_STUDY_PHASES)).toBe(true)
-      expect(MOCK_STUDY_PHASES.length).toBeGreaterThan(0)
-      
-      MOCK_STUDY_PHASES.forEach(phase => {
-        expect(typeof phase).toBe('string')
-        expect(phase.length).toBeGreaterThan(0)
-      })
-    })
-
-    it('provides valid therapeutic areas', () => {
-      expect(Array.isArray(MOCK_THERAPEUTIC_AREAS)).toBe(true)
-      expect(MOCK_THERAPEUTIC_AREAS.length).toBeGreaterThan(0)
-      
-      MOCK_THERAPEUTIC_AREAS.forEach(area => {
-        expect(typeof area).toBe('string')
-        expect(area.length).toBeGreaterThan(0)
+    it('has meaningful protocol titles', () => {
+      mockProtocols.forEach(protocol => {
+        expect(protocol.protocol_title.length).toBeGreaterThan(10)
+        expect(protocol.protocol_title).toMatch(/phase|trial|study|randomized/i)
       })
     })
   })
 
-  describe('Data consistency', () => {
-    it('maintains consistent data relationships', () => {
-      const protocols = generateMockProtocols(5)
+  describe('initializeMockData', () => {
+    it('initializes localStorage with mock protocols when empty', () => {
+      expect(localStorage.getItem('protocols')).toBeNull()
       
-      protocols.forEach(protocol => {
-        // All protocols should have consistent timestamp format
-        expect(protocol.upload_date).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
-        
-        // Document IDs should be UUIDs or similar format
-        expect(protocol.document_id).toMatch(/^[a-f0-9-]{36}$/)
-        
-        // Study acronyms should follow consistent pattern
-        expect(protocol.study_acronym).toMatch(/^[A-Z0-9-]+$/)
-      })
+      initializeMockData()
+      
+      const storedProtocols = localStorage.getItem('protocols')
+      expect(storedProtocols).not.toBeNull()
+      
+      const parsedProtocols = JSON.parse(storedProtocols!)
+      expect(parsedProtocols).toEqual(mockProtocols)
     })
 
-    it('generates diverse but realistic data', () => {
-      const protocols = generateMockProtocols(20)
+    it('does not overwrite existing localStorage data', () => {
+      const existingData = [{ 
+        id: 'existing_1', 
+        study_acronym: 'EXISTING-001',
+        protocol_title: 'Existing Protocol',
+        upload_date: '2024-01-01T00:00:00Z',
+        status: 'processed'
+      }]
       
-      const acronyms = protocols.map(p => p.study_acronym)
-      const titles = protocols.map(p => p.protocol_title)
+      localStorage.setItem('protocols', JSON.stringify(existingData))
       
-      // Should have variety in generated data
-      expect(new Set(acronyms).size).toBeGreaterThan(15)
-      expect(new Set(titles).size).toBeGreaterThan(15)
+      initializeMockData()
+      
+      const storedProtocols = localStorage.getItem('protocols')
+      const parsedProtocols = JSON.parse(storedProtocols!)
+      expect(parsedProtocols).toEqual(existingData)
+      expect(parsedProtocols).not.toEqual(mockProtocols)
+    })
+
+    it('can be called multiple times safely', () => {
+      initializeMockData()
+      const firstCall = localStorage.getItem('protocols')
+      
+      initializeMockData()
+      const secondCall = localStorage.getItem('protocols')
+      
+      expect(firstCall).toBe(secondCall)
     })
   })
 
-  describe('Performance', () => {
-    it('generates large datasets efficiently', () => {
-      const startTime = Date.now()
+  describe('data quality', () => {
+    it('protocols are ordered by upload date (newest first)', () => {
+      const uploadDates = mockProtocols.map(p => new Date(p.upload_date).getTime())
+      const sortedDates = [...uploadDates].sort((a, b) => b - a)
+      expect(uploadDates).toEqual(sortedDates)
+    })
+
+    it('contains realistic clinical trial data', () => {
+      const hasPhaseInfo = mockProtocols.some(p => 
+        p.protocol_title.toLowerCase().includes('phase')
+      )
+      const hasRandomizedStudy = mockProtocols.some(p => 
+        p.protocol_title.toLowerCase().includes('randomized')
+      )
+      const hasClinicalTrial = mockProtocols.some(p => 
+        p.protocol_title.toLowerCase().includes('trial')
+      )
       
-      // Generate large dataset
-      const protocols = generateMockProtocols(10000)
-      const documents = protocols.map(() => generateMockDocument('icf'))
-      const users = Array.from({ length: 1000 }, () => generateMockUser())
+      expect(hasPhaseInfo).toBe(true)
+      expect(hasRandomizedStudy).toBe(true)
+      expect(hasClinicalTrial).toBe(true)
+    })
+
+    it('covers diverse medical areas', () => {
+      const allTitles = mockProtocols.map(p => p.protocol_title.toLowerCase()).join(' ')
       
-      const endTime = Date.now()
-      const duration = endTime - startTime
+      // Check for different medical specialties
+      const hasCardiology = allTitles.includes('cardiac') || allTitles.includes('heart')
+      const hasOncology = allTitles.includes('cancer') || allTitles.includes('immunotherapy')
+      const hasNeurology = allTitles.includes('stroke') || allTitles.includes('neuroprotective')
       
-      expect(protocols).toHaveLength(10000)
-      expect(documents).toHaveLength(10000)
-      expect(users).toHaveLength(1000)
-      expect(duration).toBeLessThan(5000) // Should complete in under 5 seconds
+      expect(hasCardiology).toBe(true)
+      expect(hasOncology).toBe(true)
+      expect(hasNeurology).toBe(true)
     })
   })
 })

@@ -82,6 +82,41 @@ export const protocolsApi = {
   },
 
   /**
+   * Upload and process a protocol PDF file
+   */
+  upload: async (file: File, protocolData: {
+    study_acronym: string;
+    protocol_title: string;
+  }) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('study_acronym', protocolData.study_acronym);
+    formData.append('protocol_title', protocolData.protocol_title);
+
+    // Use different endpoints for development vs production
+    const endpoint = import.meta.env.PROD ? 'upload-protocol' : 'protocols/upload';
+    const url = getApiUrl(endpoint);
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        // Don't set Content-Type header - let browser set it for multipart/form-data
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(`Protocol upload failed for ${url}:`, error);
+      throw error;
+    }
+  },
+
+  /**
    * Get a protocol by ID
    */
   getById: async (id: number) => {

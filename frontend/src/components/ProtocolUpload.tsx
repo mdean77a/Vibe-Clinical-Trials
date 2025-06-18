@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import Card from './Card';
 import Button from './Button';
 import Input from './Input';
+import { protocolsApi } from '../utils/api';
 
 interface ProtocolUploadProps {
   onUploadComplete: (fileName: string, acronym: string) => void;
@@ -79,28 +80,34 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
     setUploadProgress(0);
 
     try {
-      // Simulate upload progress
+      // Start upload progress animation
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
-          if (prev >= 90) {
+          if (prev >= 85) {
             clearInterval(progressInterval);
-            return 90;
+            return 85;
           }
-          return prev + 10;
+          return prev + 15;
         });
-      }, 200);
+      }, 300);
+
+      // Actual API call to upload and process the PDF
+      await protocolsApi.upload(selectedFile, {
+        study_acronym: acronym.trim().toUpperCase(),
+        protocol_title: `Protocol ${acronym.trim().toUpperCase()}`,
+      });
 
       clearInterval(progressInterval);
       setUploadProgress(100);
       
-      // Complete upload - let HomePage handle the API creation
+      // Complete upload successfully
       setTimeout(() => {
         onUploadComplete(selectedFile.name, acronym.trim().toUpperCase());
       }, 500);
 
     } catch (uploadError) {
       console.error('Upload error:', uploadError);
-      setError('Failed to create protocol. Please try again.');
+      setError(uploadError instanceof Error ? uploadError.message : 'Failed to upload and process protocol. Please try again.');
       setIsUploading(false);
       setUploadProgress(0);
     }

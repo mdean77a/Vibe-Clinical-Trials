@@ -19,7 +19,6 @@ from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, sta
 
 from ..models import ProtocolCreate, ProtocolResponse, ProtocolUpdate
 from ..services.qdrant_service import QdrantError, get_qdrant_service
-from ..services.pdf_processor import PDFProcessor, PDFProcessingError
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -29,7 +28,78 @@ router = APIRouter(prefix="/protocols", tags=["protocols"])
 
 # Initialize services
 qdrant_service = get_qdrant_service()
-pdf_processor = PDFProcessor()
+
+
+def extract_and_chunk_pdf(pdf_content: bytes, filename: str) -> List[str]:
+    """
+    Extract text from PDF using PyMuPDF and chunk using RecursiveCharacterTextSplitter.
+    
+    This matches the Vercel implementation for consistency across environments.
+    
+    Args:
+        pdf_content: Raw PDF bytes
+        filename: Original filename for logging
+        
+    Returns:
+        List of text chunks ready for embedding
+    """
+    pdf_document = None
+    try:
+        import fitz  # PyMuPDF
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
+        
+        # Open PDF from bytes
+        pdf_document = fitz.open(stream=pdf_content, filetype="pdf")
+        page_count = pdf_document.page_count
+        
+        # Extract text from all pages
+        full_text = ""
+        for page_num in range(page_count):
+            page = pdf_document[page_num]
+            page_text = page.get_text()
+            full_text += f"\n\n--- Page {page_num + 1} ---\n\n"
+            full_text += page_text
+        
+        # Close document after text extraction is complete
+        pdf_document.close()
+        pdf_document = None  # Clear reference
+        
+        if not full_text.strip():
+            raise ValueError("No text content extracted from PDF")
+        
+        # Chunk the text using RecursiveCharacterTextSplitter
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,        # Good size for clinical protocols
+            chunk_overlap=200,      # Preserve context across chunks
+            length_function=len,
+            separators=["\n\n", "\n", ". ", " ", ""]  # Try semantic breaks first
+        )
+        
+        chunks = text_splitter.split_text(full_text)
+        
+        # Filter out very short chunks
+        meaningful_chunks = [chunk.strip() for chunk in chunks if len(chunk.strip()) > 50]
+        
+        if not meaningful_chunks:
+            # Fallback: return the full text as one chunk if splitting failed
+            meaningful_chunks = [full_text.strip()]
+        
+        logger.info(f"PDF {filename}: extracted {len(meaningful_chunks)} chunks from {page_count} pages")
+        return meaningful_chunks
+        
+    except ImportError as e:
+        logger.error(f"Missing dependencies for PDF processing: {e}")
+        raise ValueError("PDF processing dependencies not available")
+    except Exception as e:
+        logger.error(f"PDF text extraction failed for {filename}: {e}")
+        raise ValueError(f"Failed to extract text from PDF: {str(e)}")
+    finally:
+        # Ensure document is closed even if an error occurs
+        if pdf_document is not None:
+            try:
+                pdf_document.close()
+            except:
+                pass
 
 
 @router.post("/", response_model=ProtocolResponse, status_code=status.HTTP_201_CREATED)
@@ -126,14 +196,11 @@ async def upload_and_process_protocol(
         # Read file content
         pdf_content = await file.read()
         
-        # Process PDF with Docling
+        # Process PDF with PyMuPDF (matching Vercel implementation)
         try:
-            text_chunks, pdf_metadata = pdf_processor.process_pdf_from_bytes(
-                pdf_content, 
-                file.filename
-            )
+            text_chunks = extract_and_chunk_pdf(pdf_content, file.filename)
             logger.info(f"PDF processed successfully: {len(text_chunks)} chunks extracted")
-        except PDFProcessingError as e:
+        except Exception as e:
             logger.error(f"PDF processing failed: {e}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -169,9 +236,8 @@ async def upload_and_process_protocol(
             "created_at": datetime.now().isoformat(),
             
             # Add PDF processing metadata
-            "pdf_metadata": pdf_metadata,
             "chunk_count": len(text_chunks),
-            "processing_method": "docling"
+            "processing_method": "pymupdf"
         }
         
         # Store protocol with actual document content and embeddings

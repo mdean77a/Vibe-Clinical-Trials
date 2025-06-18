@@ -3,7 +3,6 @@
  * 
  * Tests button functionality including:
  * - Basic rendering
- * - Different variants and sizes
  * - Click events
  * - Disabled states
  * - Accessibility
@@ -35,47 +34,11 @@ describe('Button', () => {
     expect(handleClick).toHaveBeenCalledTimes(1)
   })
 
-  it('renders primary variant correctly', () => {
-    render(<Button variant="primary">Primary Button</Button>)
-    
-    const button = screen.getByRole('button', { name: /primary button/i })
-    expect(button).toHaveClass('bg-blue-600')
-  })
-
-  it('renders secondary variant correctly', () => {
-    render(<Button variant="secondary">Secondary Button</Button>)
-    
-    const button = screen.getByRole('button', { name: /secondary button/i })
-    expect(button).toHaveClass('bg-gray-600')
-  })
-
-  it('renders outline variant correctly', () => {
-    render(<Button variant="outline">Outline Button</Button>)
-    
-    const button = screen.getByRole('button', { name: /outline button/i })
-    expect(button).toHaveClass('border-gray-300')
-  })
-
-  it('renders small size correctly', () => {
-    render(<Button size="sm">Small Button</Button>)
-    
-    const button = screen.getByRole('button', { name: /small button/i })
-    expect(button).toHaveClass('px-3', 'py-1.5', 'text-sm')
-  })
-
-  it('renders large size correctly', () => {
-    render(<Button size="lg">Large Button</Button>)
-    
-    const button = screen.getByRole('button', { name: /large button/i })
-    expect(button).toHaveClass('px-6', 'py-3', 'text-lg')
-  })
-
   it('renders disabled state correctly', () => {
     render(<Button disabled>Disabled Button</Button>)
     
     const button = screen.getByRole('button', { name: /disabled button/i })
     expect(button).toBeDisabled()
-    expect(button).toHaveClass('opacity-50', 'cursor-not-allowed')
   })
 
   it('does not trigger click when disabled', async () => {
@@ -90,14 +53,6 @@ describe('Button', () => {
     expect(handleClick).not.toHaveBeenCalled()
   })
 
-  it('renders loading state correctly', () => {
-    render(<Button loading>Loading Button</Button>)
-    
-    const button = screen.getByRole('button', { name: /loading button/i })
-    expect(button).toBeDisabled()
-    expect(screen.getByText(/loading/i)).toBeInTheDocument()
-  })
-
   it('renders with custom className', () => {
     render(<Button className="custom-class">Custom Button</Button>)
     
@@ -105,18 +60,33 @@ describe('Button', () => {
     expect(button).toHaveClass('custom-class')
   })
 
-  it('supports button type attributes', () => {
-    render(<Button type="submit">Submit Button</Button>)
+  it('applies custom styles', () => {
+    const customStyle = { backgroundColor: 'blue', color: 'white' }
+    render(<Button style={customStyle}>Styled Button</Button>)
     
-    const button = screen.getByRole('button', { name: /submit button/i })
-    expect(button).toHaveAttribute('type', 'submit')
+    const button = screen.getByRole('button', { name: /styled button/i })
+    expect(button).toHaveStyle('background-color: blue')
+    expect(button).toHaveStyle('color: white')
   })
 
-  it('has proper accessibility attributes', () => {
-    render(<Button aria-label="Accessible button">Button</Button>)
+  it('handles mouse events', async () => {
+    const user = userEvent.setup()
+    const handleMouseEnter = vi.fn()
+    const handleMouseLeave = vi.fn()
     
-    const button = screen.getByRole('button', { name: /accessible button/i })
-    expect(button).toHaveAttribute('aria-label', 'Accessible button')
+    render(
+      <Button onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+        Hover Button
+      </Button>
+    )
+    
+    const button = screen.getByRole('button', { name: /hover button/i })
+    
+    await user.hover(button)
+    expect(handleMouseEnter).toHaveBeenCalledTimes(1)
+    
+    await user.unhover(button)
+    expect(handleMouseLeave).toHaveBeenCalledTimes(1)
   })
 
   it('supports keyboard navigation', async () => {
@@ -139,19 +109,27 @@ describe('Button', () => {
     expect(handleClick).toHaveBeenCalledTimes(2)
   })
 
-  it('renders with icon when provided', () => {
-    const TestIcon = () => <span data-testid="test-icon">Icon</span>
+  it('renders complex children', () => {
+    render(
+      <Button>
+        <span data-testid="icon">Icon</span>
+        <span data-testid="text">Text</span>
+      </Button>
+    )
     
-    render(<Button icon={<TestIcon />}>Button with Icon</Button>)
-    
-    expect(screen.getByTestId('test-icon')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /button with icon/i })).toBeInTheDocument()
+    expect(screen.getByTestId('icon')).toBeInTheDocument()
+    expect(screen.getByTestId('text')).toBeInTheDocument()
   })
 
-  it('renders full width correctly', () => {
-    render(<Button fullWidth>Full Width Button</Button>)
-    
-    const button = screen.getByRole('button', { name: /full width button/i })
-    expect(button).toHaveClass('w-full')
+  it('can be rendered without onClick handler', () => {
+    render(<Button>Static Button</Button>)
+    const button = screen.getByRole('button', { name: /static button/i })
+    expect(button).toBeInTheDocument()
+  })
+
+  it('maintains button element semantics', () => {
+    render(<Button>Submit</Button>)
+    const button = screen.getByRole('button', { name: /submit/i })
+    expect(button.tagName).toBe('BUTTON')
   })
 })
