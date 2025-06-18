@@ -10,7 +10,7 @@ import os
 # Test if we can import backend modules
 try:
     sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
-    from app.database import init_database
+    from app.services.qdrant_service_vercel import QdrantServiceVercel as QdrantService
     backend_available = True
     backend_error = None
 except Exception as e:
@@ -24,10 +24,30 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         
+        # Check environment variables
+        qdrant_url = os.getenv('QDRANT_URL')
+        qdrant_api_key = os.getenv('QDRANT_API_KEY')
+        openai_api_key = os.getenv('OPENAI_API_KEY')
+        
+        # Test Qdrant connection if backend is available
+        qdrant_connection_test = None
+        if backend_available:
+            try:
+                service = QdrantService()
+                # Try a simple operation
+                collections = service.client.get_collections()
+                qdrant_connection_test = f"✅ Connected - {len(collections.collections)} collections found"
+            except Exception as e:
+                qdrant_connection_test = f"❌ Connection failed: {str(e)}"
+        
         response = {
             "status": "healthy",
             "backend_available": backend_available,
             "backend_error": backend_error,
+            "qdrant_url_set": bool(qdrant_url),
+            "qdrant_api_key_set": bool(qdrant_api_key),
+            "openai_api_key_set": bool(openai_api_key),
+            "qdrant_connection_test": qdrant_connection_test,
             "python_path": sys.path[:3]  # Show first 3 paths for debugging
         }
         self.wfile.write(json.dumps(response).encode('utf-8'))

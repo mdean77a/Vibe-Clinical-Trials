@@ -13,17 +13,17 @@
 - Dependency Management: uv
 - Document Parsing: PyMuPDF
 - RAG Engine: LangChain + LangGraph
-- Storage: PDF and chunked text to disk; vectors in Qdrant
+- Storage: Unified Qdrant storage (metadata + vectors, no file persistence)
 - Embedding Model: OpenAI
 
 ## Data Flow
-1. Upload PDF
+1. Upload PDF (no persistence needed)
 2. Extract & chunk via PyMuPDF
-3. Embed + store in Qdrant
+3. Unified operation: embed + store metadata in Qdrant
 4. Section prompts call LangGraph
 5. User refines output → final export
 
 ## Deployment
-- MVP: On-prem backend + Dockerized Qdrant
-- Target: Vercel frontend, backend redeployable to cloud
+- MVP: Memory-based Qdrant, Vercel serverless ready
+- Target: Vercel frontend + backend, cloud Qdrant URL upgrade
 

@@ -1,0 +1,33 @@
+{
+  "name": "clinical-trial-accelerator",
+  "version": "1.0.0",
+  "description": "AI-powered clinical trial document generation",
+  "scripts": {
+    "test": "./scripts/test-local.sh",
+    "test:quick": "./scripts/test-local.sh quick",
+    "test:backend": "./scripts/test-local.sh backend", 
+    "test:frontend": "./scripts/test-local.sh frontend",
+    "test:coverage": "./scripts/test-local.sh coverage",
+    "test:parallel": "./scripts/test-local.sh --parallel",
+    "lint": "./scripts/test-local.sh lint",
+    "lint:fix": "./scripts/test-local.sh --fix lint",
+    "fix": "./scripts/test-local.sh --fix",
+    "dev:backend": "cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "./scripts/test-local.sh build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/clinical-trial-accelerator.git"
+  },
+  "keywords": [
+    "clinical-trials",
+    "ai",
+    "document-generation",
+    "qdrant",
+    "fastapi",
+    "react"
+  ],
+  "author": "Clinical Trial Accelerator Team",
+  "license": "MIT"
+}

@@ -18,15 +18,15 @@
 
 ---
 
-## 🚀 Sprint 2: Editor Wireframe UI & PDF Viewer
+## 🚀 Sprint 2: Editor Wireframe UI & Protocol Viewer
 
 ### Frontend
 - [ ] Implement `EditorWireframe` with 3-column layout (Sidebar, Editor, Viewer)
 - [ ] Add status indicators (Badges with color codes: Draft, Approved, etc.)
 - [ ] Maintain active section selection in React state
-- [ ] Create a read-only scrollable panel displaying text
-- [ ] Add an `Input` to filter or search text
-- [ ] Highlight segments matching current section or search term
+- [ ] Create a read-only scrollable panel displaying protocol context
+- [ ] Add protocol search functionality for reference during editing
+- [ ] Highlight relevant protocol segments for current section
 
 ---
 
@@ -34,22 +34,24 @@
 
 ### Backend
 - [ ] `POST /upload-protocol`
-  - Accepts multipart PDF
-  - Parses text, stores PDF to disk
-  - Returns protocol ID
-- [ ] Use PyMuPDF to extract full text and page layout from uploaded PDFs
-- [ ] Save PDFs in `/uploads` directory with unique IDs
-- [ ] Chunk extracted text into logical sections
+  - Accepts multipart PDF and user-provided study acronym
+  - Parses text using PyMuPDF (no file persistence)
+  - Returns protocol processing status
+- [ ] Extract full text and page layout from uploaded PDFs
+- [ ] Chunk extracted text into optimal segments for RAG
+- [ ] Store protocol metadata in Qdrant document metadata fields
 
 ---
 
-## 🚀 Sprint 4: Embedding & Retrieval Engine
+## 🚀 Sprint 4: Unified Qdrant Processing
 
 ### Backend
-- [ ] Embed each chunk using OpenAI embedding model and store vectors in Qdrant
-- [ ] `GET /sections`
-  - Accepts protocol ID
-  - Returns embedded section metadata and text chunks
+- [ ] Single operation: embed chunks + store metadata in Qdrant
+- [ ] Set up memory-based Qdrant with cloud URL upgrade path
+- [ ] `GET /protocols`
+  - Returns list of processed protocols from Qdrant metadata
+  - Includes study_acronym, protocol_title, status, upload_date
+- [ ] Protocol selection and context retrieval for RAG
 
 ---
 
@@ -77,23 +79,27 @@
 
 ---
 
-## 🚀 Sprint 7: Authentication System
+## 🚀 Sprint 7: Authentication System (Future Phase)
 
 ### Backend
 - [ ] Create login form with email + password (no registration for MVP)
 - [ ] Generate and return JWT token on successful login
 - [ ] Attach token in frontend API requests via Authorization header
 - [ ] Add FastAPI dependency to validate token on protected endpoints
+**Note**: Authentication deferred for MVP - single user assumption
 
 ---
 
-## 🚀 Sprint 8: Final Integration & Deployment Prep
+## 🚀 Sprint 8: Final Integration & Deployment
 
 ### Backend
-- [ ] Run Qdrant as a local Docker container on standard port (6333)
+- [ ] Configure memory-based Qdrant for MVP deployment
+- [ ] Implement cloud Qdrant URL configuration for production upgrade
+- [ ] Vercel Functions optimization and testing
 
 ### Frontend
-- [ ] Create production build script for frontend to deploy to Vercel
+- [ ] Production build optimization for Vercel deployment
+- [ ] Environment-aware API configuration (local vs. production)
 
 ---
 

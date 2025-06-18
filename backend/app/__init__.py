@@ -1,1 +1,1 @@
-# Clinical Trial Accelerator Backend 
+# Clinical Trial Accelerator Backend

@@ -35,7 +35,8 @@ Clinical Trial Accelerator is a monorepo-based, full-stack web application that 
 
 | Component               | Role                                                                 |
 |-------------------------|----------------------------------------------------------------------|
-| `PDF Upload Service`    | Handles file reception, validation, and text extraction              |
+| `PDF Upload Service`    | Handles file reception, validation, and text extraction (no persistence) |
+| `Qdrant Storage`        | **Single source of truth** - stores protocol metadata AND vector embeddings |
 | `Document Generator`    | Entry point for document creation; dispatches LangGraph workflows    |
 | `LangGraph Flows`       | Defines prompts and section nodes per document type                  |
 | `Section Assembly`      | Combines generated content into structured document objects          |
@@ -85,23 +86,25 @@ clinical-trial-accelerator/
 | Framework            | FastAPI               | Latest         | REST API Layer                         |
 |                      | React + Vite          | 18.x           | Frontend                               |
 | AI Engine            | LangGraph             | Latest         | Multi-agent workflows                  |
-| PDF Parser           | PyMuPDF               | Latest         | Initial PDF Parsing                    |
+| PDF Parser           | PyMuPDF               | Latest         | PDF text extraction (no persistence)   |
 |                      | Docling               | (Planned)      | Semantic markup parser                 |
+| Storage              | Qdrant                | Latest         | **Single database** - metadata + vectors |
 | Output Engine        | LaTeX (via TeXLive)   | N/A            | PDF generation                         |
 | State Management     | Zustand or Redux      | Latest         | Global section/edit state              |
-| Infra                | Docker + GitHub Actions | N/A          | CI/CD, deploy                          |
+| Infra                | Vercel Functions      | N/A            | Serverless deployment                  |
 | Security             | JWT (user auth, later) | Planned        | User identity / audit trace (future)   |
 | Testing              | Pytest, Playwright    | Latest         | Unit + E2E tests                       |
 
 ## 🔹 Infrastructure & Deployment
 
 - **CI/CD Tooling:** GitHub Actions for lint/test/build/deploy
-- **Dev/Staging/Prod Environments:** Single-container deploy for MVP (Docker Compose or ECS/Fargate)
+- **Dev/Staging/Prod Environments:** Vercel serverless functions (unified platform)
 - **Deployment Targets:** 
-  - Backend → AWS (ECS or Lambda)
-  - Frontend → Vercel or S3 + CloudFront
-- **Monitoring & Logging:** Standardized structured logging (JSON logs, correlation IDs)
-- **Rollback Strategy:** GitHub action to redeploy previous tagged image
+  - Backend → Vercel Functions (Python)
+  - Frontend → Vercel CDN
+  - Storage → Memory-based Qdrant (MVP), cloud Qdrant URL (production)
+- **Monitoring & Logging:** Vercel function logs, structured JSON logging
+- **Rollback Strategy:** Vercel deployment rollback via dashboard or CLI
 
 ## 🔹 Error Handling Strategy
 

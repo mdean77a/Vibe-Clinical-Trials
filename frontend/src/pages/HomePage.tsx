@@ -175,38 +175,39 @@ const HomePage: React.FC = () => {
       margin: '0 auto',
       minHeight: '100vh'
     }}>
-      <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-        <h1 style={{
-          fontSize: '2.5rem',
-          fontWeight: 'bold',
-          background: 'linear-gradient(to right, #2563eb, #9333ea)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-          marginBottom: '16px'
-        }}>
-          Clinical Trial Accelerator
-        </h1>
-        <p style={{ color: '#6b7280', fontSize: '1.125rem' }}>
-          Streamline your clinical trial document generation
-        </p>
-        
-        {/* API Status Indicator */}
-        {!loading && (
-          <div style={{ 
-            marginTop: '12px', 
-            padding: '8px 16px', 
-            borderRadius: '20px', 
-            display: 'inline-block',
-            fontSize: '0.875rem',
-            backgroundColor: apiHealthy ? '#dcfce7' : '#fef3c7',
-            color: apiHealthy ? '#166534' : '#92400e',
-            border: `1px solid ${apiHealthy ? '#bbf7d0' : '#fde68a'}`
+      <main role="main">
+        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+          <h1 style={{
+            fontSize: '2.5rem',
+            fontWeight: 'bold',
+            background: 'linear-gradient(to right, #2563eb, #9333ea)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            marginBottom: '16px'
           }}>
-            {apiHealthy ? '🟢 Connected to API' : '🟡 Using Local Data'}
-          </div>
-        )}
-      </div>
+            Clinical Trial Accelerator
+          </h1>
+          <p style={{ color: '#6b7280', fontSize: '1.125rem' }}>
+            Streamline your clinical trial documentation with AI-powered document generation. Generate informed consent forms and site initiation checklists.
+          </p>
+          
+          {/* API Status Indicator */}
+          {!loading && (
+            <div style={{ 
+              marginTop: '12px', 
+              padding: '8px 16px', 
+              borderRadius: '20px', 
+              display: 'inline-block',
+              fontSize: '0.875rem',
+              backgroundColor: apiHealthy ? '#dcfce7' : '#fef3c7',
+              color: apiHealthy ? '#166534' : '#92400e',
+              border: `1px solid ${apiHealthy ? '#bbf7d0' : '#fde68a'}`
+            }}>
+              {apiHealthy ? '🟢 Connected to API' : '🟡 Using Local Data'}
+            </div>
+          )}
+        </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '48px' }}>
@@ -242,6 +243,7 @@ const HomePage: React.FC = () => {
           onUploadNew={handleUploadNew}
         />
       )}
+      </main>
     </div>
   );
 };

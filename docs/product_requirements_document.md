@@ -76,18 +76,18 @@ The MVP will demonstrate the fundamental value of AI-powered clinical trial docu
    - Return to document type selection for additional documents
 
 #### **MVP Core Features (Must-Have)**
-1. **Protocol Management Database**:
-   - Lightweight database (SQLite recommended for MVP) to store protocol metadata
-   - Schema: study_acronym, protocol_title, collection_name, upload_date, status
+1. **Protocol Management System**:
+   - Qdrant-based storage for protocol metadata and vector embeddings
+   - Metadata: study_acronym, protocol_title, filename, upload_date, status
    - Protocol selection interface showing processed protocols
    - Active protocol session management
 
 2. **Protocol Upload & Processing**: 
    - PDF upload with basic validation
-   - Text extraction using PyMuPDF
-   - Qdrant vector database processing (Docker container)
+   - Text extraction using PyMuPDF (no file persistence needed)
+   - Unified Qdrant processing (metadata + vector embeddings)
    - Automatic metadata extraction (study acronym, protocol title)
-   - Database record creation with Qdrant collection name
+   - Single Qdrant storage operation
    - Simple success/failure feedback
 
 3. **Document Generation (ICF + Site Initiation Checklist)**:
@@ -132,26 +132,21 @@ The MVP will demonstrate the fundamental value of AI-powered clinical trial docu
 8. **Business Value**: Show company leadership how platform scales across document types and manages multiple protocols
 
 #### **MVP Technical Constraints**
-- **Deployment**: Local development environment only
+- **Deployment**: Local development environment initially, Vercel production ready
 - **Authentication**: None (single user assumption)
-- **Protocol Database**: SQLite (lightweight, file-based, no server required)
-- **Vector Database**: Qdrant (Docker container, not containerized with main app)
+- **Protocol Storage**: Qdrant unified storage (metadata + vectors, serverless compatible)
+- **Vector Database**: Qdrant (memory-based initially, cloud URL upgrade path)
 - **Monitoring**: Basic logging only
 - **Error Handling**: Minimal (happy path focus)
 
-#### **MVP Database Schema (SQLite)**
-```sql
-CREATE TABLE protocols (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    study_acronym TEXT NOT NULL,
-    protocol_title TEXT NOT NULL,
-    collection_name TEXT UNIQUE NOT NULL,
-    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status TEXT DEFAULT 'processed',
-    file_path TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+#### **MVP Data Schema (Qdrant Metadata)**
+Protocol metadata stored in Qdrant document metadata fields:
+- `study_acronym`: User-provided study identifier
+- `protocol_title`: Extracted or user-confirmed title
+- `filename`: Original PDF filename
+- `upload_date`: Processing timestamp
+- `status`: Processing state ('processing' → 'completed')
+- `document_id`: Unique identifier for retrieval
 
 #### **MVP to Full Product Evolution**
 - **Phase 1**: MVP (ICF + Site Initiation Checklist generation for CRC)
@@ -735,21 +730,21 @@ CREATE TABLE protocols (
 
 ### **Phase 1: MVP Implementation (Months 1-3)**
 - **Priority**: 
-  - Epic 1.1-1.3 (Protocol Management Database + Upload & Processing)
+  - Epic 1.1-1.3 (Protocol Management System + Upload & Processing)
   - Epic 2.1-2.2 (Basic RAG + Dual Document Generation)
   - Epic 4.1 (Basic Review Interface - Both Document Types)
 - **Goal**: Deliver functional MVP demonstrating platform extensibility and protocol management
 - **Success Criteria**: 
-  - Protocol selection interface displays processed protocols
+  - Protocol selection interface displays processed protocols from Qdrant
   - CRC can upload new protocols with automatic metadata extraction
   - CRC can select existing protocols and generate both ICF and Site Initiation Checklist
   - Document type selection interface functional
   - Full workflow completed in <30 minutes per document type
   - Generated documents contain all required regulatory sections
   - Demonstrate platform scalability across different document structures
-  - SQLite database properly manages protocol metadata
-  - Qdrant collections created and managed per protocol
-- **MVP Constraints**: Single user, two document types only, local deployment, SQLite + Qdrant (Docker)
+  - Unified Qdrant storage manages both metadata and vectors
+  - Memory-based Qdrant with cloud upgrade path
+- **MVP Constraints**: Single user, two document types only, Vercel deployment ready, unified Qdrant storage
 
 ### **Phase 2: DCC Document Generation (Months 4-6)**
 - **Priority**: Epic 3 (DCC Document Generation)

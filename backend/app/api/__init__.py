@@ -1,1 +1,1 @@
-# API package for Clinical Trial Accelerator 
+# API package for Clinical Trial Accelerator

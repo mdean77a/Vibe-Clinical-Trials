@@ -7,7 +7,7 @@ The Clinical Trial Accelerator Backend is a FastAPI-based REST API that manages 
 ## 🏗️ Architecture
 
 - **Framework**: FastAPI with Python 3.11+
-- **Database**: SQLite for protocol metadata storage
+- **Database**: Qdrant for unified metadata and vector storage
 - **Dependency Management**: UV package manager
 - **Testing**: Pytest with comprehensive coverage
 - **Code Quality**: Black, isort, mypy for formatting and type checking
@@ -75,25 +75,37 @@ uv run pytest tests/test_models.py
 ### Test Coverage Report
 After running tests with coverage, open `htmlcov/index.html` in your browser to view the detailed coverage report.
 
-## 📊 Database Schema
+## 📊 Data Storage Architecture
 
-### Protocols Table
-```sql
-CREATE TABLE protocols (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    study_acronym TEXT NOT NULL,
-    protocol_title TEXT NOT NULL,
-    collection_name TEXT UNIQUE NOT NULL,
-    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status TEXT DEFAULT 'processing',
-    file_path TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+### Qdrant Collections
+Each protocol creates a unique collection in Qdrant with the naming pattern:
+```
+{study_acronym}_{timestamp}_{microseconds}
 ```
 
-### Indexes
-- `idx_protocols_collection_name` - Fast lookups by collection name
-- `idx_protocols_status` - Efficient status filtering
+### Metadata Schema
+Each vector point includes comprehensive metadata:
+```json
+{
+  "protocol_id": "unique_identifier",
+  "study_acronym": "STUDY-123", 
+  "protocol_title": "Clinical Trial Protocol",
+  "collection_name": "study123_20241215_143022_123456",
+  "upload_date": "2024-12-15T14:30:22Z",
+  "status": "processed",
+  "file_path": "/uploads/protocol.pdf",
+  "created_at": "2024-12-15T14:30:22Z",
+  "chunk_index": 0,
+  "chunk_text": "Document content...",
+  "embedding_model": "text-embedding-ada-002"
+}
+```
+
+### Benefits
+- **Single source of truth** - No data synchronization issues
+- **Fast vector search** - Semantic document retrieval
+- **Efficient metadata queries** - Protocol listing and filtering
+- **Simplified architecture** - One database system to manage
 
 ## 🔌 API Endpoints
 
@@ -198,23 +210,33 @@ uv run isort .
 uv run mypy app/
 ```
 
-### Database Operations
+### Qdrant Operations
 
-The database is automatically initialized when the application starts. For manual database operations:
+The Qdrant service handles all data operations. For manual operations:
 
 ```python
-from app.database import init_database, create_protocol
+from app.services.qdrant_service import QdrantService
 from app.models import ProtocolCreate
 
-# Initialize database
-init_database()
+# Initialize Qdrant service
+qdrant_service = QdrantService()
 
-# Create a protocol
-protocol_data = ProtocolCreate(
+# Create a protocol collection
+collection_name = qdrant_service.create_protocol_collection(
     study_acronym="STUDY-123",
-    protocol_title="Test Protocol"
+    protocol_title="Test Protocol",
+    file_path="/uploads/protocol.pdf"
 )
-created_protocol = create_protocol(protocol_data)
+
+# List all protocols (for dropdown)
+protocols = qdrant_service.list_all_protocols()
+
+# Search within a protocol for RAG
+results = qdrant_service.search_similar_content(
+    collection_name=collection_name,
+    query="inclusion criteria",
+    limit=5
+)
 ```
 
 ## 🏷️ Story 1.5 Implementation

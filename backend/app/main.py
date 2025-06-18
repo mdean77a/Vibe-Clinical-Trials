@@ -7,16 +7,16 @@ and handles application startup/shutdown events.
 
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .database import init_database, DatabaseError
 from .api.protocols import router as protocols_router
+from .services.qdrant_service import get_qdrant_service
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -25,20 +25,21 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """
     Application lifespan manager.
-    
+
     Handles startup and shutdown events for the FastAPI application.
     """
     # Startup
     logger.info("Starting Clinical Trial Accelerator backend...")
     try:
-        init_database()
-        logger.info("Database initialized successfully")
-    except DatabaseError as e:
-        logger.error(f"Failed to initialize database: {e}")
+        # Initialize Qdrant service (replaces SQLite database initialization)
+        qdrant_service = get_qdrant_service()
+        logger.info("Qdrant service initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize Qdrant service: {e}")
         raise
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down Clinical Trial Accelerator backend...")
 
@@ -48,13 +49,16 @@ app = FastAPI(
     title="Clinical Trial Accelerator API",
     description="AI-powered clinical trial document generation backend",
     version="0.1.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],  # React dev servers
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+    ],  # React dev servers
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -70,7 +74,7 @@ async def root():
     return {
         "message": "Clinical Trial Accelerator API",
         "version": "0.1.0",
-        "status": "healthy"
+        "status": "healthy",
     }
 
 
@@ -82,4 +86,5 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)

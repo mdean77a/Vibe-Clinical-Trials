@@ -12,6 +12,13 @@ dependencies = [
     "uvicorn[standard]>=0.24.0",
     "pydantic>=2.5.0",
     "python-multipart>=0.0.6",
+    "qdrant-client>=1.7.0",
+    "openai>=1.0.0",
+    "langchain>=0.1.0",
+    "langgraph>=0.0.40",
+    "pymupdf>=1.23.0",
+    "docling>=2.9.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -98,4 +105,6 @@ dev = [
     "pytest>=8.4.0",
     "pytest-asyncio>=1.0.0",
     "pytest-cov>=6.2.1",
+    "pytest-mock>=3.12.0",
+    "responses>=0.24.0",
 ]

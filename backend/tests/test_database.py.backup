@@ -5,129 +5,136 @@ This module tests all database CRUD operations, error handling,
 connection management, and business logic including edge cases.
 """
 
-import pytest
 import sqlite3
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from app.database import (
-    init_database,
+    DatabaseError,
+    DuplicateProtocolError,
+    ProtocolNotFoundError,
+    _row_to_protocol,
     create_protocol,
-    get_protocol_by_id,
-    get_protocol_by_collection_name,
-    get_all_protocols,
-    update_protocol_status,
     delete_protocol,
     generate_collection_name,
+    get_all_protocols,
     get_db_connection,
-    DatabaseError,
-    ProtocolNotFoundError,
-    DuplicateProtocolError,
-    _row_to_protocol
+    get_protocol_by_collection_name,
+    get_protocol_by_id,
+    init_database,
+    update_protocol_status,
 )
 from app.models import ProtocolCreate, ProtocolUpdate
 
 
 class TestDatabaseInitialization:
     """Test cases for database initialization."""
-    
+
     @pytest.mark.unit
     def test_init_database_creates_tables(self, init_test_db, db_connection):
         """Test that init_database creates the protocols table."""
-        cursor = db_connection.execute("""
+        cursor = db_connection.execute(
+            """
             SELECT name FROM sqlite_master 
             WHERE type='table' AND name='protocols'
-        """)
-        
+        """
+        )
+
         table = cursor.fetchone()
         assert table is not None
         assert table["name"] == "protocols"
-    
+
     @pytest.mark.unit
     def test_init_database_creates_indexes(self, init_test_db, db_connection):
         """Test that init_database creates the required indexes."""
-        cursor = db_connection.execute("""
+        cursor = db_connection.execute(
+            """
             SELECT name FROM sqlite_master 
             WHERE type='index' AND name LIKE 'idx_protocols_%'
-        """)
-        
+        """
+        )
+
         indexes = cursor.fetchall()
         index_names = [idx["name"] for idx in indexes]
-        
+
         assert "idx_protocols_collection_name" in index_names
         assert "idx_protocols_status" in index_names
-    
+
     @pytest.mark.unit
     def test_init_database_enables_foreign_keys(self, init_test_db, db_connection):
         """Test that foreign keys are enabled."""
         cursor = db_connection.execute("PRAGMA foreign_keys")
         result = cursor.fetchone()
         assert result[0] == 1  # Foreign keys enabled
-    
+
     @pytest.mark.unit
     def test_init_database_idempotent(self, init_test_db, db_connection):
         """Test that init_database can be called multiple times safely."""
         # Should not raise an error
         init_database()
         init_database()
-        
+
         # Table should still exist
-        cursor = db_connection.execute("""
+        cursor = db_connection.execute(
+            """
             SELECT name FROM sqlite_master 
             WHERE type='table' AND name='protocols'
-        """)
-        
+        """
+        )
+
         table = cursor.fetchone()
         assert table is not None
 
 
 class TestGenerateCollectionName:
     """Test cases for collection name generation."""
-    
+
     @pytest.mark.unit
     def test_generate_collection_name_basic(self, frozen_time):
         """Test basic collection name generation."""
         collection_name = generate_collection_name("STUDY-123")
-        
+
         assert collection_name == "study123_20241201_120000"
-    
+
     @pytest.mark.unit
     def test_generate_collection_name_with_special_chars(self, frozen_time):
         """Test collection name generation with special characters."""
         collection_name = generate_collection_name("STUDY-123_TEST!")
-        
+
         assert collection_name == "study123_test_20241201_120000"
-    
+
     @pytest.mark.unit
     def test_generate_collection_name_lowercase_conversion(self, frozen_time):
         """Test that collection name is converted to lowercase."""
         collection_name = generate_collection_name("UPPERCASE")
-        
+
         assert collection_name == "uppercase_20241201_120000"
-    
+
     @pytest.mark.unit
     def test_generate_collection_name_uniqueness(self):
         """Test that collection names are unique across time."""
         name1 = generate_collection_name("STUDY-123")
         name2 = generate_collection_name("STUDY-123")
-        
+
         assert name1 != name2  # Different timestamps
 
 
 class TestCreateProtocol:
     """Test cases for creating protocols."""
-    
+
     @pytest.mark.unit
     def test_create_protocol_success(self, init_test_db, frozen_time):
         """Test successful protocol creation."""
         protocol_data = ProtocolCreate(
             study_acronym="STUDY-123",
             protocol_title="Test Protocol",
-            file_path="/uploads/test.pdf"
+            file_path="/uploads/test.pdf",
         )
-        
+
         created_protocol = create_protocol(protocol_data)
-        
+
         assert created_protocol.id is not None
         assert created_protocol.study_acronym == "STUDY-123"
         assert created_protocol.protocol_title == "Test Protocol"
@@ -136,172 +143,174 @@ class TestCreateProtocol:
         assert created_protocol.collection_name.startswith("study123_")
         assert created_protocol.upload_date == frozen_time
         assert created_protocol.created_at == frozen_time
-    
+
     @pytest.mark.unit
     def test_create_protocol_without_file_path(self, init_test_db):
         """Test creating protocol without file path."""
         protocol_data = ProtocolCreate(
-            study_acronym="STUDY-123",
-            protocol_title="Test Protocol"
+            study_acronym="STUDY-123", protocol_title="Test Protocol"
         )
-        
+
         created_protocol = create_protocol(protocol_data)
-        
+
         assert created_protocol.file_path is None
         assert created_protocol.study_acronym == "STUDY-123"
-    
+
     @pytest.mark.unit
     def test_create_protocol_generates_unique_collection_name(self, init_test_db):
         """Test that each protocol gets a unique collection name."""
         protocol_data1 = ProtocolCreate(
-            study_acronym="STUDY-123",
-            protocol_title="First Protocol"
+            study_acronym="STUDY-123", protocol_title="First Protocol"
         )
         protocol_data2 = ProtocolCreate(
-            study_acronym="STUDY-123",
-            protocol_title="Second Protocol"
+            study_acronym="STUDY-123", protocol_title="Second Protocol"
         )
-        
+
         protocol1 = create_protocol(protocol_data1)
         protocol2 = create_protocol(protocol_data2)
-        
+
         assert protocol1.collection_name != protocol2.collection_name
-    
+
     @pytest.mark.unit
     def test_create_protocol_database_error(self, init_test_db):
         """Test create_protocol handles database errors."""
         protocol_data = ProtocolCreate(
-            study_acronym="STUDY-123",
-            protocol_title="Test Protocol"
+            study_acronym="STUDY-123", protocol_title="Test Protocol"
         )
-        
-        with patch('app.database.get_db_connection') as mock_conn:
+
+        with patch("app.database.get_db_connection") as mock_conn:
             mock_conn.side_effect = sqlite3.Error("Database error")
-            
+
             with pytest.raises(DatabaseError) as exc_info:
                 create_protocol(protocol_data)
-            
+
             assert "Failed to create protocol" in str(exc_info.value)
 
 
 class TestGetProtocolById:
     """Test cases for retrieving protocols by ID."""
-    
+
     @pytest.mark.unit
     def test_get_protocol_by_id_success(self, init_test_db):
         """Test successful protocol retrieval by ID."""
         # Create a protocol first
         protocol_data = ProtocolCreate(
-            study_acronym="STUDY-123",
-            protocol_title="Test Protocol"
+            study_acronym="STUDY-123", protocol_title="Test Protocol"
         )
         created_protocol = create_protocol(protocol_data)
-        
+
         # Retrieve it
         retrieved_protocol = get_protocol_by_id(created_protocol.id)
-        
+
         assert retrieved_protocol.id == created_protocol.id
         assert retrieved_protocol.study_acronym == "STUDY-123"
         assert retrieved_protocol.protocol_title == "Test Protocol"
         assert retrieved_protocol.collection_name == created_protocol.collection_name
-    
+
     @pytest.mark.unit
     def test_get_protocol_by_id_not_found(self, init_test_db):
         """Test get_protocol_by_id with non-existent ID."""
         with pytest.raises(ProtocolNotFoundError) as exc_info:
             get_protocol_by_id(999)
-        
+
         assert "Protocol with ID 999 not found" in str(exc_info.value)
-    
+
     @pytest.mark.unit
     def test_get_protocol_by_id_database_error(self, init_test_db):
         """Test get_protocol_by_id handles database errors."""
-        with patch('app.database.get_db_connection') as mock_conn:
+        with patch("app.database.get_db_connection") as mock_conn:
             mock_conn.side_effect = sqlite3.Error("Database error")
-            
+
             with pytest.raises(DatabaseError) as exc_info:
                 get_protocol_by_id(1)
-            
+
             assert "Failed to retrieve protocol" in str(exc_info.value)
 
 
 class TestGetProtocolByCollectionName:
     """Test cases for retrieving protocols by collection name."""
-    
+
     @pytest.mark.unit
     def test_get_protocol_by_collection_name_success(self, init_test_db):
         """Test successful protocol retrieval by collection name."""
         # Create a protocol first
         protocol_data = ProtocolCreate(
-            study_acronym="STUDY-123",
-            protocol_title="Test Protocol"
+            study_acronym="STUDY-123", protocol_title="Test Protocol"
         )
         created_protocol = create_protocol(protocol_data)
-        
+
         # Retrieve it by collection name
-        retrieved_protocol = get_protocol_by_collection_name(created_protocol.collection_name)
-        
+        retrieved_protocol = get_protocol_by_collection_name(
+            created_protocol.collection_name
+        )
+
         assert retrieved_protocol.id == created_protocol.id
         assert retrieved_protocol.collection_name == created_protocol.collection_name
         assert retrieved_protocol.study_acronym == "STUDY-123"
-    
+
     @pytest.mark.unit
     def test_get_protocol_by_collection_name_not_found(self, init_test_db):
         """Test get_protocol_by_collection_name with non-existent collection name."""
         with pytest.raises(ProtocolNotFoundError) as exc_info:
             get_protocol_by_collection_name("nonexistent_collection")
-        
-        assert "Protocol with collection name nonexistent_collection not found" in str(exc_info.value)
+
+        assert "Protocol with collection name nonexistent_collection not found" in str(
+            exc_info.value
+        )
 
 
 class TestGetAllProtocols:
     """Test cases for retrieving all protocols."""
-    
+
     @pytest.mark.unit
     def test_get_all_protocols_empty_database(self, init_test_db):
         """Test get_all_protocols with empty database."""
         protocols = get_all_protocols()
         assert protocols == []
-    
+
     @pytest.mark.unit
-    def test_get_all_protocols_multiple_protocols(self, init_test_db, multiple_protocols_data):
+    def test_get_all_protocols_multiple_protocols(
+        self, init_test_db, multiple_protocols_data
+    ):
         """Test get_all_protocols with multiple protocols."""
         # Create multiple protocols
         created_protocols = []
         for protocol_data in multiple_protocols_data:
             protocol = ProtocolCreate(**protocol_data)
             created_protocols.append(create_protocol(protocol))
-        
+
         # Retrieve all protocols
         all_protocols = get_all_protocols()
-        
+
         assert len(all_protocols) == 3
         # Should be ordered by upload_date DESC (most recent first)
         assert all_protocols[0].upload_date >= all_protocols[1].upload_date
         assert all_protocols[1].upload_date >= all_protocols[2].upload_date
-    
+
     @pytest.mark.unit
     def test_get_all_protocols_with_status_filter(self, init_test_db):
         """Test get_all_protocols with status filter."""
         # Create protocols with different statuses
-        protocol1 = create_protocol(ProtocolCreate(
-            study_acronym="STUDY-001",
-            protocol_title="Processing Protocol"
-        ))
-        
-        protocol2 = create_protocol(ProtocolCreate(
-            study_acronym="STUDY-002", 
-            protocol_title="Processed Protocol"
-        ))
-        
+        protocol1 = create_protocol(
+            ProtocolCreate(
+                study_acronym="STUDY-001", protocol_title="Processing Protocol"
+            )
+        )
+
+        protocol2 = create_protocol(
+            ProtocolCreate(
+                study_acronym="STUDY-002", protocol_title="Processed Protocol"
+            )
+        )
+
         # Update one protocol status
         update_protocol_status(protocol2.id, ProtocolUpdate(status="processed"))
-        
+
         # Filter by processing status
         processing_protocols = get_all_protocols(status_filter="processing")
         assert len(processing_protocols) == 1
         assert processing_protocols[0].id == protocol1.id
-        
+
         # Filter by processed status
         processed_protocols = get_all_protocols(status_filter="processed")
         assert len(processed_protocols) == 1
@@ -310,113 +319,115 @@ class TestGetAllProtocols:
 
 class TestUpdateProtocolStatus:
     """Test cases for updating protocol status."""
-    
+
     @pytest.mark.unit
     def test_update_protocol_status_success(self, init_test_db):
         """Test successful protocol status update."""
         # Create a protocol
         protocol_data = ProtocolCreate(
-            study_acronym="STUDY-123",
-            protocol_title="Test Protocol"
+            study_acronym="STUDY-123", protocol_title="Test Protocol"
         )
         created_protocol = create_protocol(protocol_data)
-        
+
         # Update status
         status_update = ProtocolUpdate(status="processed")
         updated_protocol = update_protocol_status(created_protocol.id, status_update)
-        
+
         assert updated_protocol.id == created_protocol.id
         assert updated_protocol.status == "processed"
         assert updated_protocol.study_acronym == created_protocol.study_acronym
-    
+
     @pytest.mark.unit
     def test_update_protocol_status_not_found(self, init_test_db):
         """Test update_protocol_status with non-existent protocol."""
         status_update = ProtocolUpdate(status="processed")
-        
+
         with pytest.raises(ProtocolNotFoundError) as exc_info:
             update_protocol_status(999, status_update)
-        
+
         assert "Protocol with ID 999 not found" in str(exc_info.value)
-    
+
     @pytest.mark.unit
     def test_update_protocol_status_to_failed(self, init_test_db):
         """Test updating protocol status to failed."""
         # Create a protocol
         protocol_data = ProtocolCreate(
-            study_acronym="STUDY-123",
-            protocol_title="Test Protocol"
+            study_acronym="STUDY-123", protocol_title="Test Protocol"
         )
         created_protocol = create_protocol(protocol_data)
-        
+
         # Update to failed status
         status_update = ProtocolUpdate(status="failed")
         updated_protocol = update_protocol_status(created_protocol.id, status_update)
-        
+
         assert updated_protocol.status == "failed"
 
 
 class TestDeleteProtocol:
     """Test cases for deleting protocols."""
-    
+
     @pytest.mark.unit
     def test_delete_protocol_success(self, init_test_db):
         """Test successful protocol deletion."""
         # Create a protocol
         protocol_data = ProtocolCreate(
-            study_acronym="STUDY-123",
-            protocol_title="Test Protocol"
+            study_acronym="STUDY-123", protocol_title="Test Protocol"
         )
         created_protocol = create_protocol(protocol_data)
-        
+
         # Delete it
         result = delete_protocol(created_protocol.id)
         assert result is True
-        
+
         # Verify it's deleted
         with pytest.raises(ProtocolNotFoundError):
             get_protocol_by_id(created_protocol.id)
-    
+
     @pytest.mark.unit
     def test_delete_protocol_not_found(self, init_test_db):
         """Test delete_protocol with non-existent protocol."""
         with pytest.raises(ProtocolNotFoundError) as exc_info:
             delete_protocol(999)
-        
+
         assert "Protocol with ID 999 not found" in str(exc_info.value)
 
 
 class TestRowToProtocol:
     """Test cases for _row_to_protocol helper function."""
-    
+
     @pytest.mark.unit
     def test_row_to_protocol_conversion(self, init_test_db, db_connection):
         """Test converting SQLite row to ProtocolInDB model."""
         # Insert a protocol directly into database
         now = datetime.now()
-        cursor = db_connection.execute("""
+        cursor = db_connection.execute(
+            """
             INSERT INTO protocols (
                 study_acronym, protocol_title, collection_name,
                 upload_date, status, file_path, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
-            "STUDY-123",
-            "Test Protocol", 
-            "study123_20241201_120000",
-            now.isoformat(),
-            "processing",
-            "/uploads/test.pdf",
-            now.isoformat()
-        ))
+        """,
+            (
+                "STUDY-123",
+                "Test Protocol",
+                "study123_20241201_120000",
+                now.isoformat(),
+                "processing",
+                "/uploads/test.pdf",
+                now.isoformat(),
+            ),
+        )
         db_connection.commit()
-        
+
         # Retrieve the row
-        cursor = db_connection.execute("SELECT * FROM protocols WHERE id = ?", (cursor.lastrowid,))
+        cursor = db_connection.execute(
+            "SELECT * FROM protocols WHERE id = ?", (cursor.lastrowid,)
+        )
         row = cursor.fetchone()
-        
+
         # Convert to protocol model
         protocol = _row_to_protocol(row)
-        
+
         assert protocol.study_acronym == "STUDY-123"
         assert protocol.protocol_title == "Test Protocol"
         assert protocol.collection_name == "study123_20241201_120000"
@@ -428,50 +439,52 @@ class TestRowToProtocol:
 
 class TestDatabaseConnectionManager:
     """Test cases for database connection management."""
-    
+
     @pytest.mark.unit
     def test_get_db_connection_context_manager(self, init_test_db):
         """Test database connection context manager."""
         with get_db_connection() as conn:
             assert conn is not None
             assert isinstance(conn, sqlite3.Connection)
-            
+
             # Test that row factory is set
             cursor = conn.execute("SELECT 1 as test_col")
             row = cursor.fetchone()
             assert row["test_col"] == 1  # Dict-like access
-    
+
     @pytest.mark.unit
     def test_get_db_connection_error_handling(self, init_test_db):
         """Test database connection error handling."""
-        with patch('sqlite3.connect') as mock_connect:
+        with patch("sqlite3.connect") as mock_connect:
             mock_connect.side_effect = sqlite3.Error("Connection failed")
-            
+
             with pytest.raises(DatabaseError) as exc_info:
                 with get_db_connection():
                     pass
-            
+
             assert "Database operation failed" in str(exc_info.value)
-    
+
     @pytest.mark.unit
     def test_get_db_connection_rollback_on_error(self, init_test_db):
         """Test that database connection rolls back on error."""
         mock_conn = MagicMock()
-        
-        with patch('sqlite3.connect', return_value=mock_conn):
-            with patch.object(mock_conn, 'execute', side_effect=sqlite3.Error("Test error")):
+
+        with patch("sqlite3.connect", return_value=mock_conn):
+            with patch.object(
+                mock_conn, "execute", side_effect=sqlite3.Error("Test error")
+            ):
                 try:
                     with get_db_connection() as conn:
                         conn.execute("SELECT 1")
                 except DatabaseError:
                     pass
-                
+
                 mock_conn.rollback.assert_called_once()
 
 
 class TestIntegrationScenarios:
     """Integration test scenarios for database operations."""
-    
+
     @pytest.mark.integration
     def test_full_protocol_lifecycle(self, init_test_db):
         """Test complete protocol lifecycle: create, read, update, delete."""
@@ -479,57 +492,61 @@ class TestIntegrationScenarios:
         protocol_data = ProtocolCreate(
             study_acronym="STUDY-LIFECYCLE",
             protocol_title="Lifecycle Test Protocol",
-            file_path="/uploads/lifecycle.pdf"
+            file_path="/uploads/lifecycle.pdf",
         )
         created_protocol = create_protocol(protocol_data)
         assert created_protocol.status == "processing"
-        
+
         # Read by ID
         retrieved_protocol = get_protocol_by_id(created_protocol.id)
         assert retrieved_protocol.study_acronym == "STUDY-LIFECYCLE"
-        
+
         # Read by collection name
-        retrieved_by_collection = get_protocol_by_collection_name(created_protocol.collection_name)
+        retrieved_by_collection = get_protocol_by_collection_name(
+            created_protocol.collection_name
+        )
         assert retrieved_by_collection.id == created_protocol.id
-        
+
         # Update status
         status_update = ProtocolUpdate(status="processed")
         updated_protocol = update_protocol_status(created_protocol.id, status_update)
         assert updated_protocol.status == "processed"
-        
+
         # Verify in list
         all_protocols = get_all_protocols()
         assert len(all_protocols) == 1
         assert all_protocols[0].status == "processed"
-        
+
         # Delete
         delete_protocol(created_protocol.id)
-        
+
         # Verify deleted
         with pytest.raises(ProtocolNotFoundError):
             get_protocol_by_id(created_protocol.id)
-        
+
         # Verify empty list
         all_protocols = get_all_protocols()
         assert len(all_protocols) == 0
-    
+
     @pytest.mark.integration
     def test_concurrent_protocol_creation(self, init_test_db):
         """Test creating multiple protocols concurrently."""
         protocols_data = [
-            ProtocolCreate(study_acronym=f"STUDY-{i:03d}", protocol_title=f"Protocol {i}")
+            ProtocolCreate(
+                study_acronym=f"STUDY-{i:03d}", protocol_title=f"Protocol {i}"
+            )
             for i in range(1, 6)
         ]
-        
+
         created_protocols = []
         for protocol_data in protocols_data:
             created_protocol = create_protocol(protocol_data)
             created_protocols.append(created_protocol)
-        
+
         # Verify all protocols created with unique collection names
         collection_names = [p.collection_name for p in created_protocols]
         assert len(set(collection_names)) == 5  # All unique
-        
+
         # Verify all can be retrieved
         all_protocols = get_all_protocols()
-        assert len(all_protocols) == 5 
+        assert len(all_protocols) == 5

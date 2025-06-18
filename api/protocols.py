@@ -13,34 +13,28 @@ import os
 # Add the backend directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
-from app.database import (
-    init_database, 
-    create_protocol, 
-    get_all_protocols,
-    ProtocolNotFoundError,
-    DatabaseError
-)
-from app.models import ProtocolCreate
-from app.vercel_adapter import convert_fastapi_response, handle_cors_preflight
+from app.services.qdrant_service_vercel import QdrantServiceVercel as QdrantService, QdrantError
+import time
+from datetime import datetime
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
-            # Initialize database if needed
-            init_database()
+            # Initialize Qdrant service
+            qdrant_service = QdrantService()
             
-            # Get all protocols from database
-            protocols = get_all_protocols()
+            # Get all protocols from Qdrant
+            protocols = qdrant_service.list_all_protocols()
             
             # Convert to frontend format
             protocol_list = []
             for protocol in protocols:
                 protocol_list.append({
-                    "id": str(protocol.id),
-                    "study_acronym": protocol.study_acronym,
-                    "protocol_title": protocol.protocol_title,
-                    "upload_date": protocol.upload_date.isoformat() + "Z",
-                    "status": protocol.status
+                    "id": protocol.get("protocol_id", ""),
+                    "study_acronym": protocol.get("study_acronym", ""),
+                    "protocol_title": protocol.get("protocol_title", ""),
+                    "upload_date": protocol.get("upload_date", "") + ("Z" if protocol.get("upload_date") and not protocol.get("upload_date").endswith("Z") else ""),
+                    "status": protocol.get("status", "processing")
                 })
             
             response = {
@@ -71,8 +65,8 @@ class handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         try:
-            # Initialize database if needed
-            init_database()
+            # Initialize Qdrant service
+            qdrant_service = QdrantService()
             
             # Read the request body
             content_length = int(self.headers.get('Content-Length', 0))
@@ -99,22 +93,40 @@ class handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps(error_response).encode('utf-8'))
                 return
             
-            # Create protocol in database
-            protocol_data = ProtocolCreate(
+            # Create protocol collection
+            collection_name = qdrant_service.create_protocol_collection(
                 study_acronym=study_acronym,
                 protocol_title=protocol_title,
                 file_path=file_path
             )
             
-            created_protocol_db = create_protocol(protocol_data)
+            # Create protocol metadata
+            protocol_metadata = {
+                "protocol_id": f"proto_{int(time.time())}",
+                "study_acronym": study_acronym,
+                "protocol_title": protocol_title,
+                "collection_name": collection_name,
+                "upload_date": datetime.now().isoformat(),
+                "status": "processing",
+                "file_path": file_path,
+                "created_at": datetime.now().isoformat()
+            }
+            
+            # Store initial metadata so the protocol can be discovered
+            qdrant_service.store_protocol_with_metadata(
+                collection_name=collection_name,
+                chunks=["Initial protocol entry"],
+                embeddings=[[0.0] * 1536],  # Placeholder embedding
+                protocol_metadata=protocol_metadata
+            )
             
             # Convert to frontend format
             created_protocol = {
-                "id": str(created_protocol_db.id),
-                "study_acronym": created_protocol_db.study_acronym,
-                "protocol_title": created_protocol_db.protocol_title,
-                "upload_date": created_protocol_db.upload_date.isoformat() + "Z",
-                "status": created_protocol_db.status
+                "id": protocol_metadata["protocol_id"],
+                "study_acronym": protocol_metadata["study_acronym"],
+                "protocol_title": protocol_metadata["protocol_title"],
+                "upload_date": protocol_metadata["upload_date"] + "Z",
+                "status": protocol_metadata["status"]
             }
             
             # Send success response

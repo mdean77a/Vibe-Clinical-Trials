@@ -8,98 +8,84 @@ including Protocol models for database operations and API responses.
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ProtocolBase(BaseModel):
     """Base protocol model with common fields."""
-    
+
     study_acronym: str = Field(
-        ..., 
-        min_length=1, 
+        ...,
+        min_length=1,
         max_length=50,
-        description="Study acronym (e.g., 'STUDY-123')"
+        description="Study acronym (e.g., 'STUDY-123')",
     )
     protocol_title: str = Field(
-        ..., 
-        min_length=1, 
-        max_length=500,
-        description="Full protocol title"
+        ..., min_length=1, max_length=500, description="Full protocol title"
     )
-    
-    @field_validator('study_acronym')
+
+    @field_validator("study_acronym")
     @classmethod
     def validate_study_acronym(cls, v: str) -> str:
         """Validate study acronym format."""
         if not v.strip():
-            raise ValueError('Study acronym cannot be empty or whitespace')
+            raise ValueError("Study acronym cannot be empty or whitespace")
         return v.strip().upper()
-    
-    @field_validator('protocol_title')
+
+    @field_validator("protocol_title")
     @classmethod
     def validate_protocol_title(cls, v: str) -> str:
         """Validate protocol title."""
         if not v.strip():
-            raise ValueError('Protocol title cannot be empty or whitespace')
+            raise ValueError("Protocol title cannot be empty or whitespace")
         return v.strip()
 
 
 class ProtocolCreate(ProtocolBase):
     """Model for creating a new protocol."""
-    
+
     file_path: Optional[str] = Field(
-        None,
-        description="Path to the uploaded protocol PDF file"
+        None, description="Path to the uploaded protocol PDF file"
     )
 
 
 class ProtocolInDB(ProtocolBase):
-    """Model representing a protocol as stored in the database."""
-    
-    id: int = Field(..., description="Unique protocol identifier")
+    """Model representing a protocol as stored in Qdrant."""
+
+    protocol_id: str = Field(..., description="Unique protocol identifier")
     collection_name: str = Field(
-        ..., 
+        ...,
         min_length=1,
-        description="Unique collection name for Qdrant vector storage"
+        description="Unique collection name for Qdrant vector storage",
     )
-    upload_date: datetime = Field(
-        ...,
-        description="Timestamp when protocol was uploaded"
+    upload_date: str = Field(
+        ..., description="ISO timestamp when protocol was uploaded"
     )
-    status: str = Field(
-        default="processing",
-        description="Protocol processing status"
-    )
+    status: str = Field(default="processing", description="Protocol processing status")
     file_path: Optional[str] = Field(
-        None,
-        description="Path to the uploaded protocol PDF file"
+        None, description="Path to the uploaded protocol PDF file"
     )
-    created_at: datetime = Field(
-        ...,
-        description="Timestamp when record was created"
-    )
-    
+    created_at: str = Field(..., description="ISO timestamp when record was created")
+
     model_config = ConfigDict(from_attributes=True)
 
 
 class ProtocolResponse(ProtocolInDB):
     """Model for protocol API responses."""
+
     pass
 
 
 class ProtocolUpdate(BaseModel):
     """Model for updating protocol status."""
-    
-    status: str = Field(
-        ...,
-        description="New protocol status"
-    )
-    
-    @field_validator('status')
+
+    status: str = Field(..., description="New protocol status")
+
+    @field_validator("status")
     @classmethod
     def validate_status(cls, v: str) -> str:
         """Validate status values."""
-        valid_statuses = {'processing', 'processed', 'failed'}
+        valid_statuses = {"processing", "processed", "failed"}
         if v not in valid_statuses:
-            raise ValueError(f'Status must be one of: {valid_statuses}')
-        return v 
+            raise ValueError(f"Status must be one of: {valid_statuses}")
+        return v

@@ -1,1 +1,1 @@
-# Tests package for Clinical Trial Accelerator Backend 
+# Tests package for Clinical Trial Accelerator Backend

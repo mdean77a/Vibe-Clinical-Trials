@@ -146,64 +146,70 @@
 
 ---
 
-### **Story 1.5: Protocol Database Record Creation**
+### **Story 1.5: Qdrant Document Creation**
 
 **As a** system administrator  
-**I want** uploaded protocols to be stored in the database with proper metadata  
+**I want** uploaded protocols to be stored in Qdrant with proper metadata  
 **So that** they can be retrieved and managed effectively
 
 #### **Acceptance Criteria:**
 - **Given** a protocol has been uploaded and metadata extracted/confirmed
 - **When** the user confirms the protocol information
-- **Then** a new record is created in the SQLite database
-- **And** the record includes study_acronym, protocol_title, collection_name, upload_date
-- **And** a unique collection_name is generated for Qdrant
+- **Then** protocol metadata is embedded in Qdrant document metadata
+- **And** metadata includes: study_acronym, protocol_title, filename, upload_date, status
+- **And** user-provided acronym is stored in metadata during upload
 - **And** the protocol status is set to 'processing'
-- **And** the file_path is stored for future reference
+- **And** no separate file persistence is needed (user retains original PDF)
 
 #### **Technical Notes:**
-- Generate unique collection_name (e.g., study_acronym + timestamp)
-- SQLite INSERT operation with proper error handling
-- Ensure collection_name uniqueness
+- Store metadata directly in Qdrant document metadata fields
+- Use study_acronym provided by user during upload
+- Generate unique document IDs for Qdrant collections
+- Status field tracks processing state ('processing' → 'completed')
 
 #### **Definition of Done:**
-- [ ] SQLite database record created successfully
-- [ ] Unique collection_name generated
-- [ ] All required fields populated
-- [ ] Database constraints respected
-- [ ] Error handling for duplicate entries
+- [ ] Qdrant document created with embedded metadata
+- [ ] All required metadata fields populated
+- [ ] User-provided study acronym properly stored
+- [ ] Status tracking functional
+- [ ] No separate database dependencies
 
 ---
 
-### **Story 1.6: Qdrant Vector Database Processing**
+### **Story 1.6: Unified Qdrant Processing**
 
 **As a** system  
-**I want to** process uploaded protocols into vector embeddings  
-**So that** RAG retrieval can work effectively for document generation
+**I want to** process uploaded protocols into vector embeddings with metadata storage  
+**So that** RAG retrieval and protocol management work through a single Qdrant system
 
 #### **Acceptance Criteria:**
-- **Given** a protocol PDF has been uploaded and database record created
-- **When** the vector processing begins
-- **Then** the PDF text is extracted using PyMuPDF
+- **Given** a protocol PDF has been uploaded and user has provided study acronym
+- **When** the unified processing begins
+- **Then** the PDF text is extracted using PyMuPDF (no file persistence needed)
 - **And** the text is chunked into appropriate segments (500-1000 tokens)
 - **And** each chunk is embedded using OpenAI embeddings
-- **And** embeddings are stored in Qdrant with the protocol's collection_name
-- **And** the protocol status is updated to 'processed' upon completion
+- **And** embeddings AND metadata are stored together in Qdrant
+- **And** protocol metadata (filename, study_acronym, upload_date, status) stored in document metadata
+- **And** the protocol status is updated to 'completed' upon completion
 - **And** processing errors are logged and reported
 
 #### **Technical Notes:**
-- PyMuPDF for text extraction
+- PyMuPDF for text extraction from uploaded PDF
 - Text chunking strategy for optimal retrieval
 - OpenAI text-embedding-ada-002 model
-- Qdrant collection creation and document insertion
-- Error handling and status updates
+- Single Qdrant operation: embed chunks + store metadata
+- Protocol metadata (filename, study_acronym, upload_date, status) stored in document metadata
+- Memory-based Qdrant initially, external URL upgrade path
+- No PDF file persistence required
 
 #### **Definition of Done:**
-- [ ] PDF text extraction working
+- [ ] PDF text extraction working (no file storage)
 - [ ] Text chunking implemented (500-1000 tokens)
 - [ ] OpenAI embeddings generated
-- [ ] Qdrant collection created and populated
-- [ ] Protocol status updated to 'processed'
+- [ ] Qdrant collection created with unified storage
+- [ ] Protocol metadata embedded in Qdrant documents
+- [ ] Protocol status updated to 'completed'
+- [ ] Memory-based Qdrant setup functional
 - [ ] Error handling and logging implemented
 
 ---
