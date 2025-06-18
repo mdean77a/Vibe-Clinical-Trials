@@ -113,7 +113,7 @@ const HomePage: React.FC = () => {
         navigate('/document-selection', { 
           state: { 
             protocol: newProtocol,
-            protocolId: newProtocol.protocol_id || newProtocol.id,
+            protocolId: (newProtocol as any).protocol_id || newProtocol.id,
             studyAcronym: newProtocol.study_acronym 
           } 
         });
