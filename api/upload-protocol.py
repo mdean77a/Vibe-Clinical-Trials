@@ -167,22 +167,25 @@ class handler(BaseHTTPRequestHandler):
         Returns:
             List of text chunks ready for embedding
         """
+        pdf_document = None
         try:
             import fitz  # PyMuPDF
             from langchain_text_splitters import RecursiveCharacterTextSplitter
             
             # Open PDF from bytes
             pdf_document = fitz.open(stream=pdf_content, filetype="pdf")
+            page_count = pdf_document.page_count
             
             # Extract text from all pages
             full_text = ""
-            for page_num in range(pdf_document.page_count):
+            for page_num in range(page_count):
                 page = pdf_document[page_num]
                 page_text = page.get_text()
                 full_text += f"\n\n--- Page {page_num + 1} ---\n\n"
                 full_text += page_text
             
             pdf_document.close()
+            pdf_document = None
             
             if not full_text.strip():
                 raise ValueError("No text content extracted from PDF")
@@ -204,7 +207,7 @@ class handler(BaseHTTPRequestHandler):
                 # Fallback: return the full text as one chunk if splitting failed
                 meaningful_chunks = [full_text.strip()]
             
-            logger.info(f"PDF {filename}: extracted {len(meaningful_chunks)} chunks from {pdf_document.page_count} pages")
+            logger.info(f"PDF {filename}: extracted {len(meaningful_chunks)} chunks from {page_count} pages")
             return meaningful_chunks
             
         except ImportError as e:
@@ -213,6 +216,13 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             logger.error(f"PDF text extraction failed for {filename}: {e}")
             raise ValueError(f"Failed to extract text from PDF: {str(e)}")
+        finally:
+            # Ensure document is closed even if an error occurs
+            if pdf_document is not None:
+                try:
+                    pdf_document.close()
+                except:
+                    pass
     
     def send_error_response(self, status_code: int, message: str):
         """Send an error response."""
