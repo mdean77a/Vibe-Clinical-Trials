@@ -94,20 +94,13 @@ const HomePage: React.FC = () => {
     setShowUpload(true);
   };
 
-  const handleUploadComplete = async (fileName: string, acronym: string) => {
+  const handleUploadComplete = async (fileName: string, acronym: string, uploadedProtocol?: any) => {
     try {
-      const protocolTitle = extractProtocolTitle(fileName);
-      
-      if (apiHealthy) {
-        // Use API to create protocol
-        console.log('📤 Creating protocol via API...');
-        const newProtocol = await protocolsApi.create({
-          study_acronym: acronym,
-          protocol_title: protocolTitle,
-          file_path: `/uploads/${fileName}` // Simulated file path
-        }) as Protocol;
+      if (apiHealthy && uploadedProtocol) {
+        // Use the protocol that was already created by the upload endpoint
+        console.log('✅ Using protocol created by upload:', uploadedProtocol);
         
-        console.log('✅ Protocol created via API:', newProtocol);
+        const newProtocol = uploadedProtocol as Protocol;
         
         // Update local state
         const updatedProtocols = [newProtocol, ...(Array.isArray(protocols) ? protocols : [])];
@@ -120,13 +113,14 @@ const HomePage: React.FC = () => {
         navigate('/document-selection', { 
           state: { 
             protocol: newProtocol,
-            protocolId: newProtocol.id,
+            protocolId: newProtocol.protocol_id || newProtocol.id,
             studyAcronym: newProtocol.study_acronym 
           } 
         });
       } else {
-        // Fallback to localStorage approach
+        // Fallback to localStorage approach (when API not available)
         console.log('📝 Creating protocol via localStorage fallback...');
+        const protocolTitle = extractProtocolTitle(fileName);
         const newProtocol: Protocol = {
           id: `protocol_${Date.now()}`,
           study_acronym: acronym,
@@ -151,9 +145,9 @@ const HomePage: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('❌ Error creating protocol:', error);
+      console.error('❌ Error handling upload completion:', error);
       // Could show an error message to user here
-      alert('Failed to create protocol. Please try again.');
+      alert('Failed to complete protocol setup. Please try again.');
     }
   };
 

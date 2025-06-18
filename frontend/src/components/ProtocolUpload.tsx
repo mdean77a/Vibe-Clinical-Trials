@@ -5,7 +5,7 @@ import Input from './Input';
 import { protocolsApi } from '../utils/api';
 
 interface ProtocolUploadProps {
-  onUploadComplete: (fileName: string, acronym: string) => void;
+  onUploadComplete: (fileName: string, acronym: string, protocol?: any) => void;
   onCancel: () => void;
 }
 
@@ -92,7 +92,7 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
       }, 300);
 
       // Actual API call to upload and process the PDF
-      await protocolsApi.upload(selectedFile, {
+      const uploadResponse = await protocolsApi.upload(selectedFile, {
         study_acronym: acronym.trim().toUpperCase(),
         protocol_title: `Protocol ${acronym.trim().toUpperCase()}`,
       });
@@ -100,9 +100,9 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
       clearInterval(progressInterval);
       setUploadProgress(100);
       
-      // Complete upload successfully
+      // Complete upload successfully - pass the created protocol
       setTimeout(() => {
-        onUploadComplete(selectedFile.name, acronym.trim().toUpperCase());
+        onUploadComplete(selectedFile.name, acronym.trim().toUpperCase(), uploadResponse.protocol || uploadResponse);
       }, 500);
 
     } catch (uploadError) {
