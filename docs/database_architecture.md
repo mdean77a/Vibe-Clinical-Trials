@@ -226,10 +226,7 @@ EMBEDDING_MODEL=text-embedding-ada-002
 
 ### Qdrant Setup
 ```python
-# Development (memory-based)
-qdrant_client = QdrantClient(":memory:")
-
-# Production (cloud/server)
+# Development and Production (cloud-based)
 qdrant_client = QdrantClient(
     url=os.getenv("QDRANT_URL"),
     api_key=os.getenv("QDRANT_API_KEY")

@@ -24,7 +24,7 @@ from ..services.qdrant_service import QdrantError, get_qdrant_service
 logger = logging.getLogger(__name__)
 
 # Create router
-router = APIRouter(prefix="/protocols", tags=["protocols"])
+router = APIRouter(prefix="/api/protocols", tags=["protocols"])
 
 # Initialize services
 qdrant_service = get_qdrant_service()
@@ -34,7 +34,7 @@ def extract_and_chunk_pdf(pdf_content: bytes, filename: str) -> List[str]:
     """
     Extract text from PDF using PyMuPDF and chunk using RecursiveCharacterTextSplitter.
     
-    This matches the Vercel implementation for consistency across environments.
+    Standard protocol upload and processing endpoint.
     
     Args:
         pdf_content: Raw PDF bytes
@@ -196,7 +196,7 @@ async def upload_and_process_protocol(
         # Read file content
         pdf_content = await file.read()
         
-        # Process PDF with PyMuPDF (matching Vercel implementation)
+        # Process PDF with PyMuPDF
         try:
             text_chunks = extract_and_chunk_pdf(pdf_content, file.filename)
             logger.info(f"PDF processed successfully: {len(text_chunks)} chunks extracted")

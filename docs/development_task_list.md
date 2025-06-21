@@ -47,7 +47,7 @@
 
 ### Backend
 - [ ] Single operation: embed chunks + store metadata in Qdrant
-- [ ] Set up memory-based Qdrant with cloud URL upgrade path
+- [ ] Set up cloud-based Qdrant connection
 - [ ] `GET /protocols`
   - Returns list of processed protocols from Qdrant metadata
   - Includes study_acronym, protocol_title, status, upload_date
@@ -93,12 +93,12 @@
 ## 🚀 Sprint 8: Final Integration & Deployment
 
 ### Backend
-- [ ] Configure memory-based Qdrant for MVP deployment
+- [ ] Configure cloud-based Qdrant for MVP deployment
 - [ ] Implement cloud Qdrant URL configuration for production upgrade
-- [ ] Vercel Functions optimization and testing
+- [ ] FastAPI endpoint optimization and testing
 
 ### Frontend
-- [ ] Production build optimization for Vercel deployment
+- [ ] Production build optimization for local deployment
 - [ ] Environment-aware API configuration (local vs. production)
 
 ---

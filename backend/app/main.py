@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api.protocols import router as protocols_router
+from .api.icf_generation import router as icf_router
 from .services.qdrant_service import get_qdrant_service
 
 # Configure logging
@@ -66,6 +67,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(protocols_router)
+app.include_router(icf_router)
 
 
 @app.get("/")
@@ -78,7 +80,7 @@ async def root():
     }
 
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy"}

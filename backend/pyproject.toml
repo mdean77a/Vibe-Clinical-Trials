@@ -6,7 +6,7 @@ authors = [
     {name = "Clinical Trial Accelerator Team"}
 ]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.104.1",
     "uvicorn[standard]>=0.24.0",
@@ -15,7 +15,9 @@ dependencies = [
     "qdrant-client>=1.7.0",
     "openai>=1.0.0",
     "langchain>=0.1.0",
-    "langgraph>=0.0.40",
+    "langchain-anthropic>=0.1.15",
+    "langgraph>=0.1.15",
+    "anthropic>=0.8.0",
     "pymupdf>=1.23.0",
     "langchain-text-splitters>=0.0.1",
     "python-dotenv>=1.0.0",
@@ -57,7 +59,7 @@ asyncio_mode = "auto"
 
 [tool.black]
 line-length = 88
-target-version = ['py311']
+target-version = ['py313']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -80,7 +82,7 @@ line_length = 88
 known_first_party = ["app"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

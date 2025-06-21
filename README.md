@@ -50,7 +50,7 @@ These documents include:
 - Generate ICF and site initiation checklist
 - Support manual edits, approval flow
 - Backend powered by FastAPI + Qdrant + LangGraph
-- On-prem MVP with future deployment to Vercel
+- Local deployment MVP
 
 ---
 
@@ -65,7 +65,15 @@ These documents include:
 
 ## 🛠 Getting Started
 
-Coming soon with full install and run instructions.
+### Quick Start
+1. **Prerequisites**: Python 3.13+, Node.js 22+
+2. **Setup**: See [SETUP.md](./SETUP.md) for comprehensive installation guide
+3. **Environment**: Copy `.env.example` to `.env` and add your API keys
+4. **Backend**: `cd backend && uv venv --python 3.13 && source .venv/bin/activate && uv pip install -e ".[dev]"`
+5. **Frontend**: `cd frontend && npm install`
+6. **Run**: Start backend (`uvicorn app.main:app --reload`) and frontend (`npm run dev`)
+
+For detailed setup instructions, troubleshooting, and deployment guides, see [SETUP.md](./SETUP.md).
 
 ---
 

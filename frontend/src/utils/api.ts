@@ -5,10 +5,8 @@
  * for making HTTP requests to the backend.
  */
 
-// Environment-based API URL configuration
-const API_BASE_URL = import.meta.env.PROD 
-  ? '/api'  // Vercel Functions in production
-  : 'http://localhost:8000';  // Local FastAPI development server
+// Local development API URL configuration
+const API_BASE_URL = 'http://localhost:8000/api';  // Local FastAPI development server
 
 /**
  * Get the full API URL for a given endpoint
@@ -94,7 +92,7 @@ export const protocolsApi = {
     formData.append('protocol_title', protocolData.protocol_title);
 
     // Use different endpoints for development vs production
-    const endpoint = import.meta.env.PROD ? 'upload-protocol' : 'protocols/upload';
+    const endpoint = 'protocols/upload';
     const url = getApiUrl(endpoint);
     
     try {
@@ -159,6 +157,123 @@ export const protocolsApi = {
 };
 
 /**
+ * ICF Generation API functions
+ */
+export const icfApi = {
+  /**
+   * Generate ICF for a protocol collection
+   */
+  generate: async (collectionName: string, protocolMetadata?: any) => {
+    return apiRequest('icf/generate', {
+      method: 'POST',
+      body: JSON.stringify({
+        protocol_collection_name: collectionName,
+        protocol_metadata: protocolMetadata,
+      }),
+    });
+  },
+
+  /**
+   * Get protocol summary
+   */
+  getProtocolSummary: async (collectionName: string) => {
+    return apiRequest(`icf/protocol/${collectionName}/summary`);
+  },
+
+  /**
+   * Get ICF section requirements
+   */
+  getSectionRequirements: async () => {
+    return apiRequest('icf/sections/requirements');
+  },
+
+  /**
+   * Get generation status
+   */
+  getStatus: async (taskId: string) => {
+    return apiRequest(`icf/status/${taskId}`);
+  },
+
+  /**
+   * Regenerate a specific ICF section
+   */
+  regenerateSection: async (collectionName: string, sectionName: string, protocolMetadata?: any) => {
+    return apiRequest('icf/regenerate-section', {
+      method: 'POST',
+      body: JSON.stringify({
+        protocol_collection_name: collectionName,
+        section_name: sectionName,
+        protocol_metadata: protocolMetadata,
+      }),
+    });
+  },
+
+  /**
+   * Generate ICF with streaming section results
+   */
+  generateStreaming: async function* (collectionName: string, protocolMetadata?: any) {
+    const url = getApiUrl('icf/generate-stream');
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+      },
+      body: JSON.stringify({
+        protocol_collection_name: collectionName,
+        protocol_metadata: protocolMetadata,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    if (!response.body) {
+      throw new Error('Response body is null');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              yield data;
+            } catch (e) {
+              console.warn('Failed to parse SSE data:', line);
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  },
+
+  /**
+   * Health check for ICF service
+   */
+  health: async () => {
+    const endpoint = 'icf/health';
+    return apiRequest(endpoint);
+  },
+};
+
+/**
  * Health check API functions
  */
 export const healthApi = {
@@ -183,7 +298,7 @@ export const healthApi = {
 export const logApiConfig = () => {
   console.log('API Configuration:', {
     baseUrl: API_BASE_URL,
-    environment: import.meta.env.PROD ? 'production' : 'development',
+    environment: 'development',
     mode: import.meta.env.MODE,
   });
 }; 

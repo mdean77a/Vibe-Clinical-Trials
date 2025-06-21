@@ -51,21 +51,19 @@ The application now uses persistent Qdrant storage instead of in-memory storage,
    python -c "from app.services.qdrant_service import QdrantService; QdrantService()"
    ```
 
-## Vercel Deployment
+## Production Deployment
 
-1. Add environment variables in Vercel dashboard:
-   - Go to Project Settings → Environment Variables
-   - Add `QDRANT_URL` and `QDRANT_API_KEY`
+1. Ensure environment variables are set in your deployment environment:
+   - `QDRANT_URL` - Your Qdrant Cloud URL
+   - `QDRANT_API_KEY` - Your Qdrant Cloud API key
 
-2. Or use Vercel CLI:
+2. Deploy your application:
    ```bash
-   vercel env add QDRANT_URL
-   vercel env add QDRANT_API_KEY
-   ```
-
-3. Redeploy:
-   ```bash
-   vercel --prod
+   # Build frontend
+   cd frontend && npm run build
+   
+   # Run backend
+   cd backend && uvicorn app.main:app --host 0.0.0.0 --port 8000
    ```
 
 ## Environment Variable Reference

@@ -18,16 +18,16 @@
 - **And** if no protocols exist, I see a message "No protocols found. Upload your first protocol to get started."
 
 #### **Technical Notes:**
-- Query SQLite database for all protocols with status 'processed'
+- Query Qdrant for all protocols with status 'processed'
 - Display in table/card format with study_acronym and protocol_title
 - Handle empty state gracefully
 
 #### **Definition of Done:**
-- [ ] Landing page displays protocol list from SQLite database
+- [ ] Landing page displays protocol list from Qdrant
 - [ ] Empty state handled appropriately
 - [ ] Upload new protocol button functional
 - [ ] Responsive design works on desktop
-- [ ] Basic error handling for database connection issues
+- [ ] Basic error handling for Qdrant connection issues
 
 ---
 
@@ -171,7 +171,7 @@
 - OpenAI text-embedding-ada-002 model
 - Single Qdrant operation: embed chunks + store metadata
 - Protocol metadata (filename, study_acronym, upload_date, status) stored in document metadata
-- Memory-based Qdrant initially, external URL upgrade path
+- Cloud-based Qdrant connection
 - No PDF file persistence required
 
 #### **Definition of Done:**
@@ -181,5 +181,5 @@
 - [ ] Qdrant collection created with unified storage
 - [ ] Protocol metadata embedded in Qdrant documents
 - [ ] Protocol status updated to 'completed'
-- [ ] Memory-based Qdrant setup functional
+- [ ] Cloud-based Qdrant setup functional
 - [ ] Error handling and logging implemented

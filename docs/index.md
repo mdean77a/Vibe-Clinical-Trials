@@ -20,9 +20,8 @@
 - [Final Pre-Execution Checklist](final_pre_execution_checklist.md) - Pre-deployment validation
 
 ## Deployment & Operations
-- [Vercel Deployment Guide](VERCEL_DEPLOYMENT_GUIDE.md) - Production deployment instructions
+- [Setup Guide](../SETUP.md) - Development environment and deployment instructions
 - [Database Architecture](database_architecture.md) - Data storage and vector database design
-- [SQLite to Qdrant Migration](sqlite_to_qdrant_migration.md) - Database migration documentation
 
 ## Technical Specifications
 - [Editor UI Design](editor_ui_design.md) - User interface specifications and design requirements

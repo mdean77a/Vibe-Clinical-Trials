@@ -62,7 +62,7 @@
 **Status:** ✅ IMPLEMENTED - READY FOR TESTING
 
 **Changes Made:**
-1. ✅ **Created Vercel Upload Function** (`/api/upload-protocol.py`)
+1. ✅ **Created Local Upload Function** (FastAPI endpoint)
    - Handles multipart file uploads
    - Uses PyMuPDF for text extraction
    - Uses RecursiveCharacterTextSplitter for intelligent chunking
@@ -91,11 +91,11 @@
 ## Bug Fixed:
 - Frontend now uses correct endpoints for dev vs prod:
   - Development: `http://localhost:8000/protocols/upload` (FastAPI)
-  - Production: `/api/upload-protocol` (Vercel function)
+  - Production: `/upload-protocol` (FastAPI endpoint)
 
 ## Standardization Complete:
-- ✅ **Environment Consistency Achieved**: Both local and Vercel now use identical PDF processing
+- ✅ **Environment Consistency Achieved**: Local deployment uses consistent PDF processing
   - Removed Docling dependency from local backend (`pyproject.toml`)
   - Updated local backend to use PyMuPDF + RecursiveCharacterTextSplitter
   - Processing method updated from "docling" to "pymupdf" 
-  - Local and Vercel environments now have identical PDF processing pipelines
+  - Local environment uses optimized PDF processing pipeline

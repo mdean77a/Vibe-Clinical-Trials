@@ -132,10 +132,10 @@ The MVP will demonstrate the fundamental value of AI-powered clinical trial docu
 8. **Business Value**: Show company leadership how platform scales across document types and manages multiple protocols
 
 #### **MVP Technical Constraints**
-- **Deployment**: Local development environment initially, Vercel production ready
+- **Deployment**: Local development and deployment environment
 - **Authentication**: None (single user assumption)
 - **Protocol Storage**: Qdrant unified storage (metadata + vectors, serverless compatible)
-- **Vector Database**: Qdrant (memory-based initially, cloud URL upgrade path)
+- **Vector Database**: Qdrant (cloud-based)
 - **Monitoring**: Basic logging only
 - **Error Handling**: Minimal (happy path focus)
 
@@ -744,7 +744,7 @@ Protocol metadata stored in Qdrant document metadata fields:
   - Demonstrate platform scalability across different document structures
   - Unified Qdrant storage manages both metadata and vectors
   - Memory-based Qdrant with cloud upgrade path
-- **MVP Constraints**: Single user, two document types only, Vercel deployment ready, unified Qdrant storage
+- **MVP Constraints**: Single user, two document types only, local deployment, unified Qdrant storage
 
 ### **Phase 2: DCC Document Generation (Months 4-6)**
 - **Priority**: Epic 3 (DCC Document Generation)

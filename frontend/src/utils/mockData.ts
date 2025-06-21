@@ -1,9 +1,13 @@
 export interface Protocol {
   id: string;
+  document_id?: string;
+  collection_name?: string;
   study_acronym: string;
   protocol_title: string;
   upload_date: string;
   status: string;
+  sponsor?: string;
+  indication?: string;
 }
 
 export const mockProtocols: Protocol[] = [

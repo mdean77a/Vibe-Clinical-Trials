@@ -152,7 +152,7 @@ tests/e2e/
 ```python
 # Comprehensive fixtures for Qdrant architecture
 - mock_qdrant_client()           # Mocked Qdrant client
-- memory_qdrant_client()         # In-memory Qdrant for integration
+- test_qdrant_client()           # Test Qdrant client for integration
 - mock_openai_client()           # Mocked OpenAI embeddings
 - mock_langgraph_workflow()      # Mocked LangGraph workflows
 - sample_protocol_chunks()       # Test protocol text data

@@ -24,6 +24,6 @@
 5. User refines output → final export
 
 ## Deployment
-- MVP: Memory-based Qdrant, Vercel serverless ready
-- Target: Vercel frontend + backend, cloud Qdrant URL upgrade
+- MVP: Local development with cloud Qdrant
+- Target: Local deployment with FastAPI backend and React frontend
 

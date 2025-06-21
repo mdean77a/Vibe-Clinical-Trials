@@ -56,7 +56,7 @@ class TestDocumentGenerator:
         generator = DocumentGenerator(mock_qdrant_client, None, None)
 
         with patch(
-            "app.services.qdrant_service.get_embeddings", return_value=[[0.1] * 1536]
+            "app.services.qdrant_service.QdrantService.get_embeddings", return_value=[[0.1] * 1536]
         ):
             context = generator.get_protocol_context(document_id, "inclusion criteria")
 
@@ -78,13 +78,13 @@ class TestICFGeneration:
 
         # Mock workflow response
         mock_langgraph_workflow.invoke.return_value = {
-            "title": "Study Title: Safety and Efficacy Trial",
-            "purpose": "The purpose of this study is to evaluate...",
+            "summary": "Study Summary: Safety and Efficacy Trial",
+            "background": "The background of this study is to evaluate...",
+            "participants": "We will enroll 100 participants...",
             "procedures": "Participants will undergo the following procedures...",
+            "alternatives": "Alternative treatments include...",
             "risks": "Potential risks include mild side effects...",
             "benefits": "Potential benefits include symptom improvement...",
-            "rights": "Your participation is voluntary...",
-            "contact": "For questions, contact the study team...",
         }
 
         # Mock context retrieval
@@ -99,15 +99,15 @@ class TestICFGeneration:
                 workflow=mock_langgraph_workflow,
             )
 
-        assert "title" in result
-        assert "purpose" in result
+        assert "summary" in result
+        assert "background" in result
+        assert "participants" in result
         assert "procedures" in result
+        assert "alternatives" in result
         assert "risks" in result
         assert "benefits" in result
-        assert "rights" in result
-        assert "contact" in result
 
-        assert result["title"].startswith("Study Title:")
+        assert result["summary"].startswith("Study Summary:")
         mock_langgraph_workflow.invoke.assert_called_once()
 
     @pytest.mark.unit
@@ -230,7 +230,7 @@ class TestRAGContextRetrieval:
         generator = DocumentGenerator(mock_qdrant_client, None, None)
 
         with patch(
-            "app.services.qdrant_service.get_embeddings", return_value=[[0.1] * 1536]
+            "app.services.qdrant_service.QdrantService.get_embeddings", return_value=[[0.1] * 1536]
         ):
             # Test different section contexts
             title_context = generator.get_protocol_context(document_id, "study title")
@@ -266,7 +266,7 @@ class TestRAGContextRetrieval:
         generator = DocumentGenerator(mock_qdrant_client, None, None)
 
         with patch(
-            "app.services.qdrant_service.get_embeddings", return_value=[[0.1] * 1536]
+            "app.services.qdrant_service.QdrantService.get_embeddings", return_value=[[0.1] * 1536]
         ):
             context = generator.get_protocol_context(
                 document_id,
@@ -314,37 +314,45 @@ class TestIntegrationScenarios:
         """Test end-to-end ICF generation process."""
         # First store protocol in Qdrant
         with patch(
-            "app.services.qdrant_service.get_embeddings",
+            "app.services.qdrant_service.QdrantService.get_embeddings",
             return_value=[[0.1] * 1536 for _ in sample_protocol_chunks],
         ):
-            from app.services.qdrant_service import store_protocol_with_metadata
+            from app.services.qdrant_service import QdrantService
 
-            result = store_protocol_with_metadata(
-                chunks=sample_protocol_chunks,
-                metadata=sample_protocol_metadata,
-                client=memory_qdrant_client,
+            qdrant_service = QdrantService()
+            qdrant_service.client = memory_qdrant_client  # Use test client
+            
+            embeddings = [[0.1] * 1536 for _ in sample_protocol_chunks]
+            collection_name = qdrant_service.create_protocol_collection(
+                sample_protocol_metadata["document_id"],
+                sample_protocol_metadata["protocol_title"]
             )
-
-        document_id = result["document_id"]
+            
+            qdrant_service.store_protocol_with_metadata(
+                collection_name=collection_name,
+                chunks=sample_protocol_chunks,
+                embeddings=embeddings,
+                protocol_metadata=sample_protocol_metadata,
+            )
 
         # Mock ICF workflow
         mock_workflow = MagicMock()
         mock_workflow.invoke.return_value = {
-            "title": "Generated ICF Title",
-            "purpose": "Generated Purpose",
+            "summary": "Generated ICF Summary",
+            "background": "Generated Background",
+            "participants": "Generated Participants",
             "procedures": "Generated Procedures",
+            "alternatives": "Generated Alternatives",
             "risks": "Generated Risks",
             "benefits": "Generated Benefits",
-            "rights": "Generated Rights",
-            "contact": "Generated Contact Info",
         }
 
-        # Generate ICF
+        # Generate ICF using the collection name that was actually created
         with patch(
-            "app.services.qdrant_service.get_embeddings", return_value=[[0.1] * 1536]
+            "app.services.qdrant_service.QdrantService.get_embeddings", return_value=[[0.1] * 1536]
         ):
             icf_sections = generate_icf_sections(
-                document_id=document_id,
+                document_id=collection_name,  # Use the actual collection name
                 qdrant_client=memory_qdrant_client,
                 workflow=mock_workflow,
             )
@@ -353,13 +361,13 @@ class TestIntegrationScenarios:
         assert all(
             section in icf_sections
             for section in [
-                "title",
-                "purpose",
+                "summary",
+                "background", 
+                "participants",
                 "procedures",
+                "alternatives",
                 "risks",
                 "benefits",
-                "rights",
-                "contact",
             ]
         )
         mock_workflow.invoke.assert_called_once()

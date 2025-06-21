@@ -91,20 +91,20 @@ clinical-trial-accelerator/
 | Storage              | Qdrant                | Latest         | **Single database** - metadata + vectors |
 | Output Engine        | LaTeX (via TeXLive)   | N/A            | PDF generation                         |
 | State Management     | Zustand or Redux      | Latest         | Global section/edit state              |
-| Infra                | Vercel Functions      | N/A            | Serverless deployment                  |
+| Infra                | Local FastAPI         | N/A            | Local deployment                       |
 | Security             | JWT (user auth, later) | Planned        | User identity / audit trace (future)   |
 | Testing              | Pytest, Playwright    | Latest         | Unit + E2E tests                       |
 
 ## 🔹 Infrastructure & Deployment
 
 - **CI/CD Tooling:** GitHub Actions for lint/test/build/deploy
-- **Dev/Staging/Prod Environments:** Vercel serverless functions (unified platform)
+- **Dev/Staging/Prod Environments:** Local FastAPI deployment
 - **Deployment Targets:** 
-  - Backend → Vercel Functions (Python)
-  - Frontend → Vercel CDN
+  - Backend → Local FastAPI server (Python)
+  - Frontend → Local Vite dev server
   - Storage → Memory-based Qdrant (MVP), cloud Qdrant URL (production)
-- **Monitoring & Logging:** Vercel function logs, structured JSON logging
-- **Rollback Strategy:** Vercel deployment rollback via dashboard or CLI
+- **Monitoring & Logging:** Local application logs, structured JSON logging
+- **Rollback Strategy:** Git-based version control and local deployment rollback
 
 ## 🔹 Error Handling Strategy
 
