@@ -13,7 +13,7 @@ interface ICFSectionProps {
   isGenerating: boolean;
   onApprove?: (sectionName: string) => void;
   onEdit?: (sectionName: string, newContent: string) => void;
-  onRegenerate?: (sectionName: string) => void;
+  onRegenerate?: (sectionName: string, customPrompt?: string) => void;
 }
 
 const ICFSection: React.FC<ICFSectionProps> = ({
@@ -25,6 +25,7 @@ const ICFSection: React.FC<ICFSectionProps> = ({
 }) => {
   const [isEditing, setIsEditing] = React.useState(false);
   const [editContent, setEditContent] = React.useState(section.content);
+  const [regenerateComment, setRegenerateComment] = React.useState('');
 
   React.useEffect(() => {
     setEditContent(section.content);
@@ -40,6 +41,15 @@ const ICFSection: React.FC<ICFSectionProps> = ({
   const handleCancelEdit = () => {
     setEditContent(section.content);
     setIsEditing(false);
+  };
+
+  const handleRegenerate = () => {
+    if (onRegenerate) {
+      // Pass the comment if it exists, otherwise undefined
+      onRegenerate(section.name, regenerateComment.trim() || undefined);
+      // Clear the comment after regenerating
+      setRegenerateComment('');
+    }
   };
 
   const getStatusColor = () => {
@@ -164,7 +174,7 @@ const ICFSection: React.FC<ICFSectionProps> = ({
               ✏️ Edit
             </button>
             <button
-              onClick={() => onRegenerate?.(section.name)}
+              onClick={handleRegenerate}
               disabled={isGenerating}
               style={{
                 padding: '8px 16px',
@@ -359,6 +369,74 @@ const ICFSection: React.FC<ICFSectionProps> = ({
           </div>
         )}
       </div>
+
+      {/* Regeneration Comments Section */}
+      {(section.status === 'ready_for_review' || section.status === 'approved') && !isEditing && (
+        <div style={{
+          marginTop: '16px',
+          padding: '16px',
+          backgroundColor: '#f8fafc',
+          border: '1px solid #e2e8f0',
+          borderRadius: '8px',
+        }}>
+          <label style={{
+            display: 'block',
+            fontSize: '0.875rem',
+            fontWeight: '600',
+            color: '#374151',
+            marginBottom: '8px',
+          }}>
+            💬 Comments for Regeneration (optional)
+          </label>
+          <textarea
+            value={regenerateComment}
+            onChange={(e) => setRegenerateComment(e.target.value)}
+            placeholder="Add specific instructions for regenerating this section... (e.g., 'Make it more concise', 'Add more detail about risks', 'Use simpler language')"
+            style={{
+              width: '100%',
+              minHeight: '80px',
+              padding: '12px',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              fontSize: '0.875rem',
+              fontFamily: 'inherit',
+              lineHeight: '1.4',
+              resize: 'vertical',
+              outline: 'none',
+              backgroundColor: '#ffffff',
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = '#8b5cf6';
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(139, 92, 246, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = '#d1d5db';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+            maxLength={500}
+          />
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: '8px',
+          }}>
+            <p style={{
+              fontSize: '0.75rem',
+              color: '#6b7280',
+              margin: 0,
+            }}>
+              💡 Tip: The more specific your comments, the better the regenerated content will be
+            </p>
+            <span style={{
+              fontSize: '0.75rem',
+              color: regenerateComment.length > 450 ? '#ef4444' : '#6b7280',
+            }}>
+              {regenerateComment.length}/500
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

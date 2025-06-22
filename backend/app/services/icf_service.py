@@ -421,7 +421,8 @@ class ICFGenerationService:
         self,
         protocol_collection_name: str,
         section_name: str,
-        protocol_metadata: Optional[Dict[str, Any]] = None
+        protocol_metadata: Optional[Dict[str, Any]] = None,
+        custom_prompt: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Regenerate a specific ICF section asynchronously.
@@ -430,6 +431,7 @@ class ICFGenerationService:
             protocol_collection_name: The Qdrant collection name for the protocol
             section_name: The specific section to regenerate
             protocol_metadata: Optional metadata about the protocol
+            custom_prompt: Optional custom instructions for regeneration
             
         Returns:
             Dict containing the regenerated section content
@@ -443,7 +445,8 @@ class ICFGenerationService:
                 self._regenerate_section_sync,
                 protocol_collection_name,
                 section_name,
-                protocol_metadata
+                protocol_metadata,
+                custom_prompt
             )
             
             logger.info(f"Completed async section regeneration: {section_name}")
@@ -453,11 +456,79 @@ class ICFGenerationService:
             logger.error(f"Async section regeneration failed: {e}")
             raise DocumentGenerationError(f"Failed to regenerate section: {str(e)}")
 
+    async def update_section_content(
+        self,
+        protocol_collection_name: str,
+        section_name: str,
+        content: str
+    ) -> Dict[str, Any]:
+        """
+        Update section content in AgentState.
+        
+        Args:
+            protocol_collection_name: The Qdrant collection name for the protocol
+            section_name: The specific section to update
+            content: The new content for the section
+            
+        Returns:
+            Dict containing the update result
+        """
+        try:
+            logger.info(f"Updating section content: {section_name} for collection: {protocol_collection_name}")
+            
+            # For now, we'll store this in a simple in-memory cache
+            # In a production system, this would be stored in a persistent state store
+            state_key = f"{protocol_collection_name}_{section_name}"
+            if not hasattr(self, '_agent_states'):
+                self._agent_states = {}
+            
+            if protocol_collection_name not in self._agent_states:
+                self._agent_states[protocol_collection_name] = {}
+            
+            # Store the content as the latest version for this section
+            self._agent_states[protocol_collection_name][section_name] = content
+            
+            logger.info(f"Section content updated: {section_name}")
+            return {
+                "status": "success",
+                "section_name": section_name,
+                "collection_name": protocol_collection_name,
+                "content_length": len(content)
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to update section content: {e}")
+            raise DocumentGenerationError(f"Failed to update section: {str(e)}")
+
+    def _get_current_section_content(
+        self,
+        protocol_collection_name: str,
+        section_name: str
+    ) -> Optional[str]:
+        """
+        Get the current content for a section from AgentState.
+        
+        Args:
+            protocol_collection_name: The Qdrant collection name for the protocol
+            section_name: The specific section to retrieve
+            
+        Returns:
+            Current section content or None if not found
+        """
+        try:
+            if hasattr(self, '_agent_states') and protocol_collection_name in self._agent_states:
+                return self._agent_states[protocol_collection_name].get(section_name)
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get current section content: {e}")
+            return None
+
     def _regenerate_section_sync(
         self,
         protocol_collection_name: str,
         section_name: str,
-        protocol_metadata: Optional[Dict[str, Any]] = None
+        protocol_metadata: Optional[Dict[str, Any]] = None,
+        custom_prompt: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Synchronous section regeneration.
@@ -466,6 +537,7 @@ class ICFGenerationService:
             protocol_collection_name: The Qdrant collection name for the protocol
             section_name: The specific section to regenerate
             protocol_metadata: Optional metadata about the protocol
+            custom_prompt: Optional custom instructions for regeneration
             
         Returns:
             Dict containing the regenerated section content
@@ -485,13 +557,55 @@ class ICFGenerationService:
             # Format context for LLM consumption
             context_text = self._format_context_for_llm(context)
             
-            # Get the section prompt
-            prompt = self._get_section_prompt(section_name)
+            # Get existing content from AgentState (if any)
+            existing_content = self._get_current_section_content(protocol_collection_name, section_name)
+            
+            # Determine regeneration strategy based on whether custom prompt is provided
+            if custom_prompt and existing_content:
+                # Strategy 1: Modify existing content based on user comments
+                logger.info(f"Using modification strategy for {section_name} with custom prompt: {custom_prompt}")
+                
+                modification_prompt = f"""
+You are tasked with modifying an existing ICF section based on specific user feedback.
+
+EXISTING SECTION CONTENT:
+{existing_content}
+
+INSTRUCTIONS:
+- Keep the existing content structure and key information
+- Only make changes specifically requested in the user feedback below
+- Maintain the same tone and regulatory compliance
+- Do not add or remove major content unless specifically requested
+- Return the complete modified section (not just the changes)
+
+USER FEEDBACK: {custom_prompt}
+
+Please modify the section accordingly while preserving all other content that is not specifically mentioned in the feedback.
+"""
+                enhanced_prompt = modification_prompt
+                
+            elif custom_prompt and not existing_content:
+                # Fallback: If custom prompt provided but no existing content, use hybrid approach
+                logger.warning(f"Custom prompt provided for {section_name} but no existing content - using hybrid approach")
+                base_prompt = self._get_section_prompt(section_name)
+                enhanced_prompt = f"{base_prompt}\n\nAdditional user requirements: {custom_prompt}"
+                
+            else:
+                # Strategy 2: Fresh regeneration using original prompt
+                logger.info(f"Using fresh regeneration strategy for {section_name}")
+                enhanced_prompt = self._get_section_prompt(section_name)
             
             # Generate the section using LLM
             section_content = self.icf_workflow._generate_section_with_llm(
-                section_name, context_text, prompt
+                section_name, context_text, enhanced_prompt
             )
+            
+            # Update AgentState with the new content
+            if not hasattr(self, '_agent_states'):
+                self._agent_states = {}
+            if protocol_collection_name not in self._agent_states:
+                self._agent_states[protocol_collection_name] = {}
+            self._agent_states[protocol_collection_name][section_name] = section_content
             
             # Format response
             import time
@@ -504,6 +618,7 @@ class ICFGenerationService:
                     "context_items": len(context),
                     "workflow_name": self.icf_workflow.name,
                     "llm_config": self.llm_config,
+                    "regeneration_strategy": "modification" if (custom_prompt and existing_content) else "fresh",
                     **(protocol_metadata or {})
                 },
                 "status": "completed"

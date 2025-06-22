@@ -209,7 +209,8 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
     ));
   };
 
-  const handleSectionEdit = (sectionName: string, newContent: string) => {
+  const handleSectionEdit = async (sectionName: string, newContent: string) => {
+    // Update local state immediately for responsiveness
     setSections(prev => prev.map(section => 
       section.name === sectionName 
         ? { 
@@ -220,9 +221,23 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
           }
         : section
     ));
+
+    // Update AgentState on the backend
+    try {
+      const collectionName = protocol.collection_name || 
+        protocol.document_id || 
+        `${protocol.id.toUpperCase().replace(/-/g, '')}-${Math.random().toString(36).substr(2, 8)}`;
+      
+      await icfApi.updateSection(collectionName, sectionName, newContent);
+      console.log(`AgentState updated for section: ${sectionName}`);
+    } catch (error) {
+      console.error(`Failed to update AgentState for section ${sectionName}:`, error);
+      // Note: We don't revert the UI change here, as the user's edit is still valid
+      // The next regeneration will just use the original prompt if AgentState update failed
+    }
   };
 
-  const handleSectionRegenerate = async (sectionName: string) => {
+  const handleSectionRegenerate = async (sectionName: string, customPrompt?: string) => {
     if (progress.isGenerating) return;
 
     // Set specific section to generating
@@ -243,6 +258,7 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
         study_acronym: protocol.study_acronym,
         sponsor: protocol.sponsor || 'Unknown',
         indication: protocol.indication || 'General',
+        custom_prompt: customPrompt,
       }) as {
         section_name: string;
         content: string;

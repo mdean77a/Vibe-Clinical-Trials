@@ -59,6 +59,31 @@ class SectionRegenerationRequest(BaseModel):
         None,
         description="Optional metadata about the protocol"
     )
+    custom_prompt: Optional[str] = Field(
+        None,
+        max_length=500,
+        description="Optional custom instructions for regenerating this section",
+        json_schema_extra={"example": "Make it more concise and focus on the main risks"}
+    )
+
+
+class SectionUpdateRequest(BaseModel):
+    """Request model for updating section content in AgentState."""
+    
+    protocol_collection_name: str = Field(
+        ..., 
+        description="The Qdrant collection name containing the protocol document"
+    )
+    section_name: str = Field(
+        ..., 
+        description="The specific section to update",
+        json_schema_extra={"example": "summary"}
+    )
+    content: str = Field(
+        ...,
+        description="The updated section content",
+        json_schema_extra={"example": "This study will evaluate..."}
+    )
 
 
 class ICFSection(BaseModel):
@@ -266,6 +291,35 @@ async def generate_icf_stream(
     )
 
 
+@router.post("/update-section")
+async def update_icf_section(
+    request: SectionUpdateRequest,
+    icf_service: ICFGenerationService = Depends(get_icf_service)
+) -> Dict[str, Any]:
+    """
+    Update a specific ICF section content in AgentState.
+    
+    This endpoint updates the AgentState with user-edited content,
+    ensuring that regeneration has access to the latest content.
+    """
+    try:
+        logger.info(f"Section update requested: {request.section_name} for collection: {request.protocol_collection_name}")
+        
+        # Update the section in AgentState
+        result = await icf_service.update_section_content(
+            protocol_collection_name=request.protocol_collection_name,
+            section_name=request.section_name,
+            content=request.content
+        )
+        
+        logger.info(f"Section update completed: {request.section_name}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Section update failed: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during section update")
+
+
 @router.post("/regenerate-section")
 async def regenerate_icf_section(
     request: SectionRegenerationRequest,
@@ -303,7 +357,8 @@ async def regenerate_icf_section(
         result = await icf_service.regenerate_section_async(
             protocol_collection_name=request.protocol_collection_name,
             section_name=request.section_name,
-            protocol_metadata=request.protocol_metadata
+            protocol_metadata=request.protocol_metadata,
+            custom_prompt=request.custom_prompt
         )
         
         logger.info(f"Section regeneration completed: {request.section_name}")

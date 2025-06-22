@@ -208,6 +208,17 @@ export const icfApi = {
     });
   },
 
+  updateSection: async (collectionName: string, sectionName: string, content: string) => {
+    return apiRequest('icf/update-section', {
+      method: 'POST',
+      body: JSON.stringify({
+        protocol_collection_name: collectionName,
+        section_name: sectionName,
+        content: content,
+      }),
+    });
+  },
+
   /**
    * Generate ICF with streaming section results
    */
