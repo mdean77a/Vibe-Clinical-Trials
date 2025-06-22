@@ -422,6 +422,7 @@ async def get_icf_section_requirements() -> Dict[str, Any]:
     }
 
 
+
 @router.get("/health")
 async def icf_health_check() -> Dict[str, str]:
     """Health check endpoint for ICF generation service."""
