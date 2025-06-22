@@ -557,15 +557,15 @@ class ICFGenerationService:
             # Format context for LLM consumption
             context_text = self._format_context_for_llm(context)
             
-            # Get existing content from AgentState (if any)
-            existing_content = self._get_current_section_content(protocol_collection_name, section_name)
-            
             # Determine regeneration strategy based on whether custom prompt is provided
-            if custom_prompt and existing_content:
+            if custom_prompt and custom_prompt.strip():
                 # Strategy 1: Modify existing content based on user comments
-                logger.info(f"Using modification strategy for {section_name} with custom prompt: {custom_prompt}")
+                existing_content = self._get_current_section_content(protocol_collection_name, section_name)
                 
-                modification_prompt = f"""
+                if existing_content:
+                    logger.info(f"Using modification strategy for {section_name} with custom prompt: {custom_prompt}")
+                    
+                    modification_prompt = f"""
 You are tasked with modifying an existing ICF section based on specific user feedback.
 
 EXISTING SECTION CONTENT:
@@ -582,17 +582,16 @@ USER FEEDBACK: {custom_prompt}
 
 Please modify the section accordingly while preserving all other content that is not specifically mentioned in the feedback.
 """
-                enhanced_prompt = modification_prompt
-                
-            elif custom_prompt and not existing_content:
-                # Fallback: If custom prompt provided but no existing content, use hybrid approach
-                logger.warning(f"Custom prompt provided for {section_name} but no existing content - using hybrid approach")
-                base_prompt = self._get_section_prompt(section_name)
-                enhanced_prompt = f"{base_prompt}\n\nAdditional user requirements: {custom_prompt}"
+                    enhanced_prompt = modification_prompt
+                else:
+                    # Fallback: If custom prompt provided but no existing content, use hybrid approach
+                    logger.warning(f"Custom prompt provided for {section_name} but no existing content - using hybrid approach")
+                    base_prompt = self._get_section_prompt(section_name)
+                    enhanced_prompt = f"{base_prompt}\n\nAdditional user requirements: {custom_prompt}"
                 
             else:
-                # Strategy 2: Fresh regeneration using original prompt
-                logger.info(f"Using fresh regeneration strategy for {section_name}")
+                # Strategy 2: Fresh regeneration using original prompt (ignore any existing content)
+                logger.info(f"Using fresh regeneration strategy for {section_name} - ignoring existing content")
                 enhanced_prompt = self._get_section_prompt(section_name)
             
             # Generate the section using LLM
