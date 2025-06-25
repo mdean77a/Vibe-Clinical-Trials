@@ -120,6 +120,9 @@ class ICFGenerationService:
                 main_loop
             )
             
+            # Set reference to this service for original content storage
+            streaming_workflow.icf_service = self
+            
             # Prepare workflow inputs like the original implementation
             context = self.document_generator.get_protocol_context(
                 protocol_collection_name, 
@@ -463,7 +466,7 @@ class ICFGenerationService:
         content: str
     ) -> Dict[str, Any]:
         """
-        Update section content in AgentState.
+        Update section content in AgentState (user edits).
         
         Args:
             protocol_collection_name: The Qdrant collection name for the protocol
@@ -476,17 +479,21 @@ class ICFGenerationService:
         try:
             logger.info(f"Updating section content: {section_name} for collection: {protocol_collection_name}")
             
-            # For now, we'll store this in a simple in-memory cache
-            # In a production system, this would be stored in a persistent state store
-            state_key = f"{protocol_collection_name}_{section_name}"
+            # Initialize state structure
             if not hasattr(self, '_agent_states'):
                 self._agent_states = {}
             
             if protocol_collection_name not in self._agent_states:
                 self._agent_states[protocol_collection_name] = {}
             
-            # Store the content as the latest version for this section
-            self._agent_states[protocol_collection_name][section_name] = content
+            if section_name not in self._agent_states[protocol_collection_name]:
+                self._agent_states[protocol_collection_name][section_name] = {
+                    'original': None,
+                    'current': None
+                }
+            
+            # Store the content as the current version (user edit)
+            self._agent_states[protocol_collection_name][section_name]['current'] = content
             
             logger.info(f"Section content updated: {section_name}")
             return {
@@ -517,11 +524,80 @@ class ICFGenerationService:
         """
         try:
             if hasattr(self, '_agent_states') and protocol_collection_name in self._agent_states:
-                return self._agent_states[protocol_collection_name].get(section_name)
+                section_data = self._agent_states[protocol_collection_name].get(section_name)
+                if isinstance(section_data, dict):
+                    return section_data.get('current')
+                # Backward compatibility for old format
+                elif isinstance(section_data, str):
+                    return section_data
             return None
         except Exception as e:
             logger.error(f"Failed to get current section content: {e}")
             return None
+    
+    def _get_original_section_content(
+        self,
+        protocol_collection_name: str,
+        section_name: str
+    ) -> Optional[str]:
+        """
+        Get the original generated content for a section from AgentState.
+        
+        Args:
+            protocol_collection_name: The Qdrant collection name for the protocol
+            section_name: The specific section to retrieve
+            
+        Returns:
+            Original section content or None if not found
+        """
+        try:
+            if hasattr(self, '_agent_states') and protocol_collection_name in self._agent_states:
+                section_data = self._agent_states[protocol_collection_name].get(section_name)
+                if isinstance(section_data, dict):
+                    return section_data.get('original')
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get original section content: {e}")
+            return None
+    
+    def _store_original_content(
+        self,
+        protocol_collection_name: str,
+        section_name: str,
+        content: str
+    ):
+        """
+        Store the original generated content for a section.
+        
+        Args:
+            protocol_collection_name: The Qdrant collection name for the protocol
+            section_name: The specific section to store
+            content: The original generated content
+        """
+        try:
+            # Initialize state structure
+            if not hasattr(self, '_agent_states'):
+                self._agent_states = {}
+            
+            if protocol_collection_name not in self._agent_states:
+                self._agent_states[protocol_collection_name] = {}
+            
+            if section_name not in self._agent_states[protocol_collection_name]:
+                self._agent_states[protocol_collection_name][section_name] = {
+                    'original': None,
+                    'current': None
+                }
+            
+            # Only store as original if not already set (preserve first generation)
+            if self._agent_states[protocol_collection_name][section_name]['original'] is None:
+                self._agent_states[protocol_collection_name][section_name]['original'] = content
+            
+            # Also set as current if no current content exists
+            if self._agent_states[protocol_collection_name][section_name]['current'] is None:
+                self._agent_states[protocol_collection_name][section_name]['current'] = content
+                
+        except Exception as e:
+            logger.error(f"Failed to store original section content: {e}")
 
     def _regenerate_section_sync(
         self,
@@ -604,7 +680,20 @@ Please modify the section accordingly while preserving all other content that is
                 self._agent_states = {}
             if protocol_collection_name not in self._agent_states:
                 self._agent_states[protocol_collection_name] = {}
-            self._agent_states[protocol_collection_name][section_name] = section_content
+            
+            # Store the regenerated content
+            if section_name not in self._agent_states[protocol_collection_name]:
+                self._agent_states[protocol_collection_name][section_name] = {
+                    'original': None,
+                    'current': None
+                }
+            
+            # If this is a fresh regeneration (no comments), store as both original and current
+            if not (custom_prompt and custom_prompt.strip()):
+                self._agent_states[protocol_collection_name][section_name]['original'] = section_content
+                
+            # Always update current content
+            self._agent_states[protocol_collection_name][section_name]['current'] = section_content
             
             # Format response
             import time

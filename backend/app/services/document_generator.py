@@ -576,6 +576,17 @@ class StreamingICFWorkflow(ICFWorkflow):
                         section_name, context_text, section_prompt
                     )
                 
+                # Store original content in ICF service if available
+                if hasattr(self, 'icf_service') and self.icf_service:
+                    try:
+                        self.icf_service._store_original_content(
+                            self.document_id, 
+                            section_name, 
+                            section_content
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to store original content for {section_name}: {e}")
+                
                 # Send section complete event
                 if self.event_queue and self.main_loop:
                     try:

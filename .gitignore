@@ -1,9 +1,31 @@
+
+.vercel/
+.cursor/
+.claude/
+.coverage
+.cursorconfig
+.cursorrules
+.cursorignore
+.cursorignore
+protocols.db
+uv.lock
+
+.pytest_cache/
+**/.pytest_cache/
+**/.mypy_cache/
+
 # Environment files
 **/*.env
 **/*.venv
 
 # BMad agent files
 bmad-agent/
+bmad-core/
+
+.bmad-v3-backup/
+**/tests/
+scripts/
+sessions/
 
 # macOS
 .DS_Store

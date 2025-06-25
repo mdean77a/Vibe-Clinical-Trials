@@ -186,3 +186,88 @@ class AgentState(TypedDict):
 - ✅ Intuitive UI for comment-based regeneration
 
 This implementation provides users with precise control over content modification while maintaining the system's ability to generate fresh content when needed.
+
+Perfect! The key changes:
+
+  1. Check for non-empty comments: if custom_prompt and custom_prompt.strip():
+  2. Only get existing content when comments provided: Moved
+  _get_current_section_content() inside the custom prompt branch
+  3. Clear logging: Added "ignoring existing content" message for fresh
+  regeneration
+
+  Now the behavior will be:
+  - Comments provided: Use existing content + modification strategy
+  - No comments (empty/whitespace): Use original prompt completely fresh, ignoring
+   any existing content
+
+⏺ Bash(git add backend/app/services/icf_service.py && git commit -m "fix: Fresh
+      regeneration ignores existing content when no comments provided…)
+  ⎿ [feature/regeneration-comments 911243e] fix: Fresh regeneration ignores existi
+    ng content when no comments provided
+     1 file changed, 14 insertions(+), 15 deletions(-)
+
+
+⏺ The fix is now committed! 🎉
+
+  Testing the Fix
+
+  Now when you test:
+
+  1. Generate ICF → get original content
+  2. Add comments like "make more concise" → Regenerate → should get concise
+  version
+  3. Clear the comments field → Regenerate → should get completely fresh content
+  using original prompt (not concise)
+
+  The system will now properly:
+  - ✅ With comments: Use existing content + apply modifications
+  - ✅ No comments: Start completely fresh with original prompt, ignoring any
+  existing content
+
+  Try testing this flow and it should now behave exactly as you expected!
+
+    Test Scenarios
+
+  1. Fresh Regeneration (No Comments):
+    - Generate ICF sections
+    - Click "Regenerate" button (leave comment box empty)
+    - Should get completely new content using original prompt
+  2. Comment-Based Modification:
+    - Generate ICF sections
+    - Add comments like "Make it more concise" or "Add more detail about risks"
+    - Click "Regenerate"
+    - Should preserve existing content structure and only modify as requested
+  3. User Edit → Regeneration:
+    - Generate ICF sections
+    - Click "Edit" → modify content → click "Save Changes"
+    - Add comments and regenerate
+    - Should use your edited content as the base for modifications
+  4. AgentState Synchronization:
+    - Edit content and save
+    - Regenerate with comments
+    - Should use the saved edited content (not original generated content)
+
+  UI Features to Test
+
+  - Comment textarea appears below each section when ready for review
+  - 500 character limit with visual counter
+  - Helpful placeholder text guides user input
+  - Comment clears after regeneration
+
+  Expected Behavior
+
+  - ✅ Comments preserved during regeneration
+  - ✅ Fresh generation without existing content influence
+  - ✅ Edits saved to backend AgentState
+  - ✅ Appropriate regeneration strategy chosen automatically
+
+  If you need me to start the backend or help troubleshoot any issues during
+  testing, just let me know!
+
+> If I enter comments, such as make this more concise, the model is doing that.  
+  But then if I leave the comments blank and click regenerate, it is not returning
+   to the original prompt, as the text stays concise.  So anytime the comments 
+  field is left blank by the user, and the regenerate button is clicked, the agent
+   sholud use the ORIGINAL prompt to start fresh.
+
+
