@@ -1,56 +1,49 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import type { Protocol } from '../utils/mockData';
+'use client';
 
-const DocumentTypeSelection: React.FC = () => {
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Card from '@/components/Card';
+import Button from '@/components/Button';
+import type { Protocol } from '@/utils/mockData';
+
+export default function DocumentTypeSelection() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [selectedProtocol, setSelectedProtocol] = useState<Protocol | null>(null);
 
   useEffect(() => {
-    // Get protocol from localStorage using the protocolId from searchParams
-    const protocolId = searchParams.get('protocolId');
-    const studyAcronym = searchParams.get('studyAcronym');
-    
-    if (protocolId && studyAcronym) {
-      // Try to get the full protocol from localStorage
-      const savedProtocol = localStorage.getItem('selectedProtocol');
-      if (savedProtocol) {
-        try {
-          const protocol = JSON.parse(savedProtocol);
-          // Verify it matches the expected protocol
-          if (protocol.id === protocolId || protocol.study_acronym === studyAcronym) {
-            setSelectedProtocol(protocol);
-          } else {
-            // Protocol mismatch, redirect to home
-            router.push('/');
-          }
-        } catch (error) {
-          console.error('Error parsing selected protocol:', error);
-          // Redirect back to home if no valid protocol
-          router.push('/');
-        }
-      } else {
-        // No protocol in localStorage, redirect to home
+    // First try to get protocol from localStorage
+    const savedProtocol = localStorage.getItem('selectedProtocol');
+    if (savedProtocol) {
+      try {
+        setSelectedProtocol(JSON.parse(savedProtocol));
+      } catch (error) {
+        console.error('Error parsing selected protocol:', error);
+        // Redirect back to home if no valid protocol
         router.push('/');
       }
     } else {
-      // No protocol ID in URL, redirect to home
+      // No protocol selected, redirect to home
       router.push('/');
     }
-  }, [searchParams, router]);
+  }, [router]);
 
   const handleInformedConsentClick = () => {
     if (selectedProtocol) {
-      router.push(`/informed-consent?protocolId=${selectedProtocol.id}&studyAcronym=${encodeURIComponent(selectedProtocol.study_acronym)}`);
+      const params = new URLSearchParams({
+        protocolId: selectedProtocol.id,
+        studyAcronym: selectedProtocol.study_acronym
+      });
+      router.push(`/informed-consent?${params.toString()}`);
     }
   };
 
   const handleSiteChecklistClick = () => {
     if (selectedProtocol) {
-      router.push(`/site-checklist?protocolId=${selectedProtocol.id}&studyAcronym=${encodeURIComponent(selectedProtocol.study_acronym)}`);
+      const params = new URLSearchParams({
+        protocolId: selectedProtocol.id,
+        studyAcronym: selectedProtocol.study_acronym
+      });
+      router.push(`/site-checklist?${params.toString()}`);
     }
   };
 
@@ -301,6 +294,4 @@ const DocumentTypeSelection: React.FC = () => {
       </div>
     </div>
   );
-};
-
-export default DocumentTypeSelection; 
+}

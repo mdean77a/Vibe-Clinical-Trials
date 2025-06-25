@@ -5,8 +5,8 @@
  * for making HTTP requests to the backend.
  */
 
-// Local development API URL configuration
-const API_BASE_URL = 'http://localhost:8000/api';  // Local FastAPI development server
+// API URL configuration - uses Next.js environment variable
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 /**
  * Get the full API URL for a given endpoint
@@ -298,7 +298,7 @@ export const healthApi = {
 export const logApiConfig = () => {
   console.log('API Configuration:', {
     baseUrl: API_BASE_URL,
-    environment: 'development',
-    mode: import.meta.env.MODE,
+    environment: process.env.NODE_ENV || 'development',
+    mode: process.env.NODE_ENV || 'development',
   });
 }; 

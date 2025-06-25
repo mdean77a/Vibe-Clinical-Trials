@@ -1,5 +1,6 @@
 export interface Protocol {
-  id: string;
+  id?: string; // For mock data compatibility
+  protocol_id?: string; // From Qdrant API
   document_id?: string;
   collection_name?: string;
   study_acronym: string;
@@ -8,6 +9,8 @@ export interface Protocol {
   status: string;
   sponsor?: string;
   indication?: string;
+  file_path?: string; // From Qdrant API
+  created_at?: string; // From Qdrant API
 }
 
 export const mockProtocols: Protocol[] = [
@@ -39,4 +42,9 @@ export const initializeMockData = () => {
   if (!existingProtocols) {
     localStorage.setItem('protocols', JSON.stringify(mockProtocols));
   }
+};
+
+// Utility function to safely get protocol ID (handles both Qdrant and mock formats)
+export const getProtocolId = (protocol: Protocol): string => {
+  return protocol.protocol_id || protocol.id || '';
 }; 

@@ -1,44 +1,57 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import type { Protocol } from '../utils/mockData';
 
 const SiteChecklistPage: React.FC = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedProtocol, setSelectedProtocol] = useState<Protocol | null>(null);
 
   useEffect(() => {
-    // First try to get protocol from navigation state
-    if (location.state?.protocol) {
-      setSelectedProtocol(location.state.protocol);
-    } else {
-      // Fallback to localStorage
+    // Get protocol from localStorage using the protocolId from searchParams
+    const protocolId = searchParams.get('protocolId');
+    const studyAcronym = searchParams.get('studyAcronym');
+    
+    if (protocolId && studyAcronym) {
+      // Try to get the full protocol from localStorage
       const savedProtocol = localStorage.getItem('selectedProtocol');
       if (savedProtocol) {
         try {
-          setSelectedProtocol(JSON.parse(savedProtocol));
+          const protocol = JSON.parse(savedProtocol);
+          // Verify it matches the expected protocol
+          if (protocol.id === protocolId || protocol.study_acronym === studyAcronym) {
+            setSelectedProtocol(protocol);
+          } else {
+            // Protocol mismatch, redirect to home
+            router.push('/');
+          }
         } catch (error) {
           console.error('Error parsing selected protocol:', error);
           // Redirect back to home if no valid protocol
-          navigate('/');
+          router.push('/');
         }
       } else {
-        // No protocol selected, redirect to home
-        navigate('/');
+        // No protocol in localStorage, redirect to home
+        router.push('/');
       }
+    } else {
+      // No protocol ID in URL, redirect to home
+      router.push('/');
     }
-  }, [location.state, navigate]);
+  }, [searchParams, router]);
 
   const handleMakeChecklist = () => {
     alert('This is not yet implemented.');
   };
 
   const handleReturnToDocumentSelection = () => {
-    navigate('/document-selection', {
-      state: selectedProtocol ? { protocol: selectedProtocol } : undefined
-    });
+    if (selectedProtocol) {
+      router.push(`/document-selection?protocolId=${selectedProtocol.id}&studyAcronym=${encodeURIComponent(selectedProtocol.study_acronym)}`);
+    } else {
+      router.push('/document-selection');
+    }
   };
 
   if (!selectedProtocol) {

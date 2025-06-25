@@ -1,12 +1,14 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import ProtocolSelector from '../components/ProtocolSelector';
-import ProtocolUpload from '../components/ProtocolUpload';
-import { initializeMockData } from '../utils/mockData';
-import type { Protocol } from '../utils/mockData';
-import { protocolsApi, healthApi, logApiConfig } from '../utils/api';
+import ProtocolSelector from '@/components/ProtocolSelector';
+import ProtocolUpload from '@/components/ProtocolUpload';
+import { initializeMockData, getProtocolId } from '@/utils/mockData';
+import type { Protocol } from '@/utils/mockData';
+import { protocolsApi, healthApi, logApiConfig } from '@/utils/api';
 
-const HomePage: React.FC = () => {
+export default function HomePage() {
   const [protocols, setProtocols] = useState<Protocol[]>([]);
   const [showUpload, setShowUpload] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -46,15 +48,23 @@ const HomePage: React.FC = () => {
           setApiHealthy(false);
           
           // Fallback to localStorage (for development when backend is not running)
+          console.log('🔄 Initializing mock data...');
           initializeMockData();
           const savedProtocols = localStorage.getItem('protocols');
+          console.log('📦 Retrieved protocols from localStorage:', savedProtocols);
           if (savedProtocols) {
             try {
-              setProtocols(JSON.parse(savedProtocols));
+              const parsedProtocols = JSON.parse(savedProtocols);
+              console.log('✅ Parsed protocols:', parsedProtocols);
+              setProtocols(parsedProtocols);
             } catch (parseError) {
               console.error('Error parsing saved protocols:', parseError);
               setProtocols([]);
             }
+          } else {
+            console.log('⚠️ No protocols found in localStorage');
+            // Ensure we still have an empty array so the component renders
+            setProtocols([]);
           }
         }
       } catch (error) {
@@ -77,11 +87,26 @@ const HomePage: React.FC = () => {
   };
 
   const handleProtocolSelect = (protocol: Protocol) => {
-    // Store selected protocol for session persistence
-    localStorage.setItem('selectedProtocol', JSON.stringify(protocol));
-    
-    // Navigate to document type selection page
-    router.push(`/document-selection?protocolId=${protocol.id}&studyAcronym=${encodeURIComponent(protocol.study_acronym)}`);
+    try {
+      console.log('🔄 Protocol selected:', protocol);
+      
+      // Store selected protocol for session persistence
+      localStorage.setItem('selectedProtocol', JSON.stringify(protocol));
+      
+      // Navigate to document type selection page with query params
+      const protocolId = getProtocolId(protocol);
+      console.log('📋 Using protocol ID:', protocolId);
+      
+      const params = new URLSearchParams({
+        protocolId: protocolId,
+        studyAcronym: protocol.study_acronym
+      });
+      
+      console.log('🚀 Navigating to:', `/document-selection?${params.toString()}`);
+      router.push(`/document-selection?${params.toString()}`);
+    } catch (error) {
+      console.error('❌ Error in handleProtocolSelect:', error);
+    }
   };
 
   const handleUploadNew = () => {
@@ -104,8 +129,11 @@ const HomePage: React.FC = () => {
         localStorage.setItem('selectedProtocol', JSON.stringify(newProtocol));
         
         // Navigate to document type selection page
-        const protocolId = (newProtocol as any).protocol_id || newProtocol.id;
-        router.push(`/document-selection?protocolId=${protocolId}&studyAcronym=${encodeURIComponent(newProtocol.study_acronym)}`);
+        const params = new URLSearchParams({
+          protocolId: (newProtocol as any).protocol_id || newProtocol.id,
+          studyAcronym: newProtocol.study_acronym
+        });
+        router.push(`/document-selection?${params.toString()}`);
       } else {
         // Fallback to localStorage approach (when API not available)
         console.log('📝 Creating protocol via localStorage fallback...');
@@ -125,7 +153,11 @@ const HomePage: React.FC = () => {
         localStorage.setItem('selectedProtocol', JSON.stringify(newProtocol));
         
         // Navigate to document type selection page
-        router.push(`/document-selection?protocolId=${newProtocol.id}&studyAcronym=${encodeURIComponent(newProtocol.study_acronym)}`);
+        const params = new URLSearchParams({
+          protocolId: newProtocol.id,
+          studyAcronym: newProtocol.study_acronym
+        });
+        router.push(`/document-selection?${params.toString()}`);
       }
     } catch (error) {
       console.error('❌ Error handling upload completion:', error);
@@ -189,7 +221,7 @@ const HomePage: React.FC = () => {
       {loading ? (
         <div style={{ textAlign: 'center', padding: '48px' }}>
           <div style={{ fontSize: '1.125rem', color: '#6b7280' }}>
-            Loading protocols...
+            Loading protocols... {/* Debug: loading=true */}
           </div>
         </div>
       ) : error ? (
@@ -214,15 +246,16 @@ const HomePage: React.FC = () => {
           onCancel={handleUploadCancel}
         />
       ) : (
-        <ProtocolSelector 
-          protocols={protocols}
-          onProtocolSelect={handleProtocolSelect}
-          onUploadNew={handleUploadNew}
-        />
+        <>
+          {console.log('🎯 Rendering ProtocolSelector with protocols:', protocols)}
+          <ProtocolSelector 
+            protocols={protocols}
+            onProtocolSelect={handleProtocolSelect}
+            onUploadNew={handleUploadNew}
+          />
+        </>
       )}
       </main>
     </div>
   );
-};
-
-export default HomePage; 
+}
