@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ICFSection, { type ICFSectionData } from './ICFSection';
 import { icfApi } from '../../utils/api';
 import type { Protocol } from '../../types/protocol';
+import { getProtocolId } from '../../types/protocol';
 
 interface ICFGenerationDashboardProps {
   protocol: Protocol;
@@ -87,7 +88,7 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
       // Fall back to using the protocol ID if collection_name is not available
       const collectionName = protocol.collection_name || 
         protocol.document_id || 
-        `${protocol.id.toUpperCase().replace(/-/g, '')}-${Math.random().toString(36).substr(2, 8)}`;
+        `${getProtocolId(protocol).toUpperCase().replace(/-/g, '')}-${Math.random().toString(36).substr(2, 8)}`;
       
       // Use the streaming API for real-time token updates
       const streamingGenerator = icfApi.generateStreaming(collectionName, {
@@ -139,7 +140,7 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
 
           setProgress(prev => ({
             ...prev,
-            completedSections: new Set([...prev.completedSections, event.data.section_name])
+            completedSections: new Set(Array.from(prev.completedSections).concat(event.data.section_name))
           }));
         }
         else if (event.event === 'section_error') {
@@ -236,7 +237,7 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
       // Use the collection name stored with the protocol
       const collectionName = protocol.collection_name || 
         protocol.document_id || 
-        `${protocol.id.toUpperCase().replace(/-/g, '')}-${Math.random().toString(36).substr(2, 8)}`;
+        `${getProtocolId(protocol).toUpperCase().replace(/-/g, '')}-${Math.random().toString(36).substr(2, 8)}`;
       
       const response = await icfApi.regenerateSection(collectionName, sectionName, {
         protocol_title: protocol.protocol_title,

@@ -30,7 +30,7 @@ export default function DocumentTypeSelection() {
   const handleInformedConsentClick = () => {
     if (selectedProtocol) {
       const params = new URLSearchParams({
-        protocolId: selectedProtocol.id,
+        protocolId: selectedProtocol.protocol_id || selectedProtocol.id || '',
         studyAcronym: selectedProtocol.study_acronym
       });
       router.push(`/informed-consent?${params.toString()}`);
@@ -40,7 +40,7 @@ export default function DocumentTypeSelection() {
   const handleSiteChecklistClick = () => {
     if (selectedProtocol) {
       const params = new URLSearchParams({
-        protocolId: selectedProtocol.id,
+        protocolId: selectedProtocol.protocol_id || selectedProtocol.id || '',
         studyAcronym: selectedProtocol.study_acronym
       });
       router.push(`/site-checklist?${params.toString()}`);
