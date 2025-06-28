@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import Card from './Card';
 import Button from './Button';
-import type { Protocol } from '../utils/mockData';
+import type { Protocol } from '../types/protocol';
+import { getProtocolId } from '../types/protocol';
 
 interface ProtocolSelectorProps {
   protocols: Protocol[];
@@ -148,7 +149,7 @@ const ProtocolSelector: React.FC<ProtocolSelectorProps> = ({
                   }}>
                     {protocols.map((protocol, index) => (
                       <button
-                        key={protocol.id}
+                        key={getProtocolId(protocol)}
                         onClick={() => handleProtocolClick(protocol)}
                         style={{
                           width: '100%',

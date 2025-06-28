@@ -5,7 +5,7 @@
  * for making HTTP requests to the backend.
  */
 
-// API URL configuration - uses Next.js environment variable
+// API URL configuration - direct backend calls
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 /**

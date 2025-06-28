@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtocolSelector from '@/components/ProtocolSelector';
 import ProtocolUpload from '@/components/ProtocolUpload';
-import { initializeMockData, getProtocolId } from '@/utils/mockData';
-import type { Protocol } from '@/utils/mockData';
+import type { Protocol } from '@/types/protocol';
+import { getProtocolId } from '@/types/protocol';
 import { protocolsApi, healthApi, logApiConfig } from '@/utils/api';
 
 export default function HomePage() {
@@ -44,28 +44,10 @@ export default function HomePage() {
           const apiProtocols = apiResponse.protocols || apiResponse || [];
           setProtocols(Array.isArray(apiProtocols) ? apiProtocols : []);
         } catch (apiError) {
-          console.warn('⚠️ API unavailable - falling back to localStorage:', apiError);
+          console.warn('⚠️ API unavailable:', apiError);
           setApiHealthy(false);
-          
-          // Fallback to localStorage (for development when backend is not running)
-          console.log('🔄 Initializing mock data...');
-          initializeMockData();
-          const savedProtocols = localStorage.getItem('protocols');
-          console.log('📦 Retrieved protocols from localStorage:', savedProtocols);
-          if (savedProtocols) {
-            try {
-              const parsedProtocols = JSON.parse(savedProtocols);
-              console.log('✅ Parsed protocols:', parsedProtocols);
-              setProtocols(parsedProtocols);
-            } catch (parseError) {
-              console.error('Error parsing saved protocols:', parseError);
-              setProtocols([]);
-            }
-          } else {
-            console.log('⚠️ No protocols found in localStorage');
-            // Ensure we still have an empty array so the component renders
-            setProtocols([]);
-          }
+          setError('Backend API is not running. Please start the backend server to use this application.');
+          setProtocols([]);
         }
       } catch (error) {
         console.error('Error loading protocols:', error);
@@ -80,11 +62,6 @@ export default function HomePage() {
 
 
 
-  // Save protocols to localStorage (simulating database)
-  const saveProtocols = (updatedProtocols: Protocol[]) => {
-    localStorage.setItem('protocols', JSON.stringify(updatedProtocols));
-    setProtocols(updatedProtocols);
-  };
 
   const handleProtocolSelect = (protocol: Protocol) => {
     try {
@@ -135,33 +112,12 @@ export default function HomePage() {
         });
         router.push(`/document-selection?${params.toString()}`);
       } else {
-        // Fallback to localStorage approach (when API not available)
-        console.log('📝 Creating protocol via localStorage fallback...');
-        const protocolTitle = extractProtocolTitle(fileName);
-        const newProtocol: Protocol = {
-          id: `protocol_${Date.now()}`,
-          study_acronym: acronym,
-          protocol_title: protocolTitle,
-          upload_date: new Date().toISOString(),
-          status: 'processed'
-        };
-
-        const updatedProtocols = [newProtocol, ...protocols];
-        saveProtocols(updatedProtocols);
-        
-        // Store the new protocol as selected
-        localStorage.setItem('selectedProtocol', JSON.stringify(newProtocol));
-        
-        // Navigate to document type selection page
-        const params = new URLSearchParams({
-          protocolId: newProtocol.id,
-          studyAcronym: newProtocol.study_acronym
-        });
-        router.push(`/document-selection?${params.toString()}`);
+        // API is not available
+        console.error('❌ Cannot upload protocol - API is not available');
+        alert('Cannot upload protocol. Backend API is not running.');
       }
     } catch (error) {
       console.error('❌ Error handling upload completion:', error);
-      // Could show an error message to user here
       alert('Failed to complete protocol setup. Please try again.');
     }
   };
@@ -170,12 +126,6 @@ export default function HomePage() {
     setShowUpload(false);
   };
 
-  // Helper functions to simulate metadata extraction
-  const extractProtocolTitle = (fileName: string): string => {
-    // Simple extraction logic - in real app this would be done by backend
-    const nameWithoutExt = fileName.replace('.pdf', '');
-    return nameWithoutExt.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
 
   return (
     <div style={{ 
@@ -202,18 +152,18 @@ export default function HomePage() {
           </p>
           
           {/* API Status Indicator */}
-          {!loading && (
+          {!loading && apiHealthy === true && (
             <div style={{ 
               marginTop: '12px', 
               padding: '8px 16px', 
               borderRadius: '20px', 
               display: 'inline-block',
               fontSize: '0.875rem',
-              backgroundColor: apiHealthy ? '#dcfce7' : '#fef3c7',
-              color: apiHealthy ? '#166534' : '#92400e',
-              border: `1px solid ${apiHealthy ? '#bbf7d0' : '#fde68a'}`
+              backgroundColor: '#dcfce7',
+              color: '#166534',
+              border: '1px solid #bbf7d0'
             }}>
-              {apiHealthy ? '🟢 Connected to API' : '🟡 Using Local Data'}
+              🟢 Connected to API
             </div>
           )}
         </div>

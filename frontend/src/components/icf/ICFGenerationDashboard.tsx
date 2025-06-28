@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ICFSection, { type ICFSectionData } from './ICFSection';
 import { icfApi } from '../../utils/api';
-import type { Protocol } from '../../utils/mockData';
+import type { Protocol } from '../../types/protocol';
 
 interface ICFGenerationDashboardProps {
   protocol: Protocol;

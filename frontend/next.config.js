@@ -6,15 +6,6 @@ const nextConfig = {
       bodySizeLimit: '2mb',
     },
   },
-  // Handle CORS for API calls to backend
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:8000/api/:path*',
-      },
-    ];
-  },
   // Exclude test files from build
   webpack: (config) => {
     config.resolve.alias = {

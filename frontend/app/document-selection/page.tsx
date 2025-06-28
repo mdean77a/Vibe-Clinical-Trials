@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
-import type { Protocol } from '@/utils/mockData';
+import type { Protocol } from '@/types/protocol';
 
 export default function DocumentTypeSelection() {
   const router = useRouter();

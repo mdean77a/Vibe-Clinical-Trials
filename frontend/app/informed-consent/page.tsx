@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ICFGenerationDashboard from '@/components/icf/ICFGenerationDashboard';
-import { getProtocolId } from '@/utils/mockData';
-import type { Protocol } from '@/utils/mockData';
+import { getProtocolId } from '@/types/protocol';
+import type { Protocol } from '@/types/protocol';
 
 export default function InformedConsentPage() {
   const router = useRouter();

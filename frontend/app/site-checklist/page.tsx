@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
-import { getProtocolId } from '@/utils/mockData';
-import type { Protocol } from '@/utils/mockData';
+import { getProtocolId } from '@/types/protocol';
+import type { Protocol } from '@/types/protocol';
 
 export default function SiteChecklistPage() {
   const router = useRouter();
