@@ -5,7 +5,7 @@ import Input from './Input';
 import { protocolsApi } from '../utils/api';
 
 interface ProtocolUploadProps {
-  onUploadComplete: (fileName: string, acronym: string, protocol?: any) => void;
+  onUploadComplete: (fileName: string, acronym: string, protocol?: unknown) => void;
   onCancel: () => void;
 }
 

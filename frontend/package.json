@@ -11,9 +11,10 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test": "jest",
+    "test": "jest --verbose",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:summary": "jest --verbose --passWithNoTests",
     "test:e2e": "playwright test"
   },
   "dependencies": {

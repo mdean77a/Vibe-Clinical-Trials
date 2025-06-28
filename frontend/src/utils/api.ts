@@ -163,7 +163,7 @@ export const icfApi = {
   /**
    * Generate ICF for a protocol collection
    */
-  generate: async (collectionName: string, protocolMetadata?: any) => {
+  generate: async (collectionName: string, protocolMetadata?: unknown) => {
     return apiRequest('icf/generate', {
       method: 'POST',
       body: JSON.stringify({
@@ -197,7 +197,7 @@ export const icfApi = {
   /**
    * Regenerate a specific ICF section
    */
-  regenerateSection: async (collectionName: string, sectionName: string, protocolMetadata?: any) => {
+  regenerateSection: async (collectionName: string, sectionName: string, protocolMetadata?: unknown) => {
     return apiRequest('icf/regenerate-section', {
       method: 'POST',
       body: JSON.stringify({
@@ -211,7 +211,7 @@ export const icfApi = {
   /**
    * Generate ICF with streaming section results
    */
-  generateStreaming: async function* (collectionName: string, protocolMetadata?: any) {
+  generateStreaming: async function* (collectionName: string, protocolMetadata?: unknown) {
     const url = getApiUrl('icf/generate-stream');
     
     const response = await fetch(url, {
@@ -253,7 +253,7 @@ export const icfApi = {
             try {
               const data = JSON.parse(line.slice(6));
               yield data;
-            } catch (e) {
+            } catch {
               console.warn('Failed to parse SSE data:', line);
             }
           }

@@ -11,8 +11,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api.protocols import router as protocols_router
 from .api.icf_generation import router as icf_router
+from .api.protocols import router as protocols_router
 from .services.qdrant_service import get_qdrant_service
 
 # Configure logging

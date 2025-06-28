@@ -33,13 +33,13 @@ qdrant_service = get_qdrant_service()
 def extract_and_chunk_pdf(pdf_content: bytes, filename: str) -> List[str]:
     """
     Extract text from PDF using PyMuPDF and chunk using RecursiveCharacterTextSplitter.
-    
+
     Standard protocol upload and processing endpoint.
-    
+
     Args:
         pdf_content: Raw PDF bytes
         filename: Original filename for logging
-        
+
     Returns:
         List of text chunks ready for embedding
     """
@@ -47,11 +47,11 @@ def extract_and_chunk_pdf(pdf_content: bytes, filename: str) -> List[str]:
     try:
         import fitz  # PyMuPDF
         from langchain_text_splitters import RecursiveCharacterTextSplitter
-        
+
         # Open PDF from bytes
         pdf_document = fitz.open(stream=pdf_content, filetype="pdf")
         page_count = pdf_document.page_count
-        
+
         # Extract text from all pages
         full_text = ""
         for page_num in range(page_count):
@@ -59,34 +59,38 @@ def extract_and_chunk_pdf(pdf_content: bytes, filename: str) -> List[str]:
             page_text = page.get_text()
             full_text += f"\n\n--- Page {page_num + 1} ---\n\n"
             full_text += page_text
-        
+
         # Close document after text extraction is complete
         pdf_document.close()
         pdf_document = None  # Clear reference
-        
+
         if not full_text.strip():
             raise ValueError("No text content extracted from PDF")
-        
+
         # Chunk the text using RecursiveCharacterTextSplitter
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,        # Good size for clinical protocols
-            chunk_overlap=200,      # Preserve context across chunks
+            chunk_size=1000,  # Good size for clinical protocols
+            chunk_overlap=200,  # Preserve context across chunks
             length_function=len,
-            separators=["\n\n", "\n", ". ", " ", ""]  # Try semantic breaks first
+            separators=["\n\n", "\n", ". ", " ", ""],  # Try semantic breaks first
         )
-        
+
         chunks = text_splitter.split_text(full_text)
-        
+
         # Filter out very short chunks
-        meaningful_chunks = [chunk.strip() for chunk in chunks if len(chunk.strip()) > 50]
-        
+        meaningful_chunks = [
+            chunk.strip() for chunk in chunks if len(chunk.strip()) > 50
+        ]
+
         if not meaningful_chunks:
             # Fallback: return the full text as one chunk if splitting failed
             meaningful_chunks = [full_text.strip()]
-        
-        logger.info(f"PDF {filename}: extracted {len(meaningful_chunks)} chunks from {page_count} pages")
+
+        logger.info(
+            f"PDF {filename}: extracted {len(meaningful_chunks)} chunks from {page_count} pages"
+        )
         return meaningful_chunks
-        
+
     except ImportError as e:
         logger.error(f"Missing dependencies for PDF processing: {e}")
         raise ValueError("PDF processing dependencies not available")
@@ -118,14 +122,14 @@ async def create_new_protocol(protocol: ProtocolCreate) -> ProtocolResponse:
     """
     try:
         logger.info(f"Creating new protocol: {protocol.study_acronym}")
-        
+
         # Create collection and get collection name
         collection_name = qdrant_service.create_protocol_collection(
             study_acronym=protocol.study_acronym,
             protocol_title=protocol.protocol_title,
-            file_path=getattr(protocol, 'file_path', None)
+            file_path=getattr(protocol, "file_path", None),
         )
-        
+
         # Create protocol metadata
         protocol_metadata = {
             "protocol_id": f"proto_{int(time.time())}",
@@ -134,40 +138,42 @@ async def create_new_protocol(protocol: ProtocolCreate) -> ProtocolResponse:
             "collection_name": collection_name,
             "upload_date": datetime.now().isoformat(),
             "status": "processing",
-            "file_path": getattr(protocol, 'file_path', None),
-            "created_at": datetime.now().isoformat()
+            "file_path": getattr(protocol, "file_path", None),
+            "created_at": datetime.now().isoformat(),
         }
-        
+
         # Store initial metadata (will be updated when document is processed)
         qdrant_service.store_protocol_with_metadata(
             collection_name=collection_name,
             chunks=["Initial protocol entry"],
             embeddings=[[0.0] * 1536],  # Placeholder embedding
-            protocol_metadata=protocol_metadata
+            protocol_metadata=protocol_metadata,
         )
-        
+
         logger.info(f"Successfully created protocol with collection {collection_name}")
         return ProtocolResponse(**protocol_metadata)
-        
+
     except QdrantError as e:
         logger.error(f"Qdrant error creating protocol: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create protocol"
+            detail="Failed to create protocol",
         )
     except Exception as e:
         logger.error(f"Unexpected error creating protocol: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
-@router.post("/upload", response_model=ProtocolResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/upload", response_model=ProtocolResponse, status_code=status.HTTP_201_CREATED
+)
 async def upload_and_process_protocol(
     file: UploadFile = File(...),
     study_acronym: str = Form(...),
-    protocol_title: str = Form(...)
+    protocol_title: str = Form(...),
 ) -> ProtocolResponse:
     """
     Upload and process a protocol PDF with full text extraction and embedding generation.
@@ -185,35 +191,37 @@ async def upload_and_process_protocol(
     """
     try:
         # Validate file type
-        if not file.filename.lower().endswith('.pdf'):
+        if not file.filename.lower().endswith(".pdf"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only PDF files are supported"
+                detail="Only PDF files are supported",
             )
-        
+
         logger.info(f"Processing PDF upload: {file.filename} for study {study_acronym}")
-        
+
         # Read file content
         pdf_content = await file.read()
-        
+
         # Process PDF with PyMuPDF
         try:
             text_chunks = extract_and_chunk_pdf(pdf_content, file.filename)
-            logger.info(f"PDF processed successfully: {len(text_chunks)} chunks extracted")
+            logger.info(
+                f"PDF processed successfully: {len(text_chunks)} chunks extracted"
+            )
         except Exception as e:
             logger.error(f"PDF processing failed: {e}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to process PDF: {str(e)}"
+                detail=f"Failed to process PDF: {str(e)}",
             )
-        
+
         # Create collection for this protocol
         collection_name = qdrant_service.create_protocol_collection(
             study_acronym=study_acronym,
             protocol_title=protocol_title,
-            file_path=file.filename
+            file_path=file.filename,
         )
-        
+
         # Generate embeddings for all chunks
         try:
             embeddings = qdrant_service.get_embeddings(text_chunks)
@@ -223,7 +231,7 @@ async def upload_and_process_protocol(
             # Continue with placeholder embeddings
             embeddings = [[0.1] * 1536 for _ in text_chunks]
             logger.warning("Using placeholder embeddings due to embedding error")
-        
+
         # Create protocol metadata
         protocol_metadata = {
             "protocol_id": f"proto_{int(time.time())}",
@@ -234,23 +242,24 @@ async def upload_and_process_protocol(
             "status": "processed",  # Mark as processed since we've done the work
             "file_path": file.filename,
             "created_at": datetime.now().isoformat(),
-            
             # Add PDF processing metadata
             "chunk_count": len(text_chunks),
-            "processing_method": "pymupdf"
+            "processing_method": "pymupdf",
         }
-        
+
         # Store protocol with actual document content and embeddings
         qdrant_service.store_protocol_with_metadata(
             collection_name=collection_name,
             chunks=text_chunks,
             embeddings=embeddings,
-            protocol_metadata=protocol_metadata
+            protocol_metadata=protocol_metadata,
         )
-        
-        logger.info(f"Successfully processed and stored protocol {study_acronym} with {len(text_chunks)} chunks")
+
+        logger.info(
+            f"Successfully processed and stored protocol {study_acronym} with {len(text_chunks)} chunks"
+        )
         return ProtocolResponse(**protocol_metadata)
-        
+
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
@@ -258,13 +267,13 @@ async def upload_and_process_protocol(
         logger.error(f"Qdrant error during PDF processing: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to store processed protocol"
+            detail="Failed to store processed protocol",
         )
     except Exception as e:
         logger.error(f"Unexpected error processing PDF: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error during PDF processing"
+            detail="Internal server error during PDF processing",
         )
 
 
@@ -285,13 +294,13 @@ async def get_protocol(protocol_id: str) -> ProtocolResponse:
     try:
         logger.info(f"Retrieving protocol with ID {protocol_id}")
         protocol_data = qdrant_service.get_protocol_by_id(protocol_id)
-        
+
         if not protocol_data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Protocol with ID {protocol_id} not found"
+                detail=f"Protocol with ID {protocol_id} not found",
             )
-        
+
         return ProtocolResponse(**protocol_data)
 
     except HTTPException:
@@ -300,7 +309,7 @@ async def get_protocol(protocol_id: str) -> ProtocolResponse:
         logger.error(f"Unexpected error retrieving protocol: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
@@ -321,22 +330,22 @@ async def get_protocol_by_collection(collection_name: str) -> ProtocolResponse:
     try:
         logger.info(f"Retrieving protocol with collection name {collection_name}")
         protocol_data = qdrant_service.get_protocol_by_collection(collection_name)
-        
+
         if not protocol_data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Protocol with collection {collection_name} not found"
+                detail=f"Protocol with collection {collection_name} not found",
             )
-        
+
         return ProtocolResponse(**protocol_data)
-    
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Unexpected error retrieving protocol: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
@@ -359,18 +368,18 @@ async def list_protocols(
     try:
         logger.info(f"Listing protocols with status filter: {status_filter}")
         protocols = qdrant_service.list_all_protocols()
-        
+
         if status_filter:
             protocols = [p for p in protocols if p.get("status") == status_filter]
-        
+
         logger.info(f"Retrieved {len(protocols)} protocols")
         return [ProtocolResponse(**protocol) for protocol in protocols]
-        
+
     except Exception as e:
         logger.error(f"Error listing protocols: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve protocols"
+            detail="Failed to retrieve protocols",
         )
 
 
@@ -392,36 +401,40 @@ async def update_protocol_status_endpoint(
         HTTPException: 404 if protocol not found, 500 for other errors
     """
     try:
-        logger.info(f"Updating protocol {collection_name} status to {status_update.status}")
-        
+        logger.info(
+            f"Updating protocol {collection_name} status to {status_update.status}"
+        )
+
         # First verify protocol exists
         protocol_data = qdrant_service.get_protocol_by_collection(collection_name)
         if not protocol_data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Protocol with collection {collection_name} not found"
+                detail=f"Protocol with collection {collection_name} not found",
             )
-        
+
         # Update status
-        success = qdrant_service.update_protocol_status(collection_name, status_update.status)
+        success = qdrant_service.update_protocol_status(
+            collection_name, status_update.status
+        )
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update protocol status"
+                detail="Failed to update protocol status",
             )
-        
+
         # Return updated protocol data
         updated_protocol = qdrant_service.get_protocol_by_collection(collection_name)
         logger.info(f"Successfully updated protocol {collection_name}")
         return ProtocolResponse(**updated_protocol)
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Unexpected error updating protocol: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )
 
 
@@ -438,23 +451,23 @@ async def delete_protocol_endpoint(collection_name: str) -> None:
     """
     try:
         logger.info(f"Deleting protocol with collection {collection_name}")
-        
+
         # First verify protocol exists
         protocol_data = qdrant_service.get_protocol_by_collection(collection_name)
         if not protocol_data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Protocol with collection {collection_name} not found"
+                detail=f"Protocol with collection {collection_name} not found",
             )
-        
+
         # Delete protocol
         success = qdrant_service.delete_protocol(collection_name)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to delete protocol"
+                detail="Failed to delete protocol",
             )
-        
+
         logger.info(f"Successfully deleted protocol {collection_name}")
 
     except HTTPException:
@@ -463,5 +476,5 @@ async def delete_protocol_endpoint(collection_name: str) -> None:
         logger.error(f"Unexpected error deleting protocol: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )

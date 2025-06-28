@@ -89,7 +89,7 @@ def sample_protocol_data() -> dict:
     return {
         "study_acronym": "TEST-001",
         "protocol_title": "Test Protocol for Unit Testing",
-        "file_path": "/test/protocol.pdf"
+        "file_path": "/test/protocol.pdf",
     }
 
 
@@ -105,69 +105,74 @@ def test_client() -> TestClient:
     with patch("app.api.protocols.qdrant_service") as mock_service:
         # Storage for created protocols to maintain consistency
         created_protocols = {}
-        
+
         # Protocol creation methods with unique collection names
         import time
+
         def create_protocol_collection(study_acronym, protocol_title, file_path=None):
             timestamp = int(time.time() * 1000)  # More precise timestamp
             return f"{study_acronym.lower()}_{timestamp}"
-        
+
         mock_service.create_protocol_collection.side_effect = create_protocol_collection
         mock_service.store_protocol_with_metadata.return_value = None
-        
+
         # Protocol retrieval methods with dynamic responses
         def get_protocol_by_id(protocol_id):
             if protocol_id in created_protocols:
                 return created_protocols[protocol_id]
             # Return None if not found
             return None
-        
+
         def get_protocol_by_collection(collection_name):
             for protocol_data in created_protocols.values():
-                if protocol_data.get('collection_name') == collection_name:
+                if protocol_data.get("collection_name") == collection_name:
                     return protocol_data
             # Return None if not found
             return None
-        
-        def store_protocol_with_metadata(collection_name, chunks, embeddings, protocol_metadata):
+
+        def store_protocol_with_metadata(
+            collection_name, chunks, embeddings, protocol_metadata
+        ):
             # Store the protocol data for later retrieval
             protocol_id = protocol_metadata["protocol_id"]
             created_protocols[protocol_id] = protocol_metadata
             return None
-        
+
         mock_service.get_protocol_by_id.side_effect = get_protocol_by_id
         mock_service.get_protocol_by_collection.side_effect = get_protocol_by_collection
         mock_service.get_protocol.side_effect = get_protocol_by_id
-        mock_service.store_protocol_with_metadata.side_effect = store_protocol_with_metadata
-        
-        # Protocol listing methods  
+        mock_service.store_protocol_with_metadata.side_effect = (
+            store_protocol_with_metadata
+        )
+
+        # Protocol listing methods
         def list_all_protocols():
             return list(created_protocols.values())
-        
+
         mock_service.list_all_protocols.side_effect = list_all_protocols
         mock_service.list_protocols.return_value = []
         mock_service.search_protocols.return_value = []
-        
+
         # Protocol update/delete methods
         def update_protocol_status(collection_name, new_status):
             for protocol_id, protocol_data in created_protocols.items():
-                if protocol_data.get('collection_name') == collection_name:
-                    protocol_data['status'] = new_status
+                if protocol_data.get("collection_name") == collection_name:
+                    protocol_data["status"] = new_status
                     return True
             return False
-        
+
         def delete_protocol(collection_name):
             for protocol_id, protocol_data in list(created_protocols.items()):
-                if protocol_data.get('collection_name') == collection_name:
+                if protocol_data.get("collection_name") == collection_name:
                     del created_protocols[protocol_id]
                     return True
             return False
-        
+
         mock_service.update_protocol_status.side_effect = update_protocol_status
         mock_service.update_protocol.return_value = True
         mock_service.delete_protocol_by_id.return_value = True
         mock_service.delete_protocol.side_effect = delete_protocol
-        
+
         yield TestClient(app)
 
 
@@ -293,8 +298,8 @@ def memory_qdrant_client():
     Returns:
         QdrantClient: In-memory Qdrant client
     """
-    from qdrant_client.models import VectorParams, Distance
-    
+    from qdrant_client.models import Distance, VectorParams
+
     client = QdrantClient(":memory:")
     # No longer create a protocols collection - using individual collections now
     return client

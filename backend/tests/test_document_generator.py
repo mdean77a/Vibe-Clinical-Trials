@@ -56,7 +56,8 @@ class TestDocumentGenerator:
         generator = DocumentGenerator(mock_qdrant_client, None, None)
 
         with patch(
-            "app.services.qdrant_service.QdrantService.get_embeddings", return_value=[[0.1] * 1536]
+            "app.services.qdrant_service.QdrantService.get_embeddings",
+            return_value=[[0.1] * 1536],
         ):
             context = generator.get_protocol_context(document_id, "inclusion criteria")
 
@@ -230,7 +231,8 @@ class TestRAGContextRetrieval:
         generator = DocumentGenerator(mock_qdrant_client, None, None)
 
         with patch(
-            "app.services.qdrant_service.QdrantService.get_embeddings", return_value=[[0.1] * 1536]
+            "app.services.qdrant_service.QdrantService.get_embeddings",
+            return_value=[[0.1] * 1536],
         ):
             # Test different section contexts
             title_context = generator.get_protocol_context(document_id, "study title")
@@ -266,7 +268,8 @@ class TestRAGContextRetrieval:
         generator = DocumentGenerator(mock_qdrant_client, None, None)
 
         with patch(
-            "app.services.qdrant_service.QdrantService.get_embeddings", return_value=[[0.1] * 1536]
+            "app.services.qdrant_service.QdrantService.get_embeddings",
+            return_value=[[0.1] * 1536],
         ):
             context = generator.get_protocol_context(
                 document_id,
@@ -321,13 +324,13 @@ class TestIntegrationScenarios:
 
             qdrant_service = QdrantService()
             qdrant_service.client = memory_qdrant_client  # Use test client
-            
+
             embeddings = [[0.1] * 1536 for _ in sample_protocol_chunks]
             collection_name = qdrant_service.create_protocol_collection(
                 sample_protocol_metadata["document_id"],
-                sample_protocol_metadata["protocol_title"]
+                sample_protocol_metadata["protocol_title"],
             )
-            
+
             qdrant_service.store_protocol_with_metadata(
                 collection_name=collection_name,
                 chunks=sample_protocol_chunks,
@@ -349,7 +352,8 @@ class TestIntegrationScenarios:
 
         # Generate ICF using the collection name that was actually created
         with patch(
-            "app.services.qdrant_service.QdrantService.get_embeddings", return_value=[[0.1] * 1536]
+            "app.services.qdrant_service.QdrantService.get_embeddings",
+            return_value=[[0.1] * 1536],
         ):
             icf_sections = generate_icf_sections(
                 document_id=collection_name,  # Use the actual collection name
@@ -362,7 +366,7 @@ class TestIntegrationScenarios:
             section in icf_sections
             for section in [
                 "summary",
-                "background", 
+                "background",
                 "participants",
                 "procedures",
                 "alternatives",

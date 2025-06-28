@@ -28,7 +28,7 @@ export default function HomePage() {
         
         // Check API health first
         try {
-          const healthResponse = await healthApi.check() as any;
+          const healthResponse = await healthApi.check();
           console.log('Health check response:', healthResponse);
           
           // Check if backend is actually available
@@ -40,7 +40,7 @@ export default function HomePage() {
           console.log('✅ API is healthy - using backend');
           
           // Load protocols from API
-          const apiResponse = await protocolsApi.list() as any;
+          const apiResponse = await protocolsApi.list();
           const apiProtocols = apiResponse.protocols || apiResponse || [];
           setProtocols(Array.isArray(apiProtocols) ? apiProtocols : []);
         } catch (apiError) {
@@ -90,7 +90,7 @@ export default function HomePage() {
     setShowUpload(true);
   };
 
-  const handleUploadComplete = async (fileName: string, acronym: string, uploadedProtocol?: any) => {
+  const handleUploadComplete = async (fileName: string, acronym: string, uploadedProtocol?: unknown) => {
     try {
       if (apiHealthy && uploadedProtocol) {
         // Use the protocol that was already created by the upload endpoint
@@ -106,10 +106,9 @@ export default function HomePage() {
         localStorage.setItem('selectedProtocol', JSON.stringify(newProtocol));
         
         // Navigate to document type selection page
-        const params = new URLSearchParams({
-          protocolId: (newProtocol as any).protocol_id || newProtocol.id,
-          studyAcronym: newProtocol.study_acronym
-        });
+        const params = new URLSearchParams();
+        params.set('protocolId', (newProtocol as Protocol).protocol_id || newProtocol.id);
+        params.set('studyAcronym', newProtocol.study_acronym);
         router.push(`/document-selection?${params.toString()}`);
       } else {
         // API is not available

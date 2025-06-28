@@ -5,7 +5,7 @@
   "scripts": {
     "test": "./scripts/test-local.sh",
     "test:quick": "./scripts/test-local.sh quick",
-    "test:backend": "./scripts/test-local.sh backend", 
+    "test:backend": "./scripts/test-local.sh backend",
     "test:frontend": "./scripts/test-local.sh frontend",
     "test:coverage": "./scripts/test-local.sh coverage",
     "test:parallel": "./scripts/test-local.sh --parallel",
@@ -29,5 +29,8 @@
     "react"
   ],
   "author": "Clinical Trial Accelerator Team",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@next/eslint-plugin-next": "^15.3.4"
+  }
 }

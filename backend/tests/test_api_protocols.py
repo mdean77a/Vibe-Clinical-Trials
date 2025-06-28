@@ -3,20 +3,20 @@ Unit tests for FastAPI protocol endpoints.
 
 This module tests all HTTP endpoints for protocol operations including:
 - Request/response validation
-- HTTP status codes  
+- HTTP status codes
 - Error handling
 - Integration scenarios
 
 Updated for Qdrant-only architecture (migrated from SQLite).
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.services.qdrant_service import QdrantError, QdrantService
 from app.models import ProtocolCreate
+from app.services.qdrant_service import QdrantError, QdrantService
 
 
 class TestCreateProtocolEndpoint:
@@ -83,7 +83,9 @@ class TestCreateProtocolEndpoint:
         self, test_client, sample_protocol_create_data
     ):
         """Test create protocol endpoint with database error."""
-        with patch("app.api.protocols.qdrant_service.create_protocol_collection") as mock_create:
+        with patch(
+            "app.api.protocols.qdrant_service.create_protocol_collection"
+        ) as mock_create:
             mock_create.side_effect = QdrantError("Database connection failed")
 
             response = test_client.post("/protocols/", json=sample_protocol_create_data)
@@ -210,7 +212,10 @@ class TestListProtocolsEndpoint:
 
         # Update its status using collection name endpoint
         update_data = {"status": "processed"}
-        test_client.patch(f"/protocols/collection/{created_protocol['collection_name']}/status", json=update_data)
+        test_client.patch(
+            f"/protocols/collection/{created_protocol['collection_name']}/status",
+            json=update_data,
+        )
 
         # List protocols with processing status filter
         response = test_client.get("/protocols/?status_filter=processing")
@@ -244,7 +249,8 @@ class TestUpdateProtocolStatusEndpoint:
         # Update status using collection name endpoint
         update_data = {"status": "processed"}
         response = test_client.patch(
-            f"/protocols/collection/{created_protocol['collection_name']}/status", json=update_data
+            f"/protocols/collection/{created_protocol['collection_name']}/status",
+            json=update_data,
         )
 
         assert response.status_code == 200
@@ -258,7 +264,9 @@ class TestUpdateProtocolStatusEndpoint:
     def test_update_protocol_status_not_found(self, test_client):
         """Test update protocol status with non-existent protocol."""
         update_data = {"status": "processed"}
-        response = test_client.patch("/protocols/collection/nonexistent_collection/status", json=update_data)
+        response = test_client.patch(
+            "/protocols/collection/nonexistent_collection/status", json=update_data
+        )
 
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
@@ -278,7 +286,8 @@ class TestUpdateProtocolStatusEndpoint:
         # Try to update with invalid status using collection name endpoint
         update_data = {"status": "invalid_status"}
         response = test_client.patch(
-            f"/protocols/collection/{created_protocol['collection_name']}/status", json=update_data
+            f"/protocols/collection/{created_protocol['collection_name']}/status",
+            json=update_data,
         )
 
         assert response.status_code == 422  # Validation error
@@ -298,7 +307,8 @@ class TestUpdateProtocolStatusEndpoint:
         # Update to failed status using collection name endpoint
         update_data = {"status": "failed"}
         response = test_client.patch(
-            f"/protocols/collection/{created_protocol['collection_name']}/status", json=update_data
+            f"/protocols/collection/{created_protocol['collection_name']}/status",
+            json=update_data,
         )
 
         assert response.status_code == 200
@@ -320,7 +330,9 @@ class TestDeleteProtocolEndpoint:
         protocol_id = created_protocol["protocol_id"]
 
         # Delete it using collection name endpoint
-        response = test_client.delete(f"/protocols/collection/{created_protocol['collection_name']}")
+        response = test_client.delete(
+            f"/protocols/collection/{created_protocol['collection_name']}"
+        )
 
         assert response.status_code == 204
         assert response.content == b""  # No content for 204

@@ -65,17 +65,15 @@ class TestStoreProtocolWithMetadata:
         """Test successful protocol storage with metadata."""
         # Mock embeddings
         mock_embeddings = [[0.1] * 1536 for _ in sample_protocol_chunks]
-        
+
         service = QdrantService(client=mock_qdrant_client)
-        
-        with patch.object(
-            service, "get_embeddings", return_value=mock_embeddings
-        ):
+
+        with patch.object(service, "get_embeddings", return_value=mock_embeddings):
             result = service.store_protocol_with_metadata(
                 collection_name="test-collection",
                 chunks=sample_protocol_chunks,
                 embeddings=mock_embeddings,
-                protocol_metadata=sample_protocol_metadata
+                protocol_metadata=sample_protocol_metadata,
             )
 
         assert result is True
@@ -90,15 +88,15 @@ class TestStoreProtocolWithMetadata:
         service = QdrantService(client=mock_qdrant_client)
         # Invalid embeddings - wrong dimensions
         invalid_embeddings = [[0.1] * 10 for _ in sample_protocol_chunks]  # Wrong size
-        
+
         mock_qdrant_client.upsert.side_effect = Exception("Invalid vector dimension")
-        
+
         with pytest.raises(QdrantError, match="Failed to store protocol"):
             service.store_protocol_with_metadata(
                 collection_name="test-collection",
                 chunks=sample_protocol_chunks,
                 embeddings=invalid_embeddings,
-                protocol_metadata=sample_protocol_metadata
+                protocol_metadata=sample_protocol_metadata,
             )
 
     @pytest.mark.unit
@@ -116,7 +114,7 @@ class TestStoreProtocolWithMetadata:
                 collection_name="test-collection",
                 chunks=sample_protocol_chunks,
                 embeddings=mock_embeddings,
-                protocol_metadata=sample_protocol_metadata
+                protocol_metadata=sample_protocol_metadata,
             )
 
 
@@ -138,13 +136,11 @@ class TestSearchProtocols:
         mock_qdrant_client.search.return_value = mock_points
 
         service = QdrantService(client=mock_qdrant_client)
-        with patch.object(
-            service, "get_embeddings", return_value=[[0.1] * 1536]
-        ):
+        with patch.object(service, "get_embeddings", return_value=[[0.1] * 1536]):
             results = service.search_protocol_documents(
-                protocol_collection_name="test-collection", 
-                query="clinical trial safety", 
-                limit=5
+                protocol_collection_name="test-collection",
+                query="clinical trial safety",
+                limit=5,
             )
 
         assert len(results) == 1
@@ -158,12 +154,9 @@ class TestSearchProtocols:
         mock_qdrant_client.search.return_value = []
 
         service = QdrantService(client=mock_qdrant_client)
-        with patch.object(
-            service, "get_embeddings", return_value=[[0.1] * 1536]
-        ):
+        with patch.object(service, "get_embeddings", return_value=[[0.1] * 1536]):
             results = service.search_protocol_documents(
-                protocol_collection_name="test-collection",
-                query="nonexistent protocol"
+                protocol_collection_name="test-collection", query="nonexistent protocol"
             )
 
         assert results == []
@@ -181,15 +174,15 @@ class TestGetProtocolById:
         document_id = sample_protocol_metadata["document_id"]
 
         service = QdrantService(client=mock_qdrant_client)
-        
+
         # Mock list_all_protocols to return our test protocol
         test_protocol = {
             "protocol_id": document_id,
             "study_acronym": sample_protocol_metadata["study_acronym"],
-            **sample_protocol_metadata
+            **sample_protocol_metadata,
         }
-        
-        with patch.object(service, 'list_all_protocols', return_value=[test_protocol]):
+
+        with patch.object(service, "list_all_protocols", return_value=[test_protocol]):
             result = service.get_protocol_by_id(document_id)
 
         assert result is not None
@@ -222,11 +215,11 @@ class TestListAllProtocols:
         mock_collections = MagicMock()
         mock_collections.collections = [mock_collection_info]
         mock_qdrant_client.get_collections.return_value = mock_collections
-        
+
         # Mock scroll results for the collection
         mock_points = [MagicMock(payload=multiple_protocols_metadata[0])]
         mock_qdrant_client.scroll.return_value = (mock_points, None)
-        
+
         # Mock get_collection for point count
         mock_collection_detail = MagicMock()
         mock_collection_detail.points_count = 5
@@ -269,11 +262,11 @@ class TestListAllProtocols:
         mock_collections = MagicMock()
         mock_collections.collections = [mock_collection_info]
         mock_qdrant_client.get_collections.return_value = mock_collections
-        
+
         # Mock scroll returning the completed protocol
         mock_points = [MagicMock(payload=completed_metadata)]
         mock_qdrant_client.scroll.return_value = (mock_points, None)
-        
+
         # Mock collection detail
         mock_collection_detail = MagicMock()
         mock_collection_detail.points_count = 1
@@ -297,26 +290,26 @@ class TestIntegrationScenarios:
     ):
         """Test complete protocol lifecycle with new QdrantService."""
         service = QdrantService(client=memory_qdrant_client)
-        
+
         # Create protocol collection
         collection_name = service.create_protocol_collection(
-            study_acronym="TEST",
-            protocol_title="Test Protocol"
+            study_acronym="TEST", protocol_title="Test Protocol"
         )
-        
+
         # Store protocol with metadata
         mock_embeddings = [[0.1] * 1536 for _ in sample_protocol_chunks]
         with patch.object(
-            service, "get_embeddings",
+            service,
+            "get_embeddings",
             return_value=mock_embeddings,
         ):
             success = service.store_protocol_with_metadata(
                 collection_name=collection_name,
                 chunks=sample_protocol_chunks,
                 embeddings=mock_embeddings,
-                protocol_metadata=sample_protocol_metadata
+                protocol_metadata=sample_protocol_metadata,
             )
-        
+
         assert success is True
 
         # Retrieve by collection name
@@ -329,11 +322,8 @@ class TestIntegrationScenarios:
         assert len(all_protocols) >= 1
 
         # Search within the protocol collection
-        with patch.object(
-            service, "get_embeddings", return_value=[[0.1] * 1536]
-        ):
+        with patch.object(service, "get_embeddings", return_value=[[0.1] * 1536]):
             search_results = service.search_protocol_documents(
-                protocol_collection_name=collection_name,
-                query="clinical trial"
+                protocol_collection_name=collection_name, query="clinical trial"
             )
             assert len(search_results) >= 1
