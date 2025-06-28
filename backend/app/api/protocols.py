@@ -132,7 +132,7 @@ async def create_new_protocol(protocol: ProtocolCreate) -> ProtocolResponse:
 
         # Create protocol metadata
         protocol_metadata = {
-            "protocol_id": f"proto_{int(time.time())}",
+            "protocol_id": f"proto_{int(time.time() * 1000)}",  # Use milliseconds for uniqueness
             "study_acronym": protocol.study_acronym,
             "protocol_title": protocol.protocol_title,
             "collection_name": collection_name,
@@ -234,7 +234,7 @@ async def upload_and_process_protocol(
 
         # Create protocol metadata
         protocol_metadata = {
-            "protocol_id": f"proto_{int(time.time())}",
+            "protocol_id": f"proto_{int(time.time() * 1000)}",  # Use milliseconds for uniqueness
             "study_acronym": study_acronym,
             "protocol_title": protocol_title,
             "collection_name": collection_name,

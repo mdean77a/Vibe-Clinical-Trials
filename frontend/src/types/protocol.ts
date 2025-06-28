@@ -13,6 +13,15 @@ export interface Protocol {
   created_at?: string; // From Qdrant API
 }
 
+// API Response Types
+export interface HealthResponse {
+  status: string;
+}
+
+export interface ProtocolsListResponse {
+  protocols?: Protocol[];
+}
+
 // Utility function to safely get protocol ID (handles both Qdrant and mock formats)
 export const getProtocolId = (protocol: Protocol): string => {
   return protocol.protocol_id || protocol.id || '';

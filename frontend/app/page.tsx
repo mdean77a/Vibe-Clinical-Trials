@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtocolSelector from '@/components/ProtocolSelector';
 import ProtocolUpload from '@/components/ProtocolUpload';
-import type { Protocol } from '@/types/protocol';
+import type { Protocol, HealthResponse, ProtocolsListResponse } from '@/types/protocol';
 import { getProtocolId } from '@/types/protocol';
 import { protocolsApi, healthApi, logApiConfig } from '@/utils/api';
 
@@ -28,20 +28,20 @@ export default function HomePage() {
         
         // Check API health first
         try {
-          const healthResponse = await healthApi.check();
+          const healthResponse = await healthApi.check() as HealthResponse;
           console.log('Health check response:', healthResponse);
           
           // Check if backend is actually available
-          if (healthResponse.backend_available === false) {
-            throw new Error(`Backend unavailable: ${healthResponse.backend_error}`);
+          if (healthResponse.status !== 'healthy') {
+            throw new Error(`Backend unavailable: ${healthResponse.status}`);
           }
           
           setApiHealthy(true);
           console.log('✅ API is healthy - using backend');
           
           // Load protocols from API
-          const apiResponse = await protocolsApi.list();
-          const apiProtocols = apiResponse.protocols || apiResponse || [];
+          const apiResponse = await protocolsApi.list() as Protocol[] | ProtocolsListResponse;
+          const apiProtocols = Array.isArray(apiResponse) ? apiResponse : (apiResponse as ProtocolsListResponse).protocols || [];
           setProtocols(Array.isArray(apiProtocols) ? apiProtocols : []);
         } catch (apiError) {
           console.warn('⚠️ API unavailable:', apiError);
@@ -107,8 +107,13 @@ export default function HomePage() {
         
         // Navigate to document type selection page
         const params = new URLSearchParams();
-        params.set('protocolId', (newProtocol as Protocol).protocol_id || newProtocol.id);
-        params.set('studyAcronym', newProtocol.study_acronym);
+        const protocolId = newProtocol.protocol_id || newProtocol.id;
+        if (protocolId) {
+          params.set('protocolId', protocolId);
+          params.set('studyAcronym', newProtocol.study_acronym);
+        } else {
+          throw new Error('Protocol ID is missing');
+        }
         router.push(`/document-selection?${params.toString()}`);
       } else {
         // API is not available
@@ -196,7 +201,6 @@ export default function HomePage() {
         />
       ) : (
         <>
-          {console.log('🎯 Rendering ProtocolSelector with protocols:', protocols)}
           <ProtocolSelector 
             protocols={protocols}
             onProtocolSelect={handleProtocolSelect}

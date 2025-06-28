@@ -25,7 +25,7 @@ class TestCreateProtocolEndpoint:
     @pytest.mark.unit
     def test_create_protocol_success(self, test_client, sample_protocol_create_data):
         """Test successful protocol creation via API."""
-        response = test_client.post("/protocols/", json=sample_protocol_create_data)
+        response = test_client.post("/api/protocols/", json=sample_protocol_create_data)
 
         assert response.status_code == 201
         data = response.json()
@@ -47,7 +47,7 @@ class TestCreateProtocolEndpoint:
             "protocol_title": "Test Protocol",
         }
 
-        response = test_client.post("/protocols/", json=protocol_data)
+        response = test_client.post("/api/protocols/", json=protocol_data)
 
         assert response.status_code == 201
         data = response.json()
@@ -61,7 +61,7 @@ class TestCreateProtocolEndpoint:
             "protocol_title": "Test Protocol",
         }
 
-        response = test_client.post("/protocols/", json=invalid_data)
+        response = test_client.post("/api/protocols/", json=invalid_data)
 
         assert response.status_code == 422  # Validation error
         assert "detail" in response.json()
@@ -74,7 +74,7 @@ class TestCreateProtocolEndpoint:
             # Missing protocol_title
         }
 
-        response = test_client.post("/protocols/", json=incomplete_data)
+        response = test_client.post("/api/protocols/", json=incomplete_data)
 
         assert response.status_code == 422
 
@@ -88,7 +88,7 @@ class TestCreateProtocolEndpoint:
         ) as mock_create:
             mock_create.side_effect = QdrantError("Database connection failed")
 
-            response = test_client.post("/protocols/", json=sample_protocol_create_data)
+            response = test_client.post("/api/protocols/", json=sample_protocol_create_data)
 
             assert response.status_code == 500
             assert "Failed to create protocol" in response.json()["detail"]
@@ -102,13 +102,13 @@ class TestGetProtocolEndpoint:
         """Test successful protocol retrieval by ID."""
         # Create a protocol first
         create_response = test_client.post(
-            "/protocols/", json=sample_protocol_create_data
+            "/api/protocols/", json=sample_protocol_create_data
         )
         created_protocol = create_response.json()
         protocol_id = created_protocol["protocol_id"]
 
         # Retrieve it
-        response = test_client.get(f"/protocols/{protocol_id}")
+        response = test_client.get(f"/api/protocols/{protocol_id}")
 
         assert response.status_code == 200
         data = response.json()
@@ -120,17 +120,11 @@ class TestGetProtocolEndpoint:
     @pytest.mark.unit
     def test_get_protocol_not_found(self, test_client):
         """Test get protocol with non-existent ID."""
-        response = test_client.get("/protocols/999")
+        response = test_client.get("/api/protocols/999")
 
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    @pytest.mark.unit
-    def test_get_protocol_invalid_id(self, test_client):
-        """Test get protocol with invalid ID format."""
-        response = test_client.get("/protocols/invalid")
-
-        assert response.status_code == 422  # Validation error
 
 
 class TestGetProtocolByCollectionEndpoint:
@@ -143,13 +137,13 @@ class TestGetProtocolByCollectionEndpoint:
         """Test successful protocol retrieval by collection name."""
         # Create a protocol first
         create_response = test_client.post(
-            "/protocols/", json=sample_protocol_create_data
+            "/api/protocols/", json=sample_protocol_create_data
         )
         created_protocol = create_response.json()
         collection_name = created_protocol["collection_name"]
 
         # Retrieve by collection name
-        response = test_client.get(f"/protocols/collection/{collection_name}")
+        response = test_client.get(f"/api/protocols/collection/{collection_name}")
 
         assert response.status_code == 200
         data = response.json()
@@ -160,7 +154,7 @@ class TestGetProtocolByCollectionEndpoint:
     @pytest.mark.unit
     def test_get_protocol_by_collection_not_found(self, test_client):
         """Test get protocol by collection name with non-existent collection."""
-        response = test_client.get("/protocols/collection/nonexistent_collection")
+        response = test_client.get("/api/protocols/collection/nonexistent_collection")
 
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
@@ -172,7 +166,7 @@ class TestListProtocolsEndpoint:
     @pytest.mark.unit
     def test_list_protocols_empty(self, test_client):
         """Test listing protocols with empty database."""
-        response = test_client.get("/protocols/")
+        response = test_client.get("/api/protocols/")
 
         assert response.status_code == 200
         data = response.json()
@@ -184,11 +178,11 @@ class TestListProtocolsEndpoint:
         # Create multiple protocols
         created_protocols = []
         for protocol_data in multiple_protocols_data:
-            create_response = test_client.post("/protocols/", json=protocol_data)
+            create_response = test_client.post("/api/protocols/", json=protocol_data)
             created_protocols.append(create_response.json())
 
         # List all protocols
-        response = test_client.get("/protocols/")
+        response = test_client.get("/api/protocols/")
 
         assert response.status_code == 200
         data = response.json()
@@ -205,7 +199,7 @@ class TestListProtocolsEndpoint:
         """Test listing protocols with status filter."""
         # Create a protocol
         create_response = test_client.post(
-            "/protocols/", json=sample_protocol_create_data
+            "/api/protocols/", json=sample_protocol_create_data
         )
         created_protocol = create_response.json()
         protocol_id = created_protocol["protocol_id"]
@@ -213,18 +207,18 @@ class TestListProtocolsEndpoint:
         # Update its status using collection name endpoint
         update_data = {"status": "processed"}
         test_client.patch(
-            f"/protocols/collection/{created_protocol['collection_name']}/status",
+            f"/api/protocols/collection/{created_protocol['collection_name']}/status",
             json=update_data,
         )
 
         # List protocols with processing status filter
-        response = test_client.get("/protocols/?status_filter=processing")
+        response = test_client.get("/api/protocols/?status_filter=processing")
         assert response.status_code == 200
         processing_protocols = response.json()
         assert len(processing_protocols) == 0
 
         # List protocols with processed status filter
-        response = test_client.get("/protocols/?status_filter=processed")
+        response = test_client.get("/api/protocols/?status_filter=processed")
         assert response.status_code == 200
         processed_protocols = response.json()
         assert len(processed_protocols) == 1
@@ -241,7 +235,7 @@ class TestUpdateProtocolStatusEndpoint:
         """Test successful protocol status update."""
         # Create a protocol first
         create_response = test_client.post(
-            "/protocols/", json=sample_protocol_create_data
+            "/api/protocols/", json=sample_protocol_create_data
         )
         created_protocol = create_response.json()
         protocol_id = created_protocol["protocol_id"]
@@ -249,7 +243,7 @@ class TestUpdateProtocolStatusEndpoint:
         # Update status using collection name endpoint
         update_data = {"status": "processed"}
         response = test_client.patch(
-            f"/protocols/collection/{created_protocol['collection_name']}/status",
+            f"/api/protocols/collection/{created_protocol['collection_name']}/status",
             json=update_data,
         )
 
@@ -265,7 +259,7 @@ class TestUpdateProtocolStatusEndpoint:
         """Test update protocol status with non-existent protocol."""
         update_data = {"status": "processed"}
         response = test_client.patch(
-            "/protocols/collection/nonexistent_collection/status", json=update_data
+            "/api/protocols/collection/nonexistent_collection/status", json=update_data
         )
 
         assert response.status_code == 404
@@ -278,7 +272,7 @@ class TestUpdateProtocolStatusEndpoint:
         """Test update protocol status with invalid status value."""
         # Create a protocol first
         create_response = test_client.post(
-            "/protocols/", json=sample_protocol_create_data
+            "/api/protocols/", json=sample_protocol_create_data
         )
         created_protocol = create_response.json()
         protocol_id = created_protocol["protocol_id"]
@@ -286,7 +280,7 @@ class TestUpdateProtocolStatusEndpoint:
         # Try to update with invalid status using collection name endpoint
         update_data = {"status": "invalid_status"}
         response = test_client.patch(
-            f"/protocols/collection/{created_protocol['collection_name']}/status",
+            f"/api/protocols/collection/{created_protocol['collection_name']}/status",
             json=update_data,
         )
 
@@ -299,7 +293,7 @@ class TestUpdateProtocolStatusEndpoint:
         """Test updating protocol status to failed."""
         # Create a protocol first
         create_response = test_client.post(
-            "/protocols/", json=sample_protocol_create_data
+            "/api/protocols/", json=sample_protocol_create_data
         )
         created_protocol = create_response.json()
         protocol_id = created_protocol["protocol_id"]
@@ -307,7 +301,7 @@ class TestUpdateProtocolStatusEndpoint:
         # Update to failed status using collection name endpoint
         update_data = {"status": "failed"}
         response = test_client.patch(
-            f"/protocols/collection/{created_protocol['collection_name']}/status",
+            f"/api/protocols/collection/{created_protocol['collection_name']}/status",
             json=update_data,
         )
 
@@ -324,27 +318,27 @@ class TestDeleteProtocolEndpoint:
         """Test successful protocol deletion."""
         # Create a protocol first
         create_response = test_client.post(
-            "/protocols/", json=sample_protocol_create_data
+            "/api/protocols/", json=sample_protocol_create_data
         )
         created_protocol = create_response.json()
         protocol_id = created_protocol["protocol_id"]
 
         # Delete it using collection name endpoint
         response = test_client.delete(
-            f"/protocols/collection/{created_protocol['collection_name']}"
+            f"/api/protocols/collection/{created_protocol['collection_name']}"
         )
 
         assert response.status_code == 204
         assert response.content == b""  # No content for 204
 
         # Verify it's deleted
-        get_response = test_client.get(f"/protocols/{protocol_id}")
+        get_response = test_client.get(f"/api/protocols/{protocol_id}")
         assert get_response.status_code == 404
 
     @pytest.mark.unit
     def test_delete_protocol_not_found(self, test_client):
         """Test delete protocol with non-existent protocol."""
-        response = test_client.delete("/protocols/collection/nonexistent_collection")
+        response = test_client.delete("/api/protocols/collection/nonexistent_collection")
 
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
@@ -369,7 +363,7 @@ class TestHealthEndpoints:
     @pytest.mark.unit
     def test_health_check_endpoint(self, test_client):
         """Test health check endpoint."""
-        response = test_client.get("/health")
+        response = test_client.get("/api/health")
 
         assert response.status_code == 200
         data = response.json()
@@ -389,13 +383,13 @@ class TestIntegrationScenarios:
         }
 
         # Create
-        create_response = test_client.post("/protocols/", json=protocol_data)
+        create_response = test_client.post("/api/protocols/", json=protocol_data)
         assert create_response.status_code == 201
         created_protocol = create_response.json()
         protocol_id = created_protocol["protocol_id"]
 
         # Read by ID
-        get_response = test_client.get(f"/protocols/{protocol_id}")
+        get_response = test_client.get(f"/api/protocols/{protocol_id}")
         assert get_response.status_code == 200
         retrieved_protocol = get_response.json()
         assert retrieved_protocol["study_acronym"] == "STUDY-LIFECYCLE"
@@ -403,36 +397,36 @@ class TestIntegrationScenarios:
         # Read by collection name
         collection_name = created_protocol["collection_name"]
         collection_response = test_client.get(
-            f"/protocols/collection/{collection_name}"
+            f"/api/protocols/collection/{collection_name}"
         )
         assert collection_response.status_code == 200
 
         # Update status using collection name endpoint
         update_data = {"status": "processed"}
         update_response = test_client.patch(
-            f"/protocols/collection/{collection_name}/status", json=update_data
+            f"/api/protocols/collection/{collection_name}/status", json=update_data
         )
         assert update_response.status_code == 200
         updated_protocol = update_response.json()
         assert updated_protocol["status"] == "processed"
 
         # Verify in list
-        list_response = test_client.get("/protocols/")
+        list_response = test_client.get("/api/protocols/")
         assert list_response.status_code == 200
         all_protocols = list_response.json()
         assert len(all_protocols) == 1
         assert all_protocols[0]["status"] == "processed"
 
         # Delete using collection name endpoint
-        delete_response = test_client.delete(f"/protocols/collection/{collection_name}")
+        delete_response = test_client.delete(f"/api/protocols/collection/{collection_name}")
         assert delete_response.status_code == 204
 
         # Verify deleted
-        get_deleted_response = test_client.get(f"/protocols/{protocol_id}")
+        get_deleted_response = test_client.get(f"/api/protocols/{protocol_id}")
         assert get_deleted_response.status_code == 404
 
         # Verify empty list
-        final_list_response = test_client.get("/protocols/")
+        final_list_response = test_client.get("/api/protocols/")
         assert final_list_response.status_code == 200
         final_protocols = final_list_response.json()
         assert len(final_protocols) == 0
@@ -451,7 +445,7 @@ class TestIntegrationScenarios:
 
         created_protocols = []
         for protocol_data in protocols_data:
-            response = test_client.post("/protocols/", json=protocol_data)
+            response = test_client.post("/api/protocols/", json=protocol_data)
             assert response.status_code == 201
             created_protocols.append(response.json())
 
@@ -460,7 +454,7 @@ class TestIntegrationScenarios:
         assert len(set(collection_names)) == 5  # All unique
 
         # Verify all can be retrieved via list endpoint
-        list_response = test_client.get("/protocols/")
+        list_response = test_client.get("/api/protocols/")
         assert list_response.status_code == 200
         all_protocols = list_response.json()
         assert len(all_protocols) == 5

@@ -104,6 +104,7 @@ def test_client() -> TestClient:
     # Patch the Qdrant service to use in-memory client with proper mock configuration
     with patch("app.api.protocols.qdrant_service") as mock_service:
         # Storage for created protocols to maintain consistency
+        # Reset for each test to ensure clean state
         created_protocols = {}
 
         # Protocol creation methods with unique collection names
@@ -147,7 +148,9 @@ def test_client() -> TestClient:
 
         # Protocol listing methods
         def list_all_protocols():
-            return list(created_protocols.values())
+            # Return protocols sorted by upload_date DESC (most recent first)
+            protocols = list(created_protocols.values())
+            return sorted(protocols, key=lambda p: p.get("upload_date", ""), reverse=True)
 
         mock_service.list_all_protocols.side_effect = list_all_protocols
         mock_service.list_protocols.return_value = []

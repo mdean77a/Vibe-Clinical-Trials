@@ -173,19 +173,19 @@ run_frontend_checks() {
     
     case $check_type in
         "tests"|"quick"|"all")
-            run_check "Frontend Tests (vitest)" "npm run test -- --run" "$FRONTEND_DIR" || failed=1
+            run_check "Frontend Tests (jest)" "npm run test" "$FRONTEND_DIR" || failed=1
             ;;
     esac
     
     case $check_type in
         "coverage"|"all")
-            run_check "Frontend Coverage (vitest)" "npm run test:coverage -- --run" "$FRONTEND_DIR" || failed=1
+            run_check "Frontend Coverage (jest)" "npm run test:coverage" "$FRONTEND_DIR" || failed=1
             ;;
     esac
     
     case $check_type in
         "build"|"all")
-            run_check "Frontend Build (vite)" "npm run build" "$FRONTEND_DIR" || failed=1
+            run_check "Frontend Build (next)" "npm run build" "$FRONTEND_DIR" || failed=1
             ;;
     esac
     
