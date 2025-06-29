@@ -239,3 +239,4 @@ tmp/
 temp/
 
 .vercel
+.claude/sessions/.current-session
