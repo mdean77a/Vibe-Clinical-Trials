@@ -19,6 +19,7 @@ from .document_generator import (
     StreamingICFWorkflow,
     get_langgraph_workflow,
 )
+from ..prompts.icf_prompts import ICF_SECTION_QUERIES
 from .qdrant_service import get_qdrant_service
 
 logger = logging.getLogger(__name__)
@@ -256,19 +257,8 @@ class ICFGenerationService:
 
         async def stream_section():
             try:
-                # Section-specific queries for better context retrieval
-                section_queries = {
-                    "summary": "study overview purpose objectives summary",
-                    "background": "background rationale medical scientific basis",
-                    "participants": "eligibility criteria inclusion exclusion participants subjects",
-                    "procedures": "study procedures timeline visits tests schedule",
-                    "alternatives": "alternative treatments options standard care",
-                    "risks": "risks side effects adverse events safety concerns",
-                    "benefits": "benefits potential outcomes therapeutic effects",
-                }
-
-                # Get section-specific context
-                query = section_queries.get(
+                # Use the same section queries as initial generation for consistency
+                query = ICF_SECTION_QUERIES.get(
                     section_name, f"{section_name} informed consent"
                 )
                 context = self.document_generator.get_protocol_context(
@@ -504,10 +494,13 @@ class ICFGenerationService:
             Dict containing the regenerated section content
         """
         try:
-            # Get protocol context for the specific section
+            # Get protocol context for the specific section using the same queries as initial generation
+            query = ICF_SECTION_QUERIES.get(
+                section_name, f"informed consent form {section_name} requirements"
+            )
             context = self.document_generator.get_protocol_context(
                 protocol_collection_name,
-                f"informed consent form {section_name} requirements",
+                query,
                 min_score=0.3,
             )
 

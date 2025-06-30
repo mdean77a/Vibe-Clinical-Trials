@@ -20,6 +20,9 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient
 
+from app.prompts.icf_prompts import ICF_PROMPTS, ICF_SECTION_QUERIES
+from app.prompts.site_checklist_prompts import SITE_CHECKLIST_PROMPTS
+
 logger = logging.getLogger(__name__)
 
 
@@ -275,16 +278,7 @@ class ICFWorkflow(WorkflowBase):
 
     def _get_section_query(self, section_name: str) -> str:
         """Get section-specific queries like your prototype."""
-        queries = {
-            "summary": "study purpose objectives overview participants intervention primary endpoints summary",
-            "background": "background rationale medical condition disease previous studies literature review justification",
-            "participants": "eligibility criteria inclusion exclusion participants enrollment target population demographics",
-            "procedures": "study procedures visits tests treatments interventions timeline schedule follow-up assessments",
-            "alternatives": "alternative treatments standard care options therapy comparisons current practice",
-            "risks": "risks side effects adverse events safety monitoring toxicity complications contraindications",
-            "benefits": "benefits outcomes efficacy potential improvements therapeutic effects clinical benefits",
-        }
-        return queries.get(section_name, "informed consent form requirements")
+        return ICF_SECTION_QUERIES.get(section_name, "informed consent form requirements")
 
     def generate_title(self, context: str) -> str:
         """Generate title section - kept for backward compatibility."""
@@ -376,82 +370,7 @@ class ICFWorkflow(WorkflowBase):
 
     def _get_section_prompt(self, section_name: str) -> str:
         """Get the prompt for a specific ICF section."""
-        prompts = {
-            "summary": """
-You are an expert clinical trial specialist creating an ICF Summary section.
-Generate a clear, concise summary (2-3 paragraphs) that:
-- Explains what the study is about in plain language
-- States the main purpose and what participants will do
-- Mentions key time commitments
-- Uses language appropriate for general public (8th grade reading level)
-- Follows FDA 21 CFR 50 guidelines
-""",
-            "background": """
-You are an expert clinical trial specialist creating an ICF Background section.
-Generate a comprehensive background section that:
-- Explains the medical condition or research question
-- Describes why this study is needed
-- Summarizes relevant previous research
-- Explains how this study will advance knowledge
-- Uses clear, non-technical language when possible
-- Follows FDA 21 CFR 50 guidelines
-""",
-            "participants": """
-You are an expert clinical trial specialist creating an ICF Participants section.
-Generate a clear participants section that:
-- States the total number of participants expected
-- Explains who can participate (inclusion criteria in plain language)
-- Explains who cannot participate (exclusion criteria in plain language)
-- Mentions study locations if relevant
-- Uses accessible language for general public
-- Follows FDA 21 CFR 50 guidelines
-""",
-            "procedures": """
-You are an expert clinical trial specialist creating an ICF Study Procedures section.
-Generate a detailed procedures section that:
-- Lists all study visits and procedures chronologically
-- Explains what happens at each visit
-- Describes any tests, treatments, or interventions
-- Mentions time commitments for each procedure
-- Explains any follow-up requirements
-- Uses step-by-step format for clarity
-- Follows FDA 21 CFR 50 guidelines
-""",
-            "alternatives": """
-You are an expert clinical trial specialist creating an ICF Alternative Procedures section.
-Generate a comprehensive alternatives section that:
-- Lists available alternative treatments outside the study
-- Explains standard care options
-- Describes pros and cons of alternatives vs. study participation
-- Mentions that choosing not to participate is an alternative
-- Uses balanced, non-coercive language
-- Follows FDA 21 CFR 50 guidelines
-""",
-            "risks": """
-You are an expert clinical trial specialist creating an ICF Risks section.
-Generate a thorough risks section that:
-- Lists all known and potential risks
-- Explains likelihood and severity of each risk
-- Describes how risks will be monitored and managed
-- Mentions unknown risks may exist
-- Uses clear, honest language without minimizing risks
-- Groups risks by category (common, serious, unknown)
-- Follows FDA 21 CFR 50 guidelines
-""",
-            "benefits": """
-You are an expert clinical trial specialist creating an ICF Benefits section.
-Generate a balanced benefits section that:
-- Lists potential direct benefits to participants
-- Explains potential benefits to society/future patients
-- Clearly states that benefits are not guaranteed
-- Avoids overstating or promising benefits
-- Uses realistic, evidence-based language
-- Balances hope with scientific uncertainty
-- Follows FDA 21 CFR 50 guidelines
-""",
-        }
-
-        return prompts.get(
+        return ICF_PROMPTS.get(
             section_name, "Generate an appropriate ICF section based on the context."
         )
 
@@ -764,76 +683,7 @@ class StreamingICFWorkflow(ICFWorkflow):
 
     def _get_section_prompt(self, section_name: str) -> str:
         """Get the prompt for a specific checklist section."""
-        prompts = {
-            "regulatory": """
-You are an expert clinical operations specialist creating regulatory requirements for site initiation.
-Generate a comprehensive regulatory checklist that includes:
-- IRB/IEC approval requirements and timelines
-- Regulatory submissions and documentation
-- Protocol amendments and notifications
-- Investigator qualifications and CVs
-- Site licensing and certification requirements
-- Regulatory compliance monitoring setup
-Format as actionable checklist items with clear deadlines.
-""",
-            "training": """
-You are an expert clinical operations specialist creating training requirements for site initiation.
-Generate a comprehensive training checklist that includes:
-- GCP (Good Clinical Practice) training requirements
-- Protocol-specific training modules
-- Investigator and staff training documentation
-- Training verification and competency assessment
-- Ongoing training requirements
-- Training record maintenance
-Format as actionable checklist items with clear completion criteria.
-""",
-            "equipment": """
-You are an expert clinical operations specialist creating equipment requirements for site initiation.
-Generate a comprehensive equipment checklist that includes:
-- Study-specific equipment and supplies
-- Calibration and maintenance requirements
-- Installation and setup procedures
-- User training for equipment
-- Backup and contingency equipment
-- Equipment qualification documentation
-Format as actionable checklist items with specifications.
-""",
-            "documentation": """
-You are an expert clinical operations specialist creating documentation requirements for site initiation.
-Generate a comprehensive documentation checklist that includes:
-- Essential document preparation and filing
-- Site file organization and maintenance
-- Source document templates and guidelines
-- Data collection forms and eCRF setup
-- Document version control procedures
-- Archival and retention requirements
-Format as actionable checklist items with clear deliverables.
-""",
-            "preparation": """
-You are an expert clinical operations specialist creating site preparation tasks for study initiation.
-Generate a comprehensive preparation checklist that includes:
-- Physical site preparation and setup
-- Staff role assignments and responsibilities
-- Communication protocols and contacts
-- Emergency procedures and safety protocols
-- Participant recruitment preparation
-- Site visit scheduling and logistics
-Format as actionable checklist items with clear timelines.
-""",
-            "timeline": """
-You are an expert clinical operations specialist creating timeline and milestones for site initiation.
-Generate a comprehensive timeline that includes:
-- Key milestone dates and dependencies
-- Critical path activities and deadlines
-- Regulatory submission timelines
-- Training completion schedules
-- Equipment delivery and installation dates
-- Study start and recruitment timelines
-Format as actionable timeline with clear milestones and deadlines.
-""",
-        }
-
-        return prompts.get(
+        return SITE_CHECKLIST_PROMPTS.get(
             section_name,
             "Generate an appropriate checklist section based on the context.",
         )
