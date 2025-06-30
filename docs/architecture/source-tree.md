@@ -64,7 +64,7 @@ vibe-clinical-trials/
 │   │   │   ├── __init__.py
 │   │   │   ├── config.py        # Configuration management
 │   │   │   ├── qdrant.py        # Qdrant client and operations
-│   │   │   └── pdf_processor.py # PyMuPDF processing
+│   │   │   └── (pdf_processor.py removed - unused Docling code)
 │   │   ├── services/            # Business logic
 │   │   │   ├── __init__.py
 │   │   │   ├── rag_pipeline.py  # RAG implementation
