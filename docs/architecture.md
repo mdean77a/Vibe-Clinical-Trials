@@ -10,7 +10,7 @@ Clinical Trial Accelerator is a monorepo-based, full-stack web application that 
 - **Primary LLM:** Claude Sonnet 4 with automatic GPT-4o fallback
 - **Vector Database:** Qdrant (unified metadata + embeddings storage)
 - **Document Types:** ICF (✅ Implemented), Site Checklist (🚧 UI Ready), SAP, DMP, CRF (Future)
-- **PDF Processing:** PyMuPDF → Docling (planned upgrade)
+- **PDF Processing:** PyMuPDF (current implementation)
 - **Review Interface:** Section-based editing with approval workflows
 
 ## 🔹 High-Level Overview
@@ -128,7 +128,7 @@ clinical-trial-accelerator/
 │   │   │   ├── rag_pipeline.py       # RAG retrieval and context
 │   │   │   └── session_manager.py    # Active protocol context
 │   │   ├── services/
-│   │   │   ├── pdf_processor.py      # PyMuPDF → Docling upgrade
+│   │   │   ├── pdf_processor.py      # PyMuPDF processing (REMOVED - unused Docling code)
 │   │   │   ├── document_generator.py # LangGraph workflow dispatcher
 │   │   │   ├── icf_service.py        # ICF-specific business logic
 │   │   │   └── qdrant_service.py     # Vector operations, metadata queries
@@ -203,7 +203,7 @@ clinical-trial-accelerator/
 | **Fallback LLM**         | OpenAI GPT-4o             | Latest         | Automatic fallback for resilience         |
 | **Embeddings**           | OpenAI API                | Latest         | Vector embeddings with mock fallback      |
 | **Vector Database**      | Qdrant                    | 1.6+           | **Unified storage** - metadata + vectors  |
-| **PDF Processing**       | PyMuPDF                   | 1.23+          | Text extraction (Docling upgrade planned) |
+| **PDF Processing**       | PyMuPDF                   | 1.23+          | Text extraction and chunking |
 | **UI Framework**         | Tailwind CSS              | 3.x            | Utility-first styling                      |
 | **State Management**     | Zustand                   | 4.x            | Lightweight React state                    |
 | **Rich Text Editor**     | TipTap                    | 2.x            | Section-level content editing              |
