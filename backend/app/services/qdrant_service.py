@@ -217,22 +217,32 @@ class QdrantService:
                         )
                         point_count = collection_info_detail.points_count
 
+                        # Handle different payload structures (LangChain vs raw Qdrant)
+                        if "metadata" in payload:
+                            # LangChain structure: metadata is nested
+                            metadata = payload["metadata"]
+                        else:
+                            # Raw Qdrant structure: metadata is at top level
+                            metadata = payload
+
                         protocol_data = {
-                            "protocol_id": payload.get("protocol_id"),
-                            "study_acronym": payload.get("study_acronym"),
-                            "protocol_title": payload.get("protocol_title"),
+                            "protocol_id": metadata.get("protocol_id"),
+                            "study_acronym": metadata.get("study_acronym"),
+                            "protocol_title": metadata.get("protocol_title"),
                             "collection_name": collection_name,
-                            "upload_date": payload.get("upload_date"),
-                            "status": payload.get("status", "processing"),
-                            "file_path": payload.get("file_path"),
-                            "created_at": payload.get("created_at")
-                            or payload.get("upload_date")
+                            "upload_date": metadata.get("upload_date"),
+                            "status": metadata.get("status", "processing"),
+                            "file_path": metadata.get("file_path"),
+                            "created_at": metadata.get("created_at")
+                            or metadata.get("upload_date")
                             or datetime.now().isoformat(),
                             "chunk_count": point_count,
                         }
 
                         protocols.append(protocol_data)
-                        logger.debug(f"Added protocol: {payload.get('study_acronym', 'UNKNOWN')}")
+                        logger.debug(
+                            f"Added protocol: {payload.get('study_acronym', 'UNKNOWN')}"
+                        )
 
                     else:
                         logger.warning(f"Collection {collection_name} has no points")
@@ -272,16 +282,24 @@ class QdrantService:
                 # Get collection info for chunk count
                 collection_info = self.client.get_collection(collection_name)
 
+                # Handle different payload structures (LangChain vs raw Qdrant)
+                if "metadata" in payload:
+                    # LangChain structure: metadata is nested
+                    metadata = payload["metadata"]
+                else:
+                    # Raw Qdrant structure: metadata is at top level
+                    metadata = payload
+
                 return {
-                    "protocol_id": payload.get("protocol_id"),
-                    "study_acronym": payload.get("study_acronym"),
-                    "protocol_title": payload.get("protocol_title"),
+                    "protocol_id": metadata.get("protocol_id"),
+                    "study_acronym": metadata.get("study_acronym"),
+                    "protocol_title": metadata.get("protocol_title"),
                     "collection_name": collection_name,
-                    "upload_date": payload.get("upload_date"),
-                    "status": payload.get("status"),
-                    "file_path": payload.get("file_path"),
-                    "created_at": payload.get("created_at")
-                    or payload.get("upload_date")
+                    "upload_date": metadata.get("upload_date"),
+                    "status": metadata.get("status"),
+                    "file_path": metadata.get("file_path"),
+                    "created_at": metadata.get("created_at")
+                    or metadata.get("upload_date")
                     or datetime.now().isoformat(),
                     "chunk_count": collection_info.points_count,
                 }
@@ -446,7 +464,9 @@ class QdrantService:
         """Test Qdrant connection and log results."""
         try:
             collections = self.client.get_collections()
-            logger.info(f"Connection test successful - found {len(collections.collections)} collections")
+            logger.info(
+                f"Connection test successful - found {len(collections.collections)} collections"
+            )
             return True
         except Exception as e:
             logger.error(f"Connection test failed: {e}")

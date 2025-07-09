@@ -150,7 +150,9 @@ def test_client() -> TestClient:
         def list_all_protocols():
             # Return protocols sorted by upload_date DESC (most recent first)
             protocols = list(created_protocols.values())
-            return sorted(protocols, key=lambda p: p.get("upload_date", ""), reverse=True)
+            return sorted(
+                protocols, key=lambda p: p.get("upload_date", ""), reverse=True
+            )
 
         mock_service.list_all_protocols.side_effect = list_all_protocols
         mock_service.list_protocols.return_value = []

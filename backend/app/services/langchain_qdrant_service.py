@@ -10,6 +10,7 @@ This module provides a LangChain-integrated approach to Qdrant operations:
 
 import logging
 import os
+import uuid
 from typing import Any, Dict, List, Optional
 
 from langchain_core.documents import Document
@@ -23,6 +24,7 @@ from qdrant_client.models import Distance, VectorParams
 # Load environment variables for local development
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass
@@ -32,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 class LangChainQdrantError(Exception):
     """Exception raised for LangChain Qdrant-related errors."""
+
     pass
 
 
@@ -77,14 +80,30 @@ class LangChainQdrantService:
         else:
             openai_api_key = os.getenv("OPENAI_API_KEY")
             if openai_api_key:
+                embedding_model = os.getenv(
+                    "OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002"
+                )
                 self.embeddings = OpenAIEmbeddings(
-                    model=os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002"),
+                    model=embedding_model,
                     openai_api_key=openai_api_key,
                 )
-                logger.info("OpenAI embeddings initialized successfully")
+                logger.info(
+                    f"OpenAI embeddings initialized successfully with model: {embedding_model}"
+                )
             else:
                 self.embeddings = None
                 logger.warning("OpenAI API key not found - embeddings will not work")
+
+    def generate_collection_name(self, study_acronym: str) -> str:
+        """Generate unique collection name for protocol using acronym + 8-char UUID."""
+        # Clean acronym to only include alphanumeric characters
+        clean_acronym = "".join(c for c in study_acronym if c.isalnum()).upper()
+
+        # Generate 8-character UUID
+        uuid_str = str(uuid.uuid4()).replace("-", "")[:8].lower()
+
+        # Format: ACRONYM-8charuuid (e.g., THAPCA-08ndfes)
+        return f"{clean_acronym}-{uuid_str}"
 
     def get_vector_store(self, collection_name: str) -> QdrantVectorStore:
         """Get LangChain QdrantVectorStore for a specific collection."""
@@ -97,46 +116,41 @@ class LangChainQdrantService:
             embedding=self.embeddings,
         )
 
-    def create_collection_if_not_exists(self, collection_name: str) -> bool:
-        """Create a new Qdrant collection if it doesn't exist."""
-        try:
-            # Check if collection exists
-            collections = self.client.get_collections()
-            existing_names = [col.name for col in collections.collections]
-            
-            if collection_name not in existing_names:
-                self.client.create_collection(
-                    collection_name=collection_name,
-                    vectors_config=VectorParams(size=1536, distance=Distance.COSINE),
-                )
-                logger.info(f"Created new collection: {collection_name}")
-                return True
-            else:
-                logger.info(f"Collection already exists: {collection_name}")
-                return False
-        except Exception as e:
-            logger.error(f"Error creating collection {collection_name}: {e}")
-            raise LangChainQdrantError(f"Failed to create collection: {str(e)}")
-
     def store_documents(
         self,
-        collection_name: str,
         documents: List[Document],
+        study_acronym: str,
         ids: Optional[List[str]] = None,
-    ) -> List[str]:
+    ) -> tuple[List[str], str]:
         """Store documents in a Qdrant collection using LangChain."""
         try:
-            # Ensure collection exists
-            self.create_collection_if_not_exists(collection_name)
-            
-            # Get vector store
-            vector_store = self.get_vector_store(collection_name)
-            
-            # Store documents
-            doc_ids = vector_store.add_documents(documents, ids=ids)
-            logger.info(f"Stored {len(documents)} documents in collection {collection_name}")
-            
-            return doc_ids
+            # Generate collection name
+            collection_name = self.generate_collection_name(study_acronym)
+            logger.info(
+                f"Generated collection name: {collection_name} for study: {study_acronym}"
+            )
+
+            # Use from_documents to create collection and store documents
+            logger.info(
+                f"Creating collection and storing {len(documents)} documents with embeddings model: {self.embeddings}"
+            )
+            vector_store = QdrantVectorStore.from_documents(
+                documents=documents,
+                embedding=self.embeddings,
+                collection_name=collection_name,
+                url=os.getenv("QDRANT_URL"),
+                api_key=os.getenv("QDRANT_API_KEY"),
+            )
+
+            # Get the document IDs (they're auto-generated by from_documents)
+            doc_ids = [
+                str(i) for i in range(len(documents))
+            ]  # from_documents doesn't return IDs
+            logger.info(
+                f"Created collection and stored {len(documents)} documents in {collection_name}"
+            )
+
+            return doc_ids, collection_name
         except Exception as e:
             logger.error(f"Error storing documents in {collection_name}: {e}")
             raise LangChainQdrantError(f"Failed to store documents: {str(e)}")
@@ -150,10 +164,10 @@ class LangChainQdrantService:
         """Get a LangChain retriever for a specific collection."""
         try:
             vector_store = self.get_vector_store(collection_name)
-            
+
             if search_kwargs is None:
                 search_kwargs = {"k": 5}
-            
+
             return vector_store.as_retriever(
                 search_type=search_type,
                 search_kwargs=search_kwargs,
@@ -172,7 +186,7 @@ class LangChainQdrantService:
         """Perform similarity search using LangChain."""
         try:
             vector_store = self.get_vector_store(collection_name)
-            
+
             if score_threshold is not None:
                 return vector_store.similarity_search_with_score_threshold(
                     query, k=k, score_threshold=score_threshold
@@ -192,10 +206,15 @@ class LangChainQdrantService:
         """Perform similarity search with scores using LangChain."""
         try:
             vector_store = self.get_vector_store(collection_name)
-            return vector_store.similarity_search_with_score(query, k=k)
+            results = vector_store.similarity_search_with_score(query, k=k)
+            return results
         except Exception as e:
-            logger.error(f"Error in similarity search with score for {collection_name}: {e}")
-            raise LangChainQdrantError(f"Failed to perform similarity search with score: {str(e)}")
+            logger.error(
+                f"Error in similarity search with score for {collection_name}: {e}"
+            )
+            raise LangChainQdrantError(
+                f"Failed to perform similarity search with score: {str(e)}"
+            )
 
     def list_collections(self) -> List[str]:
         """List all collections using raw Qdrant client."""
@@ -234,7 +253,9 @@ class LangChainQdrantService:
         """Test Qdrant connection."""
         try:
             collections = self.client.get_collections()
-            logger.info(f"Connection test successful - found {len(collections.collections)} collections")
+            logger.info(
+                f"Connection test successful - found {len(collections.collections)} collections"
+            )
             return True
         except Exception as e:
             logger.error(f"Connection test failed: {e}")

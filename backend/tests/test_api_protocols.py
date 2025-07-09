@@ -88,7 +88,9 @@ class TestCreateProtocolEndpoint:
         ) as mock_create:
             mock_create.side_effect = QdrantError("Database connection failed")
 
-            response = test_client.post("/api/protocols/", json=sample_protocol_create_data)
+            response = test_client.post(
+                "/api/protocols/", json=sample_protocol_create_data
+            )
 
             assert response.status_code == 500
             assert "Failed to create protocol" in response.json()["detail"]
@@ -124,7 +126,6 @@ class TestGetProtocolEndpoint:
 
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
-
 
 
 class TestGetProtocolByCollectionEndpoint:
@@ -338,7 +339,9 @@ class TestDeleteProtocolEndpoint:
     @pytest.mark.unit
     def test_delete_protocol_not_found(self, test_client):
         """Test delete protocol with non-existent protocol."""
-        response = test_client.delete("/api/protocols/collection/nonexistent_collection")
+        response = test_client.delete(
+            "/api/protocols/collection/nonexistent_collection"
+        )
 
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
@@ -418,7 +421,9 @@ class TestIntegrationScenarios:
         assert all_protocols[0]["status"] == "processed"
 
         # Delete using collection name endpoint
-        delete_response = test_client.delete(f"/api/protocols/collection/{collection_name}")
+        delete_response = test_client.delete(
+            f"/api/protocols/collection/{collection_name}"
+        )
         assert delete_response.status_code == 204
 
         # Verify deleted
