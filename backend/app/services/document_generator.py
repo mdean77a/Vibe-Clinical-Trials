@@ -74,41 +74,38 @@ class DocumentGenerator:
     def get_protocol_context(
         self, protocol_collection_name: str, query: str, min_score: float = 0.5
     ) -> List[Dict[str, Any]]:
-        """Retrieve relevant protocol context for document generation."""
+        """Retrieve relevant protocol context for document generation using LangChain."""
         try:
-            from .qdrant_service import QdrantService
+            from .langchain_qdrant_service import get_langchain_qdrant_service
 
-            # Initialize QdrantService to get embeddings
-            qdrant_service = QdrantService()
+            # Initialize LangChain Qdrant service
+            langchain_service = get_langchain_qdrant_service()
 
-            # Generate query embedding
-            query_embedding = qdrant_service.get_embeddings([query])[0]
-
-            # Search for relevant context in the specific protocol collection
-            search_results = self.qdrant_client.search(
+            # Use similarity search with score to get scored results
+            docs_with_scores = langchain_service.similarity_search_with_score(
                 collection_name=protocol_collection_name,
-                query_vector=query_embedding,
-                limit=10,
+                query=query,
+                k=10,
             )
 
-            # Filter by minimum score
+            # Filter by minimum score and format results
             context = []
-            for hit in search_results:
-                if hit.score >= min_score:
+            for doc, score in docs_with_scores:
+                if score >= min_score:
                     context.append(
                         {
-                            "text": hit.payload.get(
-                                "chunk_text", hit.payload.get("text", "")
-                            ),
-                            "score": hit.score,
-                            "chunk_index": hit.payload.get("chunk_index", 0),
+                            "text": doc.page_content,
+                            "metadata": doc.metadata,
+                            "score": score,
                         }
                     )
 
+            logger.info(f"Retrieved {len(context)} relevant documents for query: {query[:50]}...")
             return context
 
         except Exception as e:
-            raise DocumentGenerationError(f"Failed to retrieve context: {str(e)}")
+            logger.error(f"Error retrieving protocol context: {e}")
+            raise DocumentGenerationError(f"Failed to retrieve context using LangChain: {str(e)}")
 
 
 class WorkflowBase(ABC):

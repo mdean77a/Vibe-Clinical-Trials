@@ -183,15 +183,22 @@ class QdrantService:
     def list_all_protocols(self) -> List[dict]:
         """List all protocols by querying Qdrant collections and extracting metadata."""
         try:
+            # Test connection first
+            if not self.test_connection():
+                raise QdrantError("Cannot connect to Qdrant database")
+
             # Get all collections from Qdrant
             collections = self.client.get_collections()
             protocols = []
+
+            logger.info(f"Found {len(collections.collections)} total collections")
 
             for collection_info in collections.collections:
                 collection_name = collection_info.name
 
                 # Skip non-protocol collections (protocol collections have format: ACRONYM-8chars)
                 if not self._is_protocol_collection(collection_name):
+                    logger.debug(f"Skipping non-protocol collection: {collection_name}")
                     continue
 
                 # Get metadata from the first point in the collection
@@ -210,21 +217,25 @@ class QdrantService:
                         )
                         point_count = collection_info_detail.points_count
 
-                        protocols.append(
-                            {
-                                "protocol_id": payload.get("protocol_id"),
-                                "study_acronym": payload.get("study_acronym"),
-                                "protocol_title": payload.get("protocol_title"),
-                                "collection_name": collection_name,
-                                "upload_date": payload.get("upload_date"),
-                                "status": payload.get("status", "processing"),
-                                "file_path": payload.get("file_path"),
-                                "created_at": payload.get("created_at")
-                                or payload.get("upload_date")
-                                or datetime.now().isoformat(),
-                                "chunk_count": point_count,
-                            }
-                        )
+                        protocol_data = {
+                            "protocol_id": payload.get("protocol_id"),
+                            "study_acronym": payload.get("study_acronym"),
+                            "protocol_title": payload.get("protocol_title"),
+                            "collection_name": collection_name,
+                            "upload_date": payload.get("upload_date"),
+                            "status": payload.get("status", "processing"),
+                            "file_path": payload.get("file_path"),
+                            "created_at": payload.get("created_at")
+                            or payload.get("upload_date")
+                            or datetime.now().isoformat(),
+                            "chunk_count": point_count,
+                        }
+
+                        protocols.append(protocol_data)
+                        logger.debug(f"Added protocol: {payload.get('study_acronym', 'UNKNOWN')}")
+
+                    else:
+                        logger.warning(f"Collection {collection_name} has no points")
 
                 except Exception as collection_error:
                     logger.warning(
@@ -232,6 +243,7 @@ class QdrantService:
                     )
                     continue
 
+            logger.info(f"Successfully retrieved {len(protocols)} protocols")
             return protocols
 
         except Exception as e:
@@ -429,6 +441,16 @@ class QdrantService:
             # Fallback to mock embeddings on error
             logger.warning("Falling back to mock embeddings due to OpenAI error")
             return [[0.1] * 1536 for _ in texts]
+
+    def test_connection(self) -> bool:
+        """Test Qdrant connection and log results."""
+        try:
+            collections = self.client.get_collections()
+            logger.info(f"Connection test successful - found {len(collections.collections)} collections")
+            return True
+        except Exception as e:
+            logger.error(f"Connection test failed: {e}")
+            return False
 
 
 def get_qdrant_client() -> QdrantClient:
