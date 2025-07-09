@@ -8,9 +8,9 @@
     {
       "src": "backend/app/main.py",
       "use": "@vercel/python",
-      "config": {
-        "runtime": "python3.13"
-      }
+      // "config": {
+      //   "runtime": "python3.13"
+      // }
     }
   ],
   "routes": [
@@ -22,8 +22,5 @@
       "src": "/(.*)",
       "dest": "frontend/$1"
     }
-  ],
-  "env": {
-    "PYTHONPATH": "backend"
-  }
+  ]
 }
