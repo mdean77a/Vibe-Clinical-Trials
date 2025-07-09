@@ -22,11 +22,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 import os
+
 if os.getenv("LANGCHAIN_TRACING_V2") == "true":
     logger.info("Langsmith tracing enabled")
 
 else:
     logger.info("Langsmith tracing not enabled")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

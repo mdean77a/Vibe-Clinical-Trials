@@ -74,41 +74,45 @@ class DocumentGenerator:
     def get_protocol_context(
         self, protocol_collection_name: str, query: str, min_score: float = 0.5
     ) -> List[Dict[str, Any]]:
-        """Retrieve relevant protocol context for document generation."""
+        """Retrieve relevant protocol context for document generation using LangChain."""
         try:
-            from .qdrant_service import QdrantService
+            from .langchain_qdrant_service import get_langchain_qdrant_service
 
-            # Initialize QdrantService to get embeddings
-            qdrant_service = QdrantService()
+            # Initialize LangChain Qdrant service
+            langchain_service = get_langchain_qdrant_service()
 
-            # Generate query embedding
-            query_embedding = qdrant_service.get_embeddings([query])[0]
-
-            # Search for relevant context in the specific protocol collection
-            search_results = self.qdrant_client.search(
+            # Use similarity search with score to get scored results
+            docs_with_scores = langchain_service.similarity_search_with_score(
                 collection_name=protocol_collection_name,
-                query_vector=query_embedding,
-                limit=10,
+                query=query,
+                k=10,
             )
 
-            # Filter by minimum score
+            # Filter by minimum score and format results
             context = []
-            for hit in search_results:
-                if hit.score >= min_score:
+            for i, (doc, score) in enumerate(docs_with_scores):
+                if score >= min_score:
                     context.append(
                         {
-                            "text": hit.payload.get(
-                                "chunk_text", hit.payload.get("text", "")
-                            ),
-                            "score": hit.score,
-                            "chunk_index": hit.payload.get("chunk_index", 0),
+                            "text": doc.page_content,
+                            "metadata": doc.metadata,
+                            "score": score,
                         }
                     )
 
+                    # Log chunk with relevance score
+                    logger.info(f"Chunk {i+1} (relevance: {score:.3f})")
+
+            logger.info(
+                f"Retrieved {len(context)} relevant documents for query: {query[:50]}..."
+            )
             return context
 
         except Exception as e:
-            raise DocumentGenerationError(f"Failed to retrieve context: {str(e)}")
+            logger.error(f"Error retrieving protocol context: {e}")
+            raise DocumentGenerationError(
+                f"Failed to retrieve context using LangChain: {str(e)}"
+            )
 
 
 class WorkflowBase(ABC):
@@ -278,7 +282,9 @@ class ICFWorkflow(WorkflowBase):
 
     def _get_section_query(self, section_name: str) -> str:
         """Get section-specific queries like your prototype."""
-        return ICF_SECTION_QUERIES.get(section_name, "informed consent form requirements")
+        return ICF_SECTION_QUERIES.get(
+            section_name, "informed consent form requirements"
+        )
 
     def generate_title(self, context: str) -> str:
         """Generate title section - kept for backward compatibility."""
@@ -336,6 +342,12 @@ class ICFWorkflow(WorkflowBase):
                     logger.info(
                         f"{section_name} context total text length: {total_text_length}"
                     )
+
+                    # Log first few chunks with relevance
+                    logger.info(f"Top context chunks for section '{section_name}':")
+                    for i, item in enumerate(context[:3]):  # Top 3 items
+                        score = item.get("score", 0)
+                        logger.info(f"  Chunk {i+1} (relevance: {score:.3f})")
 
                 context_text = self._format_context(context)
                 prompt = self._get_section_prompt(section_name)
@@ -479,6 +491,15 @@ class StreamingICFWorkflow(ICFWorkflow):
                 context_items = self.document_generator.get_protocol_context(
                     self.document_id, query, min_score=0.3
                 )
+
+                # Log context items for this section
+                if context_items:
+                    logger.info(
+                        f"Context for section '{section_name}' with query '{query}':"
+                    )
+                    for i, item in enumerate(context_items[:3]):  # Top 3 items
+                        score = item.get("score", 0)
+                        logger.info(f"  Section chunk {i+1} (relevance: {score:.3f})")
 
                 context_text = (
                     "\n\n".join(

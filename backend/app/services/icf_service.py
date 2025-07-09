@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from qdrant_client import QdrantClient
 
+from ..prompts.icf_prompts import ICF_SECTION_QUERIES
 from .document_generator import (
     DocumentGenerationError,
     DocumentGenerator,
@@ -19,7 +20,6 @@ from .document_generator import (
     StreamingICFWorkflow,
     get_langgraph_workflow,
 )
-from ..prompts.icf_prompts import ICF_SECTION_QUERIES
 from .qdrant_service import get_qdrant_service
 
 logger = logging.getLogger(__name__)

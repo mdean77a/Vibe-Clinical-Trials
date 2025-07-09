@@ -258,7 +258,6 @@ class TestICFGenerationService:
 class TestICFGenerationAPI:
     """Test cases for ICF Generation API endpoints."""
 
-
     @pytest.mark.integration
     @pytest.mark.ai_service
     def test_get_icf_section_requirements_endpoint(self):

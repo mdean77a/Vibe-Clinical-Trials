@@ -243,7 +243,9 @@ class TestQdrantProtocolService:
         )
 
         # Search protocols
-        results = qdrant_service.search_protocol_documents(collection_name, "clinical trial", limit=5)
+        results = qdrant_service.search_protocol_documents(
+            collection_name, "clinical trial", limit=5
+        )
 
         # Should find our stored protocol (though with placeholder embeddings)
         assert isinstance(results, list)
