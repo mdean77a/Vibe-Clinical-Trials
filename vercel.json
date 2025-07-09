@@ -8,9 +8,6 @@
     {
       "src": "backend/app/main.py",
       "use": "@vercel/python",
-      "config": {
-        "runtime": "python3.13"
-      }
     }
   ],
   "routes": [
