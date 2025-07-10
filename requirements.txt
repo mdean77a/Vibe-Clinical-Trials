@@ -10,4 +10,3 @@ langgraph>=0.1.15
 anthropic>=0.8.0
 langchain-text-splitters>=0.0.1
 python-dotenv>=1.0.0
-mangum>=0.17.0
