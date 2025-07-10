@@ -115,6 +115,22 @@ export const protocolsApi = {
   },
 
   /**
+   * Upload protocol with extracted text (for client-side PDF processing)
+   */
+  uploadText: async (protocolData: {
+    study_acronym: string;
+    protocol_title: string;
+    extracted_text: string;
+    original_filename: string;
+    page_count: number;
+  }) => {
+    return apiRequest('protocols/upload-text', {
+      method: 'POST',
+      body: JSON.stringify(protocolData),
+    });
+  },
+
+  /**
    * Get a protocol by ID
    */
   getById: async (id: number) => {
