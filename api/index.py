@@ -43,16 +43,11 @@ class handler(BaseHTTPRequestHandler):
         """Handle POST requests"""
         parsed_url = urlparse(self.path)
         
-        # CORS headers
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        
-        # Read request body
-        content_length = int(self.headers.get('Content-Length', 0))
-        post_data = self.rfile.read(content_length)
-        
         try:
+            # Read request body
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            
             if parsed_url.path == '/api/protocols/upload-text':
                 # Handle text upload
                 data = json.loads(post_data.decode())
@@ -63,9 +58,13 @@ class handler(BaseHTTPRequestHandler):
                 response = {"error": "Endpoint not found", "path": parsed_url.path}
         except Exception as e:
             self.send_response(500)
-            response = {"error": str(e)}
+            response = {"error": str(e), "type": type(e).__name__}
         
+        # Send headers after response code
         self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
         self.wfile.write(json.dumps(response).encode())
     
@@ -79,18 +78,29 @@ class handler(BaseHTTPRequestHandler):
     
     def _handle_text_upload(self, data):
         """Simple text upload handler"""
-        # Validate required fields
-        required_fields = ['study_acronym', 'protocol_title', 'extracted_text']
-        for field in required_fields:
-            if not data.get(field):
-                raise ValueError(f"{field} is required")
-        
-        # Mock response for now (replace with actual logic later)
-        return {
-            "protocol_id": f"proto_{data['study_acronym'].lower()}",
-            "study_acronym": data['study_acronym'],
-            "protocol_title": data['protocol_title'],
-            "status": "processed",
-            "processing_method": "client-side-extraction",
-            "message": "Protocol uploaded successfully"
-        }
+        try:
+            # Validate required fields
+            required_fields = ['study_acronym', 'protocol_title', 'extracted_text']
+            for field in required_fields:
+                if not data.get(field):
+                    raise ValueError(f"{field} is required")
+            
+            # Mock response for now (replace with actual logic later)
+            return {
+                "protocol": {
+                    "protocol_id": f"proto_{data['study_acronym'].lower()}",
+                    "study_acronym": data['study_acronym'],
+                    "protocol_title": data['protocol_title'],
+                    "status": "processed",
+                    "processing_method": "client-side-extraction",
+                    "collection_name": f"protocol_{data['study_acronym'].lower()}",
+                    "chunk_count": len(data['extracted_text']) // 1000,  # Rough estimate
+                    "created_at": "2025-01-01T00:00:00Z"
+                },
+                "message": "Protocol uploaded successfully"
+            }
+        except Exception as e:
+            # Log the error details
+            print(f"Error in _handle_text_upload: {e}")
+            print(f"Data received: {data}")
+            raise
