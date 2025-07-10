@@ -6,7 +6,7 @@ authors = [
     {name = "Clinical Trial Accelerator Team"}
 ]
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.104.1",
     "uvicorn[standard]>=0.24.0",
