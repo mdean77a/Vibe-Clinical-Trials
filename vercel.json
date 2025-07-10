@@ -9,8 +9,7 @@
       "src": "backend/app/handler.py",
       "use": "@vercel/python",
       "config": {
-        "runtime": "python3.12",
-        "requirementsPath": "backend/requirements.txt"
+        "runtime": "python3.12"
       }
     }
   ],
