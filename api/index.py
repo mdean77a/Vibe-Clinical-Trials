@@ -81,7 +81,7 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
     
     def _handle_text_upload(self, data):
-        """Simple text upload handler"""
+        """Handle text upload with actual backend logic"""
         try:
             # Validate required fields
             required_fields = ['study_acronym', 'protocol_title', 'extracted_text']
@@ -89,24 +89,98 @@ class handler(BaseHTTPRequestHandler):
                 if not data.get(field):
                     raise ValueError(f"{field} is required")
             
-            # Mock response for now (replace with actual logic later)
-            return {
-                "protocol": {
-                    "protocol_id": f"proto_{data['study_acronym'].lower()}",
-                    "study_acronym": data['study_acronym'],
-                    "protocol_title": data['protocol_title'],
-                    "status": "processed",
-                    "processing_method": "client-side-extraction",
-                    "collection_name": f"protocol_{data['study_acronym'].lower()}",
-                    "chunk_count": len(data['extracted_text']) // 1000,  # Rough estimate
-                    "created_at": "2025-01-01T00:00:00Z"
-                },
-                "message": "Protocol uploaded successfully"
+            # Import and use the actual backend logic
+            from datetime import datetime
+            import time
+            
+            study_acronym = data['study_acronym'].strip().upper()
+            protocol_title = data['protocol_title'].strip()
+            extracted_text = data['extracted_text'].strip()
+            original_filename = data.get('original_filename', '')
+            page_count = data.get('page_count', 0)
+            
+            print(f"Processing text upload for study {study_acronym}")
+            
+            # Process the extracted text using the same chunking logic
+            from langchain_text_splitters import RecursiveCharacterTextSplitter
+            
+            # Use the same text splitter configuration as extract_and_chunk_pdf
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000,
+                chunk_overlap=200,
+                length_function=len,
+                separators=["\n\n", "\n", ". ", " ", ""],
+            )
+            
+            text_chunks = text_splitter.split_text(extracted_text)
+            
+            # Filter out very short chunks
+            meaningful_chunks = [
+                chunk.strip() for chunk in text_chunks if len(chunk.strip()) > 50
+            ]
+            
+            if not meaningful_chunks:
+                meaningful_chunks = [extracted_text.strip()]
+                
+            print(f"Text processed: {len(meaningful_chunks)} chunks from {page_count} pages")
+            
+            # Store protocol using LangChain integration (same as file upload)
+            from langchain_core.documents import Document
+            from app.services.langchain_qdrant_service import get_langchain_qdrant_service
+            
+            # Initialize LangChain service
+            langchain_service = get_langchain_qdrant_service()
+            
+            # Create protocol metadata
+            protocol_metadata = {
+                "protocol_id": f"proto_{int(time.time() * 1000)}",
+                "study_acronym": study_acronym,
+                "protocol_title": protocol_title,
+                "upload_date": datetime.now().isoformat(),
+                "status": "processed",
+                "file_path": original_filename,
+                "created_at": datetime.now().isoformat(),
+                "chunk_count": len(meaningful_chunks),
+                "processing_method": "client-side-extraction",
+                "page_count": page_count,
             }
+            
+            # Convert text chunks to LangChain Documents
+            documents = []
+            for i, chunk in enumerate(meaningful_chunks):
+                doc = Document(
+                    page_content=chunk,
+                    metadata={
+                        **protocol_metadata,
+                        "chunk_index": i,
+                        "chunk_size": len(chunk),
+                        "embedding_model": "text-embedding-ada-002",
+                        "processing_version": "1.0",
+                        "last_updated": datetime.now().isoformat(),
+                    },
+                )
+                documents.append(doc)
+                
+            # Store documents using LangChain
+            doc_ids, collection_name = langchain_service.store_documents(
+                documents=documents,
+                study_acronym=study_acronym,
+            )
+            
+            # Add collection_name to protocol metadata
+            protocol_metadata["collection_name"] = collection_name
+            
+            print(f"Stored {len(documents)} documents using LangChain with collection: {collection_name}")
+            
+            # Return the protocol response
+            return protocol_metadata
+            
         except Exception as e:
             # Log the error details
             print(f"Error in _handle_text_upload: {e}")
             print(f"Data received: {data}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
             raise
     
     def _get_icf_section_requirements(self):
