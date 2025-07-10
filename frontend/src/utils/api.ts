@@ -6,7 +6,7 @@
  */
 
 // API URL configuration - direct backend calls
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000/api');
 
 /**
  * Get the full API URL for a given endpoint
