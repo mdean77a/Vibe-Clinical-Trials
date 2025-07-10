@@ -34,6 +34,10 @@ class handler(BaseHTTPRequestHandler):
                 "version": "0.1.0",
                 "environment": "vercel-serverless"
             }
+        elif parsed_url.path == '/api/icf/sections/requirements':
+            response = self._get_icf_section_requirements()
+        elif parsed_url.path.startswith('/api/protocols'):
+            response = self._handle_protocols_get(parsed_url.path)
         else:
             response = {"error": "Endpoint not found", "path": parsed_url.path}
         
@@ -104,3 +108,54 @@ class handler(BaseHTTPRequestHandler):
             print(f"Error in _handle_text_upload: {e}")
             print(f"Data received: {data}")
             raise
+    
+    def _get_icf_section_requirements(self):
+        """Return ICF section requirements"""
+        return {
+            "sections": [
+                {
+                    "name": "introduction",
+                    "title": "Introduction",
+                    "required": True,
+                    "description": "Introduction to the study"
+                },
+                {
+                    "name": "purpose",
+                    "title": "Purpose of Research",
+                    "required": True,
+                    "description": "Why the research is being done"
+                },
+                {
+                    "name": "procedures",
+                    "title": "Study Procedures",
+                    "required": True,
+                    "description": "What will happen during the study"
+                },
+                {
+                    "name": "risks",
+                    "title": "Risks and Discomforts",
+                    "required": True,
+                    "description": "Potential risks of participation"
+                },
+                {
+                    "name": "benefits",
+                    "title": "Benefits",
+                    "required": True,
+                    "description": "Potential benefits of participation"
+                },
+                {
+                    "name": "confidentiality",
+                    "title": "Confidentiality",
+                    "required": True,
+                    "description": "How data will be protected"
+                }
+            ]
+        }
+    
+    def _handle_protocols_get(self, path):
+        """Handle GET requests to protocols endpoints"""
+        if path == '/api/protocols':
+            # Return empty list for now
+            return {"protocols": []}
+        else:
+            return {"error": "Protocol endpoint not implemented", "path": path}
