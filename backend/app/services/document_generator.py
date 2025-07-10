@@ -20,8 +20,8 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient
 
-from app.prompts.icf_prompts import ICF_PROMPTS, ICF_SECTION_QUERIES
-from app.prompts.site_checklist_prompts import SITE_CHECKLIST_PROMPTS
+from ..prompts.icf_prompts import ICF_PROMPTS, ICF_SECTION_QUERIES
+from ..prompts.site_checklist_prompts import SITE_CHECKLIST_PROMPTS
 
 logger = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@
       "use": "@vercel/next"
     },
     {
-      "src": "backend/app/handler.py",
+      "src": "api/index.py",
       "use": "@vercel/python",
       "config": {
         "runtime": "python3.12"
@@ -16,7 +16,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "backend/app/handler.py"
+      "dest": "api/index.py"
     },
     {
       "src": "/(.*)",
