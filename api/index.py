@@ -63,10 +63,10 @@ class handler(BaseHTTPRequestHandler):
                 self._handle_icf_stream(data)
                 return  # Streaming handles its own response
             elif parsed_url.path == '/api/icf/regenerate-section':
-                # Handle section regeneration
+                # Handle section regeneration with streaming
                 data = json.loads(post_data.decode())
-                response = self._handle_section_regeneration(data)
-                self.send_response(200)
+                self._handle_section_regeneration_stream(data)
+                return  # Streaming handles its own response
             else:
                 self.send_response(404)
                 response = {"error": "Endpoint not found", "path": parsed_url.path}
@@ -456,9 +456,18 @@ class handler(BaseHTTPRequestHandler):
             }
             self.wfile.write(f"data: {json.dumps(error_event)}\n\n".encode())
     
-    def _handle_section_regeneration(self, data):
-        """Handle section regeneration"""
+    def _handle_section_regeneration_stream(self, data):
+        """Handle section regeneration with streaming"""
         import asyncio
+        import time
+        
+        # Send SSE headers
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/event-stream')
+        self.send_header('Cache-Control', 'no-cache')
+        self.send_header('Connection', 'keep-alive')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
         
         try:
             # Validate required fields
@@ -467,9 +476,20 @@ class handler(BaseHTTPRequestHandler):
             protocol_metadata = data.get('protocol_metadata', {})
             
             if not protocol_collection_name:
-                raise ValueError("protocol_collection_name is required")
+                error_event = {
+                    "event": "error",
+                    "data": {"error": "protocol_collection_name is required"}
+                }
+                self.wfile.write(f"data: {json.dumps(error_event)}\n\n".encode())
+                return
+            
             if not section_name:
-                raise ValueError("section_name is required")
+                error_event = {
+                    "event": "error",
+                    "data": {"error": "section_name is required"}
+                }
+                self.wfile.write(f"data: {json.dumps(error_event)}\n\n".encode())
+                return
             
             # Validate section name
             valid_sections = [
@@ -482,7 +502,12 @@ class handler(BaseHTTPRequestHandler):
                 "benefits",
             ]
             if section_name not in valid_sections:
-                raise ValueError(f"Invalid section name. Must be one of: {', '.join(valid_sections)}")
+                error_event = {
+                    "event": "error",
+                    "data": {"error": f"Invalid section name. Must be one of: {', '.join(valid_sections)}"}
+                }
+                self.wfile.write(f"data: {json.dumps(error_event)}\n\n".encode())
+                return
             
             print(f"Section regeneration requested: {section_name} for collection: {protocol_collection_name}")
             
@@ -496,33 +521,107 @@ class handler(BaseHTTPRequestHandler):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             
-            async def regenerate_section():
-                """Regenerate the specified section"""
-                # Validate collection exists
-                collection_exists = await icf_service.validate_collection_exists(
-                    protocol_collection_name
-                )
+            async def stream_section_regeneration():
+                """Stream section regeneration"""
+                try:
+                    # Validate collection exists
+                    collection_exists = await icf_service.validate_collection_exists(
+                        protocol_collection_name
+                    )
+                    
+                    if not collection_exists:
+                        error_event = {
+                            "event": "error",
+                            "data": {"error": f"Protocol collection '{protocol_collection_name}' not found"}
+                        }
+                        self.wfile.write(f"data: {json.dumps(error_event)}\n\n".encode())
+                        return
+                    
+                    # Send section start event
+                    start_event = {
+                        "event": "section_start",
+                        "data": {"section_name": section_name}
+                    }
+                    self.wfile.write(f"data: {json.dumps(start_event)}\n\n".encode())
+                    self.wfile.flush()
+                    
+                    # Use the existing streaming infrastructure with section filter
+                    # This reuses the same streaming code as full ICF generation
+                    async for section_result in icf_service.generate_icf_streaming(
+                        protocol_collection_name=protocol_collection_name,
+                        protocol_metadata=protocol_metadata,
+                        sections_filter=[section_name]  # Only generate the specified section
+                    ):
+                        event_data = None
+                        
+                        if section_result["type"] == "section_start":
+                            event_data = {
+                                "event": "section_start",
+                                "data": {"section_name": section_result["section_name"]}
+                            }
+                        elif section_result["type"] == "token":
+                            event_data = {
+                                "event": "token",
+                                "data": {
+                                    "section_name": section_result["section_name"],
+                                    "content": section_result["content"],
+                                    "accumulated_content": section_result["accumulated_content"]
+                                }
+                            }
+                        elif section_result["type"] == "section_complete":
+                            event_data = {
+                                "event": "section_complete",
+                                "data": {
+                                    "section_name": section_result["section_name"],
+                                    "content": section_result["content"],
+                                    "word_count": len(section_result["content"].split())
+                                }
+                            }
+                        elif section_result["type"] == "section_error":
+                            event_data = {
+                                "event": "section_error",
+                                "data": {
+                                    "section_name": section_result["section_name"],
+                                    "error": section_result["error"]
+                                }
+                            }
+                        elif section_result["type"] == "complete":
+                            event_data = {
+                                "event": "complete",
+                                "data": {
+                                    "total_sections": section_result["total_sections"],
+                                    "completed_sections": section_result["completed_sections"],
+                                    "errors": section_result["errors"]
+                                }
+                            }
+                        elif section_result["type"] == "error":
+                            event_data = {
+                                "event": "error",
+                                "data": {"error": section_result["error"]}
+                            }
+                        
+                        if event_data:
+                            self.wfile.write(f"data: {json.dumps(event_data)}\n\n".encode())
+                            self.wfile.flush()
                 
-                if not collection_exists:
-                    raise ValueError(f"Protocol collection '{protocol_collection_name}' not found")
-                
-                # Generate only the specified section
-                result = await icf_service.regenerate_section_async(
-                    protocol_collection_name=protocol_collection_name,
-                    section_name=section_name,
-                    protocol_metadata=protocol_metadata,
-                )
-                
-                return result
+                except Exception as e:
+                    error_event = {
+                        "event": "error",
+                        "data": {"error": f"Regeneration failed: {str(e)}"}
+                    }
+                    self.wfile.write(f"data: {json.dumps(error_event)}\n\n".encode())
             
-            # Run the async regeneration function
-            result = loop.run_until_complete(regenerate_section())
+            # Run the async streaming function
+            loop.run_until_complete(stream_section_regeneration())
             
             print(f"Section regeneration completed: {section_name}")
-            return result
             
         except Exception as e:
-            print(f"Error in _handle_section_regeneration: {e}")
+            print(f"Error in _handle_section_regeneration_stream: {e}")
             import traceback
             print(f"Traceback: {traceback.format_exc()}")
-            raise
+            error_event = {
+                "event": "error",
+                "data": {"error": str(e), "type": type(e).__name__}
+            }
+            self.wfile.write(f"data: {json.dumps(error_event)}\n\n".encode())
