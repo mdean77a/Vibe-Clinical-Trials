@@ -282,63 +282,130 @@ async def generate_icf_stream(
 async def regenerate_icf_section(
     request: SectionRegenerationRequest,
     icf_service: ICFGenerationService = Depends(get_icf_service),
-) -> Dict[str, Any]:
+) -> StreamingResponse:
     """
-    Regenerate a specific ICF section.
+    Regenerate a specific ICF section with streaming.
 
-    This endpoint regenerates only the specified section, leaving other sections unchanged.
-    Useful for iterative improvement of individual sections based on user feedback.
+    This endpoint regenerates only the specified section with real-time streaming,
+    providing immediate feedback during generation.
     """
-    try:
-        logger.info(
-            f"Section regeneration requested: {request.section_name} for collection: {request.protocol_collection_name}"
-        )
-
-        # Validate collection exists
-        collection_exists = await icf_service.validate_collection_exists(
-            request.protocol_collection_name
-        )
-
-        if not collection_exists:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Protocol collection '{request.protocol_collection_name}' not found",
+    
+    async def stream_generator():
+        try:
+            logger.info(
+                f"Streaming section regeneration for: {request.section_name} in collection: {request.protocol_collection_name}"
             )
 
-        # Validate section name
-        valid_sections = [
-            "summary",
-            "background",
-            "participants",
-            "procedures",
-            "alternatives",
-            "risks",
-            "benefits",
-        ]
-        if request.section_name not in valid_sections:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid section name. Must be one of: {', '.join(valid_sections)}",
+            # Validate collection exists
+            collection_exists = await icf_service.validate_collection_exists(
+                request.protocol_collection_name
             )
 
-        # Generate only the specified section
-        result = await icf_service.regenerate_section_async(
-            protocol_collection_name=request.protocol_collection_name,
-            section_name=request.section_name,
-            protocol_metadata=request.protocol_metadata,
-        )
+            if not collection_exists:
+                error_data = {
+                    "event": "error",
+                    "data": {
+                        "error": f"Protocol collection '{request.protocol_collection_name}' not found"
+                    },
+                }
+                yield f"data: {json.dumps(error_data)}\n\n"
+                return
 
-        logger.info(f"Section regeneration completed: {request.section_name}")
-        return result
+            # Validate section name
+            valid_sections = [
+                "summary",
+                "background",
+                "participants",
+                "procedures",
+                "alternatives",
+                "risks",
+                "benefits",
+            ]
+            if request.section_name not in valid_sections:
+                error_data = {
+                    "event": "error",
+                    "data": {
+                        "error": f"Invalid section name. Must be one of: {', '.join(valid_sections)}"
+                    },
+                }
+                yield f"data: {json.dumps(error_data)}\n\n"
+                return
 
-    except DocumentGenerationError as e:
-        logger.error(f"Section regeneration failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        logger.error(f"Unexpected error during section regeneration: {e}")
-        raise HTTPException(
-            status_code=500, detail="Internal server error during section regeneration"
-        )
+            # Stream sections as they complete using existing streaming infrastructure
+            async for section_result in icf_service.generate_icf_streaming(
+                protocol_collection_name=request.protocol_collection_name,
+                protocol_metadata=request.protocol_metadata,
+                sections_filter=[request.section_name],  # Only regenerate the specified section
+            ):
+                if section_result["type"] == "section_start":
+                    event_data = {
+                        "event": "section_start",
+                        "data": {"section_name": section_result["section_name"]},
+                    }
+                elif section_result["type"] == "token":
+                    event_data = {
+                        "event": "token",
+                        "data": {
+                            "section_name": section_result["section_name"],
+                            "content": section_result["content"],
+                            "accumulated_content": section_result[
+                                "accumulated_content"
+                            ],
+                        },
+                    }
+                elif section_result["type"] == "section_complete":
+                    event_data = {
+                        "event": "section_complete",
+                        "data": {
+                            "section_name": section_result["section_name"],
+                            "content": section_result["content"],
+                            "word_count": len(section_result["content"].split()),
+                        },
+                    }
+                elif section_result["type"] == "section_error":
+                    event_data = {
+                        "event": "section_error",
+                        "data": {
+                            "section_name": section_result["section_name"],
+                            "error": section_result["error"],
+                        },
+                    }
+                elif section_result["type"] == "complete":
+                    event_data = {
+                        "event": "complete",
+                        "data": {
+                            "total_sections": section_result["total_sections"],
+                            "completed_sections": section_result["completed_sections"],
+                            "errors": section_result["errors"],
+                        },
+                    }
+                elif section_result["type"] == "error":
+                    event_data = {
+                        "event": "error",
+                        "data": {"error": section_result["error"]},
+                    }
+                else:
+                    # Skip unknown event types
+                    continue
+
+                yield f"data: {json.dumps(event_data)}\n\n"
+
+        except Exception as e:
+            error_data = {
+                "event": "error",
+                "data": {"error": f"Generation failed: {str(e)}"},
+            }
+            yield f"data: {json.dumps(error_data)}\n\n"
+
+    return StreamingResponse(
+        stream_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
 
 
 @router.get(
