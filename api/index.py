@@ -62,6 +62,11 @@ class handler(BaseHTTPRequestHandler):
                 data = json.loads(post_data.decode())
                 self._handle_icf_stream(data)
                 return  # Streaming handles its own response
+            elif parsed_url.path == '/api/icf/regenerate-section':
+                # Handle section regeneration
+                data = json.loads(post_data.decode())
+                response = self._handle_section_regeneration(data)
+                self.send_response(200)
             else:
                 self.send_response(404)
                 response = {"error": "Endpoint not found", "path": parsed_url.path}
@@ -450,3 +455,74 @@ class handler(BaseHTTPRequestHandler):
                 "data": {"error": str(e), "type": type(e).__name__}
             }
             self.wfile.write(f"data: {json.dumps(error_event)}\n\n".encode())
+    
+    def _handle_section_regeneration(self, data):
+        """Handle section regeneration"""
+        import asyncio
+        
+        try:
+            # Validate required fields
+            protocol_collection_name = data.get('protocol_collection_name')
+            section_name = data.get('section_name')
+            protocol_metadata = data.get('protocol_metadata', {})
+            
+            if not protocol_collection_name:
+                raise ValueError("protocol_collection_name is required")
+            if not section_name:
+                raise ValueError("section_name is required")
+            
+            # Validate section name
+            valid_sections = [
+                "summary",
+                "background", 
+                "participants",
+                "procedures",
+                "alternatives",
+                "risks",
+                "benefits",
+            ]
+            if section_name not in valid_sections:
+                raise ValueError(f"Invalid section name. Must be one of: {', '.join(valid_sections)}")
+            
+            print(f"Section regeneration requested: {section_name} for collection: {protocol_collection_name}")
+            
+            # Import the ICF service
+            from app.services.icf_service import get_icf_service
+            
+            # Get the ICF service instance
+            icf_service = get_icf_service()
+            
+            # Create an async event loop to run the regeneration
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            async def regenerate_section():
+                """Regenerate the specified section"""
+                # Validate collection exists
+                collection_exists = await icf_service.validate_collection_exists(
+                    protocol_collection_name
+                )
+                
+                if not collection_exists:
+                    raise ValueError(f"Protocol collection '{protocol_collection_name}' not found")
+                
+                # Generate only the specified section
+                result = await icf_service.regenerate_section_async(
+                    protocol_collection_name=protocol_collection_name,
+                    section_name=section_name,
+                    protocol_metadata=protocol_metadata,
+                )
+                
+                return result
+            
+            # Run the async regeneration function
+            result = loop.run_until_complete(regenerate_section())
+            
+            print(f"Section regeneration completed: {section_name}")
+            return result
+            
+        except Exception as e:
+            print(f"Error in _handle_section_regeneration: {e}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
+            raise
