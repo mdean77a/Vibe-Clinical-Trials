@@ -186,50 +186,133 @@ class handler(BaseHTTPRequestHandler):
     def _get_icf_section_requirements(self):
         """Return ICF section requirements"""
         return {
-            "sections": [
+            "required_sections": [
                 {
-                    "name": "introduction",
-                    "title": "Introduction",
-                    "required": True,
-                    "description": "Introduction to the study"
+                    "name": "summary",
+                    "title": "Study Summary",
+                    "description": "A clear, concise overview of the study purpose and participant involvement",
+                    "estimated_length": "2-3 paragraphs"
                 },
                 {
-                    "name": "purpose",
-                    "title": "Purpose of Research",
-                    "required": True,
-                    "description": "Why the research is being done"
+                    "name": "background",
+                    "title": "Background and Purpose",
+                    "description": "Medical/scientific background explaining why the study is needed",
+                    "estimated_length": "3-4 paragraphs"
+                },
+                {
+                    "name": "participants",
+                    "title": "Number of Participants",
+                    "description": "Total participants and eligibility criteria",
+                    "estimated_length": "2-3 paragraphs"
                 },
                 {
                     "name": "procedures",
                     "title": "Study Procedures",
-                    "required": True,
-                    "description": "What will happen during the study"
+                    "description": "Detailed description of all study procedures and timeline",
+                    "estimated_length": "4-6 paragraphs"
+                },
+                {
+                    "name": "alternatives",
+                    "title": "Alternative Procedures",
+                    "description": "Alternative treatments available outside the study",
+                    "estimated_length": "2-3 paragraphs"
                 },
                 {
                     "name": "risks",
                     "title": "Risks and Discomforts",
-                    "required": True,
-                    "description": "Potential risks of participation"
+                    "description": "Comprehensive list of potential risks and side effects",
+                    "estimated_length": "3-5 paragraphs"
                 },
                 {
                     "name": "benefits",
                     "title": "Benefits",
-                    "required": True,
-                    "description": "Potential benefits of participation"
-                },
-                {
-                    "name": "confidentiality",
-                    "title": "Confidentiality",
-                    "required": True,
-                    "description": "How data will be protected"
+                    "description": "Potential benefits to participants and society",
+                    "estimated_length": "2-3 paragraphs"
                 }
-            ]
+            ],
+            "total_sections": 7,
+            "compliance": "FDA 21 CFR 50 - Protection of Human Subjects",
+            "generation_method": "LangGraph parallel processing with RAG context retrieval"
         }
     
     def _handle_protocols_get(self, path):
         """Handle GET requests to protocols endpoints"""
         if path == '/api/protocols':
-            # Return empty list for now
-            return {"protocols": []}
+            try:
+                # Import necessary dependencies
+                from qdrant_client import QdrantClient
+                import os
+                import re
+                
+                # Initialize Qdrant client
+                qdrant_url = os.getenv("QDRANT_URL")
+                qdrant_api_key = os.getenv("QDRANT_API_KEY")
+                
+                if not qdrant_url:
+                    print("Warning: QDRANT_URL not set")
+                    return {"protocols": []}
+                
+                client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
+                
+                # Get all collections
+                collections = client.get_collections()
+                protocols = []
+                
+                # Pattern to identify protocol collections
+                protocol_pattern = re.compile(r'^[A-Z0-9]+-[a-z0-9]{8}$')
+                
+                for collection_info in collections.collections:
+                    collection_name = collection_info.name
+                    
+                    # Check if this is a protocol collection
+                    if not protocol_pattern.match(collection_name):
+                        continue
+                    
+                    try:
+                        # Get the first point to extract metadata
+                        result = client.scroll(
+                            collection_name=collection_name,
+                            limit=1,
+                            with_payload=True
+                        )
+                        
+                        if result[0]:  # If points exist
+                            point = result[0][0]  # Get first point
+                            payload = point.payload or {}
+                            
+                            # Extract metadata (handle both LangChain and raw structures)
+                            if "metadata" in payload:
+                                metadata = payload["metadata"]
+                            else:
+                                metadata = payload
+                            
+                            # Get collection details for point count
+                            collection_detail = client.get_collection(collection_name)
+                            
+                            # Build protocol data
+                            protocol_data = {
+                                "protocol_id": metadata.get("protocol_id", ""),
+                                "study_acronym": metadata.get("study_acronym", ""),
+                                "protocol_title": metadata.get("protocol_title", ""),
+                                "collection_name": collection_name,
+                                "upload_date": metadata.get("upload_date", ""),
+                                "status": metadata.get("status", "processed"),
+                                "file_path": metadata.get("file_path", ""),
+                                "created_at": metadata.get("created_at", ""),
+                                "chunk_count": collection_detail.points_count,
+                            }
+                            
+                            protocols.append(protocol_data)
+                    except Exception as e:
+                        print(f"Error processing collection {collection_name}: {e}")
+                        continue
+                
+                return {"protocols": protocols}
+                
+            except Exception as e:
+                print(f"Error listing protocols: {e}")
+                import traceback
+                print(f"Traceback: {traceback.format_exc()}")
+                return {"protocols": [], "error": str(e)}
         else:
             return {"error": "Protocol endpoint not implemented", "path": path}
