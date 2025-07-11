@@ -20,8 +20,8 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient
 
-from app.prompts.icf_prompts import ICF_PROMPTS, ICF_SECTION_QUERIES
-from app.prompts.site_checklist_prompts import SITE_CHECKLIST_PROMPTS
+from ..prompts.icf_prompts import ICF_PROMPTS, ICF_SECTION_QUERIES
+from ..prompts.site_checklist_prompts import SITE_CHECKLIST_PROMPTS
 
 logger = logging.getLogger(__name__)
 
@@ -461,12 +461,18 @@ class StreamingICFWorkflow(ICFWorkflow):
         document_generator=None,
         document_id=None,
         main_loop=None,
+        sections_filter=None,
     ):
         super().__init__(llm_config)
         self.event_queue = event_queue
         self.document_generator = document_generator
         self.document_id = document_id
         self.main_loop = main_loop
+        self.sections_filter = sections_filter
+
+        # Override sections if filter is provided
+        if sections_filter:
+            self.sections = sections_filter
 
     def _create_section_generator(self, section_name: str):
         """Create a section generator that streams tokens via the event queue."""

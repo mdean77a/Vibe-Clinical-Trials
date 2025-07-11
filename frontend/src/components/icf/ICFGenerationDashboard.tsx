@@ -239,32 +239,52 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
         protocol.document_id || 
         `${getProtocolId(protocol).toUpperCase().replace(/-/g, '')}-${Math.random().toString(36).substr(2, 8)}`;
       
-      const response = await icfApi.regenerateSection(collectionName, sectionName, {
+      // Stream the section regeneration
+      const streamIterator = icfApi.regenerateSection(collectionName, sectionName, {
         protocol_title: protocol.protocol_title,
         study_acronym: protocol.study_acronym,
         sponsor: protocol.sponsor || 'Unknown',
         indication: protocol.indication || 'General',
-      }) as {
-        section_name: string;
-        content: string;
-        word_count: number;
-        status: string;
-      };
+      });
 
-      if (response.status === 'completed') {
-        // Update only the regenerated section - set to ready_for_review, not completed
-        setSections(prev => prev.map(section =>
-          section.name === sectionName
-            ? {
-                ...section,
-                status: 'ready_for_review' as const,
-                content: response.content || '',
-                wordCount: response.word_count || 0,
-              }
-            : section
-        ));
-      } else {
-        throw new Error(`Section regeneration failed with status: ${response.status}`);
+      for await (const event of streamIterator) {
+        if (event.event === 'section_start') {
+          console.log(`Starting regeneration of ${event.data.section_name}`);
+        } else if (event.event === 'token') {
+          // Update section content in real-time as tokens stream in
+          setSections(prev => prev.map(section =>
+            section.name === event.data.section_name
+              ? { 
+                  ...section, 
+                  content: event.data.accumulated_content || event.data.content,
+                  status: 'generating' as const
+                }
+              : section
+          ));
+        } else if (event.event === 'section_complete') {
+          // Mark section as completed
+          setSections(prev => prev.map(section =>
+            section.name === event.data.section_name
+              ? { 
+                  ...section, 
+                  status: 'ready_for_review' as const, 
+                  content: event.data.content,
+                  wordCount: event.data.word_count 
+                }
+              : section
+          ));
+        } else if (event.event === 'section_error') {
+          console.error(`Error in ${event.data.section_name}:`, event.data.error);
+          setSections(prev => prev.map(section =>
+            section.name === event.data.section_name
+              ? { ...section, status: 'error' as const }
+              : section
+          ));
+        } else if (event.event === 'complete') {
+          console.log('Section regeneration completed');
+        } else if (event.event === 'error') {
+          throw new Error(event.data.error);
+        }
       }
     } catch (error) {
       console.error(`Section regeneration failed for ${sectionName}:`, error);

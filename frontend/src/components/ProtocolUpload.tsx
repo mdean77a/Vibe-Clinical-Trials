@@ -3,6 +3,7 @@ import Card from './Card';
 import Button from './Button';
 import Input from './Input';
 import { protocolsApi } from '../utils/api';
+import { extractTextFromPDF, isPDFFile, getTextPreview, PDFExtractionProgress } from '../utils/pdfExtractor';
 
 interface ProtocolUploadProps {
   onUploadComplete: (fileName: string, acronym: string, protocol?: unknown) => void;
@@ -15,15 +16,18 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [extractionProgress, setExtractionProgress] = useState<PDFExtractionProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [extractedText, setExtractedText] = useState<string | null>(null);
   const [acronym, setAcronym] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const validateFile = (file: File): string | null => {
     // Check file type
-    if (file.type !== 'application/pdf') {
+    if (!isPDFFile(file)) {
       return 'Please select a PDF file only.';
     }
     
@@ -63,9 +67,8 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
       return;
     }
 
-    const fileValidationError = validateFile(selectedFile);
-    if (fileValidationError) {
-      setError(fileValidationError);
+    if (!extractedText) {
+      setError('Please wait for text extraction to complete.');
       return;
     }
 
@@ -91,11 +94,26 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
         });
       }, 300);
 
-      // Actual API call to upload and process the PDF
-      const uploadResponse = await protocolsApi.upload(selectedFile, {
-        study_acronym: acronym.trim().toUpperCase(),
-        protocol_title: `Protocol ${acronym.trim().toUpperCase()}`,
-      });
+      // Always use client-side text extraction (consistent across dev and production)
+      const useTextEndpoint = true;
+      
+      let uploadResponse;
+      if (useTextEndpoint) {
+        // Use the new text-based upload endpoint
+        uploadResponse = await protocolsApi.uploadText({
+          study_acronym: acronym.trim().toUpperCase(),
+          protocol_title: `Protocol ${acronym.trim().toUpperCase()}`,
+          extracted_text: extractedText,
+          original_filename: selectedFile.name,
+          page_count: extractionProgress?.totalPages || 0
+        });
+      } else {
+        // Fall back to original file upload (for non-Vercel deployments)
+        uploadResponse = await protocolsApi.upload(selectedFile, {
+          study_acronym: acronym.trim().toUpperCase(),
+          protocol_title: `Protocol ${acronym.trim().toUpperCase()}`,
+        });
+      }
 
       clearInterval(progressInterval);
       setUploadProgress(100);
@@ -113,7 +131,7 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
     }
   };
 
-  const handleFileSelect = (file: File) => {
+  const handleFileSelect = async (file: File) => {
     const validationError = validateFile(file);
     if (validationError) {
       setError(validationError);
@@ -122,6 +140,28 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
     
     setSelectedFile(file);
     setError(null);
+    setExtractedText(null);
+    setExtractionProgress(null);
+    
+    // Extract text from PDF
+    setIsExtracting(true);
+    try {
+      const result = await extractTextFromPDF(file, (progress) => {
+        setExtractionProgress(progress);
+      });
+      
+      setExtractedText(result.text);
+      setIsExtracting(false);
+      
+      // Log extraction success
+      console.log(`Extracted ${result.pageCount} pages from PDF`);
+      
+    } catch (extractionError) {
+      console.error('PDF extraction error:', extractionError);
+      setError(extractionError instanceof Error ? extractionError.message : 'Failed to extract text from PDF');
+      setIsExtracting(false);
+      setSelectedFile(null);
+    }
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -157,6 +197,8 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
 
   const handleRemoveFile = () => {
     setSelectedFile(null);
+    setExtractedText(null);
+    setExtractionProgress(null);
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -330,10 +372,11 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
                       <p style={{ fontWeight: '600', color: '#1f2937' }}>{selectedFile.name}</p>
                       <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
                         {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                        {extractedText && ` • ${extractionProgress?.totalPages || 0} pages extracted`}
                       </p>
                     </div>
                   </div>
-                  {!isUploading && (
+                  {!isUploading && !isExtracting && (
                     <Button
                       onClick={handleRemoveFile}
                       style={{
@@ -360,6 +403,67 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
               </div>
             )}
           </div>
+
+          {/* Text Extraction Progress */}
+          {isExtracting && extractionProgress && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>
+                  Extracting text from PDF...
+                </span>
+                <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                  Page {extractionProgress.currentPage} of {extractionProgress.totalPages} ({extractionProgress.percentage}%)
+                </span>
+              </div>
+              <div style={{ width: '100%', background: '#e5e7eb', borderRadius: '9999px', height: '8px' }}>
+                <div 
+                  style={{
+                    background: '#8b5cf6',
+                    height: '8px',
+                    borderRadius: '9999px',
+                    transition: 'width 0.3s',
+                    width: `${extractionProgress.percentage}%`
+                  }}
+                ></div>
+              </div>
+            </div>
+          )}
+
+          {/* Extracted Text Preview */}
+          {extractedText && !isExtracting && (
+            <div style={{
+              padding: '16px',
+              background: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              borderRadius: '8px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                <svg style={{ width: '20px', height: '20px', color: '#16a34a', marginRight: '8px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p style={{ color: '#166534', fontSize: '0.875rem', fontWeight: '600' }}>
+                  Text extracted successfully
+                </p>
+              </div>
+              <details>
+                <summary style={{ cursor: 'pointer', color: '#166534', fontSize: '0.875rem' }}>
+                  Preview extracted text
+                </summary>
+                <pre style={{
+                  marginTop: '8px',
+                  padding: '8px',
+                  background: '#e6ffed',
+                  borderRadius: '4px',
+                  fontSize: '0.75rem',
+                  overflow: 'auto',
+                  maxHeight: '200px',
+                  whiteSpace: 'pre-wrap'
+                }}>
+                  {getTextPreview(extractedText, 1000)}
+                </pre>
+              </details>
+            </div>
+          )}
 
           {/* Upload Progress */}
           {isUploading && (
@@ -403,7 +507,7 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
           <div style={{ display: 'flex', gap: '16px' }}>
             <Button
               onClick={handleFileUpload}
-              disabled={!selectedFile || !acronym.trim() || isUploading}
+              disabled={!selectedFile || !acronym.trim() || isUploading || isExtracting || !extractedText}
               style={{
                 flex: 1,
                 padding: '12px 24px',
@@ -411,24 +515,24 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
                 fontWeight: '600',
                 transition: 'all 0.2s',
                 border: 'none',
-                cursor: (!selectedFile || !acronym.trim() || isUploading) ? 'not-allowed' : 'pointer',
-                background: (!selectedFile || !acronym.trim() || isUploading) 
+                cursor: (!selectedFile || !acronym.trim() || isUploading || isExtracting || !extractedText) ? 'not-allowed' : 'pointer',
+                background: (!selectedFile || !acronym.trim() || isUploading || isExtracting || !extractedText) 
                   ? '#d1d5db' 
                   : 'linear-gradient(to right, #8b5cf6, #7c3aed)',
-                color: (!selectedFile || !acronym.trim() || isUploading) ? '#6b7280' : 'white'
+                color: (!selectedFile || !acronym.trim() || isUploading || isExtracting || !extractedText) ? '#6b7280' : 'white'
               }}
               onMouseEnter={(e) => {
-                if (selectedFile && acronym.trim() && !isUploading) {
+                if (selectedFile && acronym.trim() && !isUploading && !isExtracting && extractedText) {
                   e.currentTarget.style.background = 'linear-gradient(to right, #7c3aed, #6d28d9)';
                 }
               }}
               onMouseLeave={(e) => {
-                if (selectedFile && acronym.trim() && !isUploading) {
+                if (selectedFile && acronym.trim() && !isUploading && !isExtracting && extractedText) {
                   e.currentTarget.style.background = 'linear-gradient(to right, #8b5cf6, #7c3aed)';
                 }
               }}
             >
-              {isUploading ? 'Uploading...' : 'Upload Protocol'}
+              {isUploading ? 'Uploading...' : isExtracting ? 'Extracting Text...' : 'Upload Protocol'}
             </Button>
           </div>
 
@@ -453,6 +557,10 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
                 <span style={{ width: '6px', height: '6px', background: '#8b5cf6', borderRadius: '50%', marginRight: '8px' }}></span>
                 Protocol acronym (2-20 characters)
               </li>
+              <li style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                <span style={{ width: '6px', height: '6px', background: '#8b5cf6', borderRadius: '50%', marginRight: '8px' }}></span>
+                Text will be extracted client-side
+              </li>
               <li style={{ display: 'flex', alignItems: 'center' }}>
                 <span style={{ width: '6px', height: '6px', background: '#8b5cf6', borderRadius: '50%', marginRight: '8px' }}></span>
                 Clinical trial protocol document
@@ -465,4 +573,4 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
   );
 };
 
-export default ProtocolUpload; 
+export default ProtocolUpload;

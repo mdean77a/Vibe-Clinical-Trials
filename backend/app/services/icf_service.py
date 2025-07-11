@@ -87,6 +87,7 @@ class ICFGenerationService:
         self,
         protocol_collection_name: str,
         protocol_metadata: Optional[Dict[str, Any]] = None,
+        sections_filter: Optional[List[str]] = None,
     ):
         """
         Generate ICF sections using LangGraph with streaming tokens from each node.
@@ -97,6 +98,7 @@ class ICFGenerationService:
         Args:
             protocol_collection_name: The Qdrant collection name for the protocol
             protocol_metadata: Optional metadata about the protocol
+            sections_filter: Optional list of section names to generate. If None, generates all sections.
 
         Yields:
             Dict with streaming events from parallel section generation
@@ -125,6 +127,7 @@ class ICFGenerationService:
                 self.document_generator,
                 protocol_collection_name,
                 main_loop,
+                sections_filter,
             )
 
             # Prepare workflow inputs like the original implementation
@@ -164,7 +167,9 @@ class ICFGenerationService:
 
             # Stream events as they arrive from the queue
             sections_completed = 0
-            total_sections = 7  # ICF has 7 sections
+            total_sections = (
+                len(sections_filter) if sections_filter else 7
+            )  # ICF has 7 sections by default
 
             while sections_completed < total_sections:
                 try:

@@ -552,3 +552,156 @@ async def delete_protocol_endpoint(collection_name: str) -> None:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
         )
+
+
+@router.post("/upload-text", response_model=ProtocolResponse)
+async def upload_protocol_text(request: dict) -> ProtocolResponse:
+    """
+    Upload protocol with pre-extracted text (for client-side PDF processing).
+
+    This endpoint is used when PDF text extraction is done on the client side
+    using PDF.js, allowing deployment on platforms with size restrictions.
+
+    Args:
+        request: JSON body containing:
+            - study_acronym: Study identifier
+            - protocol_title: Protocol title
+            - extracted_text: Pre-extracted text from PDF
+            - original_filename: Original PDF filename
+            - page_count: Number of pages in the original PDF
+
+    Returns:
+        ProtocolResponse with created protocol details
+    """
+    try:
+        # Extract request data
+        study_acronym = request.get("study_acronym", "").strip().upper()
+        protocol_title = request.get("protocol_title", "").strip()
+        extracted_text = request.get("extracted_text", "").strip()
+        original_filename = request.get("original_filename", "")
+        page_count = request.get("page_count", 0)
+
+        # Validate required fields
+        if not study_acronym:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="study_acronym is required",
+            )
+        if not protocol_title:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="protocol_title is required",
+            )
+        if not extracted_text:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="extracted_text is required",
+            )
+
+        logger.info(f"Processing text upload for study {study_acronym}")
+
+        # Process the extracted text using the same chunking logic
+        try:
+            from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+            # Use the same text splitter configuration as extract_and_chunk_pdf
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000,
+                chunk_overlap=200,
+                length_function=len,
+                separators=["\n\n", "\n", ". ", " ", ""],
+            )
+
+            text_chunks = text_splitter.split_text(extracted_text)
+
+            # Filter out very short chunks
+            meaningful_chunks = [
+                chunk.strip() for chunk in text_chunks if len(chunk.strip()) > 50
+            ]
+
+            if not meaningful_chunks:
+                meaningful_chunks = [extracted_text.strip()]
+
+            logger.info(
+                f"Text processed: {len(meaningful_chunks)} chunks from {page_count} pages"
+            )
+
+        except Exception as e:
+            logger.error(f"Text processing failed: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to process text: {str(e)}",
+            )
+
+        # Store protocol using LangChain integration (same as file upload)
+        try:
+            from langchain_core.documents import Document
+
+            from ..services.langchain_qdrant_service import get_langchain_qdrant_service
+
+            # Initialize LangChain service
+            langchain_service = get_langchain_qdrant_service()
+
+            # Create protocol metadata
+            protocol_metadata = {
+                "protocol_id": f"proto_{int(time.time() * 1000)}",
+                "study_acronym": study_acronym,
+                "protocol_title": protocol_title,
+                "upload_date": datetime.now().isoformat(),
+                "status": "processed",
+                "file_path": original_filename,
+                "created_at": datetime.now().isoformat(),
+                "chunk_count": len(meaningful_chunks),
+                "processing_method": "client-side-extraction",
+                "page_count": page_count,
+            }
+
+            # Convert text chunks to LangChain Documents
+            documents = []
+            for i, chunk in enumerate(meaningful_chunks):
+                doc = Document(
+                    page_content=chunk,
+                    metadata={
+                        **protocol_metadata,
+                        "chunk_index": i,
+                        "chunk_size": len(chunk),
+                        "embedding_model": "text-embedding-ada-002",
+                        "processing_version": "1.0",
+                        "last_updated": datetime.now().isoformat(),
+                    },
+                )
+                documents.append(doc)
+
+            # Store documents using LangChain
+            doc_ids, collection_name = langchain_service.store_documents(
+                documents=documents,
+                study_acronym=study_acronym,
+            )
+
+            # Add collection_name to protocol metadata
+            protocol_metadata["collection_name"] = collection_name
+
+            logger.info(
+                f"Stored {len(documents)} documents using LangChain with collection: {collection_name}"
+            )
+
+        except Exception as e:
+            logger.error(f"LangChain storage failed: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to store protocol: {str(e)}",
+            )
+
+        logger.info(
+            f"Successfully processed and stored protocol {study_acronym} from client text"
+        )
+        return ProtocolResponse(**protocol_metadata)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error processing text upload: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during text processing",
+        )

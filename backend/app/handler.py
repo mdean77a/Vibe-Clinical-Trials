@@ -1,5 +1,5 @@
 # Vercel serverless handler for FastAPI
-from .main import app
+from .main import app as fastapi_app
 
 # This is what Vercel will use
-handler = app
+app = fastapi_app
