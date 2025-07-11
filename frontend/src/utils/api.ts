@@ -211,17 +211,60 @@ export const icfApi = {
   },
 
   /**
-   * Regenerate a specific ICF section
+   * Regenerate a specific ICF section with streaming
    */
-  regenerateSection: async (collectionName: string, sectionName: string, protocolMetadata?: unknown) => {
-    return apiRequest('icf/regenerate-section', {
+  regenerateSection: async function* (collectionName: string, sectionName: string, protocolMetadata?: unknown) {
+    const url = getApiUrl('icf/regenerate-section');
+    
+    const response = await fetch(url, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+      },
       body: JSON.stringify({
         protocol_collection_name: collectionName,
         section_name: sectionName,
         protocol_metadata: protocolMetadata,
       }),
     });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    if (!response.body) {
+      throw new Error('Response body is null');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              yield data;
+            } catch {
+              console.warn('Failed to parse SSE data:', line);
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
   },
 
   /**
