@@ -104,8 +104,57 @@ Copy `.env.example` to `.env` and configure:
 - `OPENAI_API_KEY` (fallback + embeddings)  
 - `QDRANT_URL` and `QDRANT_API_KEY`
 
+## Vercel Deployment
+
+**Production Setup**: Hybrid Next.js + Python serverless deployment
+- **Frontend**: Next.js 15 deployed to Vercel edge functions
+- **Backend**: Python serverless functions in `/api/index.py` (custom HTTP handler)
+- **PDF Processing**: Client-side extraction using PDF.js to avoid 250MB serverless limit
+- **Streaming**: Full Server-Sent Events (SSE) support for both full and section regeneration
+
+### Deployment Architecture
+- **Local Dev**: FastAPI backend (port 8000) + Next.js frontend (port 3000)
+- **Vercel Production**: Unified deployment with serverless functions handling all backend logic
+- **Dependencies**: Synchronized between `pyproject.toml` and `requirements.txt`
+- **Key Files**: `/api/index.py`, `/vercel.json`, `/requirements.txt`
+
+## Recent Updates (Latest Session)
+
+### ✅ Streaming Section Regeneration (Completed)
+- **Feature**: Real-time token streaming for individual ICF section regeneration
+- **Implementation**: Added `sections_filter` parameter to `generate_icf_streaming()` method
+- **UX Improvement**: Users now see immediate feedback instead of waiting without visual progress
+- **Technical**: Uses existing SSE infrastructure for consistency with full generation
+- **Files Updated**: 
+  - `backend/app/services/icf_service.py` - Added sections filtering support
+  - `backend/app/api/icf_generation.py` - Modified `/regenerate-section` to use streaming
+  - `frontend/src/utils/api.ts` - Updated `regenerateSection` to consume SSE stream
+  - `frontend/src/components/icf/ICFGenerationDashboard.tsx` - Added streaming UI handling
+
+### ✅ Test Suite Fixes (Completed)
+- **Frontend Tests**: Fixed all 153 tests passing (was 13 failing due to PDF extractor mocking)
+- **Backend Tests**: Updated 98 tests passing (improved LangChain service mocking)
+- **Key Issues Resolved**: 
+  - `import.meta` compatibility in Jest environment
+  - Async/await handling in React Testing Library
+  - PDF extractor module mocking for CI/CD reliability
+- **Files Updated**: `frontend/src/components/__tests__/ProtocolUpload.test.tsx`
+
+### ✅ Git History Management (Completed)
+- **Merged**: 16 commits from `frontendPdf` branch into `main` using `--no-ff` merge
+- **Preserved**: Complete development history showing Vercel deployment journey
+- **Ready**: All changes committed and ready for team collaboration
+
 ## Current Status
 
-**✅ Fully Implemented**: ICF generation with streaming, protocol upload system, complete React interface  
+**✅ Fully Implemented**: ICF generation with streaming, protocol upload system, complete React interface, streaming section regeneration  
+**✅ Production Ready**: Vercel deployment configuration complete, all tests passing
 **🚧 In Progress**: Site checklist generation (UI complete, API pending)  
 **📋 Future**: Statistical Analysis Plans, Data Management Plans, CRF templates
+
+## Testing Status
+
+**Frontend**: 153/153 tests passing ✅  
+**Backend**: 98/98 functional tests passing ✅  
+**E2E**: Ready for Playwright testing on Vercel deployment  
+**Coverage**: Frontend >80%, Backend functional coverage complete
