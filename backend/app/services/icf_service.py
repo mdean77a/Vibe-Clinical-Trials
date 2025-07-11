@@ -167,7 +167,9 @@ class ICFGenerationService:
 
             # Stream events as they arrive from the queue
             sections_completed = 0
-            total_sections = len(sections_filter) if sections_filter else 7  # ICF has 7 sections by default
+            total_sections = (
+                len(sections_filter) if sections_filter else 7
+            )  # ICF has 7 sections by default
 
             while sections_completed < total_sections:
                 try:

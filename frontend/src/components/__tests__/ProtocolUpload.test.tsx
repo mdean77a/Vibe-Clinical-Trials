@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ProtocolUpload from '../ProtocolUpload';
 import { protocolsApi } from '../../utils/api';
@@ -9,6 +9,14 @@ jest.mock('../../utils/api', () => ({
   protocolsApi: {
     upload: jest.fn()
   }
+}));
+
+// Mock the PDF extractor module to avoid import.meta issues
+jest.mock('../../utils/pdfExtractor', () => ({
+  extractTextFromPDF: jest.fn(),
+  isPDFFile: jest.fn(),
+  getTextPreview: jest.fn(),
+  PDFExtractionProgress: jest.fn()
 }));
 
 // Mock timers for progress animation
@@ -24,6 +32,24 @@ describe('ProtocolUpload Component', () => {
     jest.clearAllMocks();
     jest.clearAllTimers();
     mockProtocolsApi.upload.mockClear();
+    
+    // Setup default mock implementations
+    const { extractTextFromPDF, isPDFFile, getTextPreview } = require('../../utils/pdfExtractor');
+    
+    extractTextFromPDF.mockResolvedValue({
+      text: 'Mock extracted PDF text',
+      pageCount: 1,
+      extractedAt: new Date().toISOString()
+    });
+    
+    isPDFFile.mockImplementation((file: File) => {
+      return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    });
+    
+    getTextPreview.mockImplementation((text: string, maxLength: number = 500) => {
+      if (text.length <= maxLength) return text;
+      return text.substring(0, maxLength) + '...';
+    });
   });
 
   afterEach(() => {
@@ -320,32 +346,48 @@ describe('ProtocolUpload Component', () => {
       expect(uploadButton).toBeDisabled();
     });
 
-    it('disables upload button when acronym is missing', () => {
+    it('disables upload button when acronym is missing', async () => {
       render(<ProtocolUpload {...defaultProps} />);
       
       // Add a file via drop
       const file = createMockPDFFile();
       const dropZone = screen.getByText('Drop your PDF here, or click to browse').closest('div');
-      fireEvent.drop(dropZone!, {
-        dataTransfer: {
-          files: [file]
-        }
+      
+      await act(async () => {
+        fireEvent.drop(dropZone!, {
+          dataTransfer: {
+            files: [file]
+          }
+        });
+      });
+      
+      // Wait for the file processing to complete
+      await waitFor(() => {
+        expect(screen.getByText('test-protocol.pdf')).toBeInTheDocument();
       });
       
       const uploadButton = screen.getByText('Upload Protocol');
       expect(uploadButton).toBeDisabled();
     });
 
-    it('enables upload button when both file and acronym are provided', () => {
+    it('enables upload button when both file and acronym are provided', async () => {
       render(<ProtocolUpload {...defaultProps} />);
       
       // Add file via drop
       const file = createMockPDFFile();
       const dropZone = screen.getByText('Drop your PDF here, or click to browse').closest('div');
-      fireEvent.drop(dropZone!, {
-        dataTransfer: {
-          files: [file]
-        }
+      
+      await act(async () => {
+        fireEvent.drop(dropZone!, {
+          dataTransfer: {
+            files: [file]
+          }
+        });
+      });
+      
+      // Wait for the file processing to complete
+      await waitFor(() => {
+        expect(screen.getByText('test-protocol.pdf')).toBeInTheDocument();
       });
       
       // Add acronym
@@ -375,16 +417,23 @@ describe('ProtocolUpload Component', () => {
       expect(screen.getByText(/0\.00\s+MB/)).toBeInTheDocument();
     });
 
-    it('shows remove button when file is selected', () => {
+    it('shows remove button when file is selected', async () => {
       render(<ProtocolUpload {...defaultProps} />);
       
       const file = createMockPDFFile();
       const dropZone = screen.getByText('Drop your PDF here, or click to browse').closest('div');
       
-      fireEvent.drop(dropZone!, {
-        dataTransfer: {
-          files: [file]
-        }
+      await act(async () => {
+        fireEvent.drop(dropZone!, {
+          dataTransfer: {
+            files: [file]
+          }
+        });
+      });
+      
+      // Wait for the file processing to complete
+      await waitFor(() => {
+        expect(screen.getByText('test-protocol.pdf')).toBeInTheDocument();
       });
       
       const removeButtons = screen.getAllByRole('button');
@@ -392,19 +441,24 @@ describe('ProtocolUpload Component', () => {
       expect(removeButton).toBeInTheDocument();
     });
 
-    it('removes file when remove button is clicked', () => {
+    it('removes file when remove button is clicked', async () => {
       render(<ProtocolUpload {...defaultProps} />);
       
       const file = createMockPDFFile('test-protocol.pdf');
       const dropZone = screen.getByText('Drop your PDF here, or click to browse').closest('div');
       
-      fireEvent.drop(dropZone!, {
-        dataTransfer: {
-          files: [file]
-        }
+      await act(async () => {
+        fireEvent.drop(dropZone!, {
+          dataTransfer: {
+            files: [file]
+          }
+        });
       });
       
-      expect(screen.getByText('test-protocol.pdf')).toBeInTheDocument();
+      // Wait for the file processing to complete
+      await waitFor(() => {
+        expect(screen.getByText('test-protocol.pdf')).toBeInTheDocument();
+      });
       
       const removeButtons = screen.getAllByRole('button');
       const removeButton = removeButtons.find(button => button.innerHTML.includes('svg'));
@@ -536,44 +590,52 @@ describe('ProtocolUpload Component', () => {
       expect(dropZone).toHaveStyle({ borderColor: '#d1d5db' });
     });
 
-    it('handles file replacement via drag and drop', () => {
+    it('handles file replacement via drag and drop', async () => {
       render(<ProtocolUpload {...defaultProps} />);
       
       const dropZone = screen.getByText('Drop your PDF here, or click to browse').closest('div');
       
       // Drop first file
       const firstFile = createMockPDFFile('first-protocol.pdf');
-      fireEvent.drop(dropZone!, {
-        dataTransfer: {
-          files: [firstFile]
-        }
+      await act(async () => {
+        fireEvent.drop(dropZone!, {
+          dataTransfer: {
+            files: [firstFile]
+          }
+        });
       });
       
-      expect(screen.getByText('first-protocol.pdf')).toBeInTheDocument();
+      // Wait for the file processing to complete
+      await waitFor(() => {
+        expect(screen.getByText('first-protocol.pdf')).toBeInTheDocument();
+      });
       
-      // Drop second file (should replace first) - need to find the file display area since dropZone changes
-      const fileDisplayArea = screen.getByText('first-protocol.pdf').closest('div');
-      const secondFile = createMockPDFFile('second-protocol.pdf');
-      
-      // Since the file is already selected, we need to simulate dropping on the file display area
-      // or remove the file first and then drop the new one
+      // Remove the first file
       const removeButtons = screen.getAllByRole('button');
       const removeButton = removeButtons.find(button => button.innerHTML.includes('svg'));
       fireEvent.click(removeButton!);
       
       // Now drop the second file
       const newDropZone = screen.getByText('Drop your PDF here, or click to browse').closest('div');
-      fireEvent.drop(newDropZone!, {
-        dataTransfer: {
-          files: [secondFile]
-        }
+      const secondFile = createMockPDFFile('second-protocol.pdf');
+      
+      await act(async () => {
+        fireEvent.drop(newDropZone!, {
+          dataTransfer: {
+            files: [secondFile]
+          }
+        });
       });
       
-      expect(screen.getByText('second-protocol.pdf')).toBeInTheDocument();
+      // Wait for the second file processing to complete
+      await waitFor(() => {
+        expect(screen.getByText('second-protocol.pdf')).toBeInTheDocument();
+      });
+      
       expect(screen.queryByText('first-protocol.pdf')).not.toBeInTheDocument();
     });
 
-    it('maintains upload button state after file replacement', () => {
+    it('maintains upload button state after file replacement', async () => {
       render(<ProtocolUpload {...defaultProps} />);
       
       const dropZone = screen.getByText('Drop your PDF here, or click to browse').closest('div');
@@ -584,45 +646,69 @@ describe('ProtocolUpload Component', () => {
       
       // Drop first file
       const firstFile = createMockPDFFile('first-protocol.pdf');
-      fireEvent.drop(dropZone!, {
-        dataTransfer: {
-          files: [firstFile]
-        }
+      await act(async () => {
+        fireEvent.drop(dropZone!, {
+          dataTransfer: {
+            files: [firstFile]
+          }
+        });
+      });
+      
+      // Wait for the file processing to complete
+      await waitFor(() => {
+        expect(screen.getByText('first-protocol.pdf')).toBeInTheDocument();
       });
       
       const uploadButton = screen.getByText('Upload Protocol');
       expect(uploadButton).not.toBeDisabled();
       
-      // Replace with second file
+      // Replace with second file by removing first and adding second
+      const removeButtons = screen.getAllByRole('button');
+      const removeButton = removeButtons.find(button => button.innerHTML.includes('svg'));
+      fireEvent.click(removeButton!);
+      
+      const newDropZone = screen.getByText('Drop your PDF here, or click to browse').closest('div');
       const secondFile = createMockPDFFile('second-protocol.pdf');
-      fireEvent.drop(dropZone!, {
-        dataTransfer: {
-          files: [secondFile]
-        }
+      
+      await act(async () => {
+        fireEvent.drop(newDropZone!, {
+          dataTransfer: {
+            files: [secondFile]
+          }
+        });
+      });
+      
+      // Wait for the second file processing to complete
+      await waitFor(() => {
+        expect(screen.getByText('second-protocol.pdf')).toBeInTheDocument();
       });
       
       // Upload button should still be enabled
-      expect(uploadButton).not.toBeDisabled();
+      const newUploadButton = screen.getByText('Upload Protocol');
+      expect(newUploadButton).not.toBeDisabled();
     });
 
-    it('shows error when invalid file is dropped after valid one but keeps valid file', () => {
+    it('shows error when invalid file is dropped after valid one but keeps valid file', async () => {
       render(<ProtocolUpload {...defaultProps} />);
       
       const dropZone = screen.getByText('Drop your PDF here, or click to browse').closest('div');
       
       // Drop valid file first
       const validFile = createMockPDFFile('valid-protocol.pdf');
-      fireEvent.drop(dropZone!, {
-        dataTransfer: {
-          files: [validFile]
-        }
+      await act(async () => {
+        fireEvent.drop(dropZone!, {
+          dataTransfer: {
+            files: [validFile]
+          }
+        });
       });
       
-      expect(screen.getByText('valid-protocol.pdf')).toBeInTheDocument();
+      // Wait for the file processing to complete
+      await waitFor(() => {
+        expect(screen.getByText('valid-protocol.pdf')).toBeInTheDocument();
+      });
       
-      // Try to drop invalid file - since there's already a file, we need to remove it first
-      // or the component might not allow dropping on the file display area
-      // Let's test by removing first and then dropping invalid file
+      // Remove the valid file first
       const removeButtons = screen.getAllByRole('button');
       const removeButton = removeButtons.find(button => button.innerHTML.includes('svg'));
       fireEvent.click(removeButton!);
@@ -653,21 +739,26 @@ describe('ProtocolUpload Component', () => {
       expect(acronymInput).toHaveValue(longAcronym);
     });
 
-    it('displays consistent UI state after removing file', () => {
+    it('displays consistent UI state after removing file', async () => {
       render(<ProtocolUpload {...defaultProps} />);
       
       const dropZone = screen.getByText('Drop your PDF here, or click to browse').closest('div');
       
       // Add file
       const file = createMockPDFFile('test-protocol.pdf');
-      fireEvent.drop(dropZone!, {
-        dataTransfer: {
-          files: [file]
-        }
+      await act(async () => {
+        fireEvent.drop(dropZone!, {
+          dataTransfer: {
+            files: [file]
+          }
+        });
       });
       
-      // Verify file is displayed
-      expect(screen.getByText('test-protocol.pdf')).toBeInTheDocument();
+      // Wait for the file processing to complete
+      await waitFor(() => {
+        expect(screen.getByText('test-protocol.pdf')).toBeInTheDocument();
+      });
+      
       expect(screen.queryByText('Drop your PDF here, or click to browse')).not.toBeInTheDocument();
       
       // Remove file

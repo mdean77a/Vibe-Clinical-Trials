@@ -289,7 +289,7 @@ async def regenerate_icf_section(
     This endpoint regenerates only the specified section with real-time streaming,
     providing immediate feedback during generation.
     """
-    
+
     async def stream_generator():
         try:
             logger.info(
@@ -335,7 +335,9 @@ async def regenerate_icf_section(
             async for section_result in icf_service.generate_icf_streaming(
                 protocol_collection_name=request.protocol_collection_name,
                 protocol_metadata=request.protocol_metadata,
-                sections_filter=[request.section_name],  # Only regenerate the specified section
+                sections_filter=[
+                    request.section_name
+                ],  # Only regenerate the specified section
             ):
                 if section_result["type"] == "section_start":
                     event_data = {

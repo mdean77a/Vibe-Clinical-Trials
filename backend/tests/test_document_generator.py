@@ -47,17 +47,21 @@ class TestDocumentGenerator:
         """Test successful protocol context retrieval."""
         document_id = sample_protocol_metadata["document_id"]
 
-        # Mock Qdrant search results
-        mock_qdrant_client.search.return_value = [
-            MagicMock(payload={"text": "Protocol inclusion criteria"}, score=0.9),
-            MagicMock(payload={"text": "Study procedures description"}, score=0.8),
-        ]
-
         generator = DocumentGenerator(mock_qdrant_client, None, None)
 
+        # Mock the LangChain service and its similarity search method
+        mock_langchain_service = MagicMock()
+        mock_doc1 = MagicMock(page_content="Protocol inclusion criteria", metadata={})
+        mock_doc2 = MagicMock(page_content="Study procedures description", metadata={})
+
+        mock_langchain_service.similarity_search_with_score.return_value = [
+            (mock_doc1, 0.9),
+            (mock_doc2, 0.8),
+        ]
+
         with patch(
-            "app.services.qdrant_service.QdrantService.get_embeddings",
-            return_value=[[0.1] * 1536],
+            "app.services.langchain_qdrant_service.get_langchain_qdrant_service",
+            return_value=mock_langchain_service,
         ):
             context = generator.get_protocol_context(document_id, "inclusion criteria")
 
@@ -214,25 +218,47 @@ class TestRAGContextRetrieval:
         """Test RAG context retrieval for ICF generation."""
         document_id = sample_protocol_metadata["document_id"]
 
-        # Mock context retrieval for different ICF sections
-        mock_qdrant_client.search.side_effect = [
-            # Title context
-            [MagicMock(payload={"text": "Study title and acronym"}, score=0.95)],
-            # Purpose context
-            [
-                MagicMock(
-                    payload={"text": "Primary and secondary objectives"}, score=0.90
-                )
-            ],
-            # Procedures context
-            [MagicMock(payload={"text": "Study procedures and visits"}, score=0.88)],
-        ]
-
         generator = DocumentGenerator(mock_qdrant_client, None, None)
 
+        # Mock the LangChain service
+        mock_langchain_service = MagicMock()
+
+        # Set up different return values for different queries
+        def mock_search_side_effect(collection_name, query, k):
+            if "title" in query.lower():
+                return [
+                    (
+                        MagicMock(page_content="Study title and acronym", metadata={}),
+                        0.95,
+                    )
+                ]
+            elif "objectives" in query.lower():
+                return [
+                    (
+                        MagicMock(
+                            page_content="Primary and secondary objectives", metadata={}
+                        ),
+                        0.90,
+                    )
+                ]
+            elif "procedures" in query.lower():
+                return [
+                    (
+                        MagicMock(
+                            page_content="Study procedures and visits", metadata={}
+                        ),
+                        0.88,
+                    )
+                ]
+            return []
+
+        mock_langchain_service.similarity_search_with_score.side_effect = (
+            mock_search_side_effect
+        )
+
         with patch(
-            "app.services.qdrant_service.QdrantService.get_embeddings",
-            return_value=[[0.1] * 1536],
+            "app.services.langchain_qdrant_service.get_langchain_qdrant_service",
+            return_value=mock_langchain_service,
         ):
             # Test different section contexts
             title_context = generator.get_protocol_context(document_id, "study title")
@@ -260,16 +286,17 @@ class TestRAGContextRetrieval:
         """Test RAG context retrieval with insufficient results."""
         document_id = sample_protocol_metadata["document_id"]
 
-        # Mock low-score results
-        mock_qdrant_client.search.return_value = [
-            MagicMock(payload={"text": "Irrelevant content"}, score=0.3)
-        ]
-
         generator = DocumentGenerator(mock_qdrant_client, None, None)
 
+        # Mock the LangChain service with low-score results
+        mock_langchain_service = MagicMock()
+        mock_langchain_service.similarity_search_with_score.return_value = [
+            (MagicMock(page_content="Irrelevant content", metadata={}), 0.3)
+        ]
+
         with patch(
-            "app.services.qdrant_service.QdrantService.get_embeddings",
-            return_value=[[0.1] * 1536],
+            "app.services.langchain_qdrant_service.get_langchain_qdrant_service",
+            return_value=mock_langchain_service,
         ):
             context = generator.get_protocol_context(
                 document_id,
@@ -351,9 +378,15 @@ class TestIntegrationScenarios:
         }
 
         # Generate ICF using the collection name that was actually created
+        # Mock the LangChain service for context retrieval
+        mock_langchain_service = MagicMock()
+        mock_langchain_service.similarity_search_with_score.return_value = [
+            (MagicMock(page_content="Relevant protocol content", metadata={}), 0.9)
+        ]
+
         with patch(
-            "app.services.qdrant_service.QdrantService.get_embeddings",
-            return_value=[[0.1] * 1536],
+            "app.services.langchain_qdrant_service.get_langchain_qdrant_service",
+            return_value=mock_langchain_service,
         ):
             icf_sections = generate_icf_sections(
                 document_id=collection_name,  # Use the actual collection name

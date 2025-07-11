@@ -469,7 +469,7 @@ class StreamingICFWorkflow(ICFWorkflow):
         self.document_id = document_id
         self.main_loop = main_loop
         self.sections_filter = sections_filter
-        
+
         # Override sections if filter is provided
         if sections_filter:
             self.sections = sections_filter
