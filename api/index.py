@@ -57,6 +57,11 @@ class handler(BaseHTTPRequestHandler):
                 data = json.loads(post_data.decode())
                 response = self._handle_text_upload(data)
                 self.send_response(200)
+            elif parsed_url.path == '/api/icf/generate-stream':
+                # Handle ICF generation with streaming
+                data = json.loads(post_data.decode())
+                self._handle_icf_stream(data)
+                return  # Streaming handles its own response
             else:
                 self.send_response(404)
                 response = {"error": "Endpoint not found", "path": parsed_url.path}
@@ -316,3 +321,132 @@ class handler(BaseHTTPRequestHandler):
                 return {"protocols": [], "error": str(e)}
         else:
             return {"error": "Protocol endpoint not implemented", "path": path}
+    
+    def _handle_icf_stream(self, data):
+        """Handle ICF generation with streaming"""
+        import asyncio
+        import time
+        
+        # Send SSE headers
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/event-stream')
+        self.send_header('Cache-Control', 'no-cache')
+        self.send_header('Connection', 'keep-alive')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        
+        try:
+            # Get the protocol collection name
+            protocol_collection_name = data.get('protocol_collection_name')
+            protocol_metadata = data.get('protocol_metadata', {})
+            
+            if not protocol_collection_name:
+                error_event = {
+                    "event": "error",
+                    "data": {"error": "protocol_collection_name is required"}
+                }
+                self.wfile.write(f"data: {json.dumps(error_event)}\n\n".encode())
+                return
+            
+            # Import the ICF service
+            from app.services.icf_service import get_icf_service
+            
+            # Get the ICF service instance
+            icf_service = get_icf_service()
+            
+            # Create an async event loop to run the streaming generation
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            async def stream_sections():
+                """Stream ICF sections as they are generated"""
+                try:
+                    # Validate collection exists
+                    collection_exists = await icf_service.validate_collection_exists(
+                        protocol_collection_name
+                    )
+                    
+                    if not collection_exists:
+                        error_event = {
+                            "event": "error",
+                            "data": {"error": f"Protocol collection '{protocol_collection_name}' not found"}
+                        }
+                        self.wfile.write(f"data: {json.dumps(error_event)}\n\n".encode())
+                        return
+                    
+                    # Stream sections as they complete
+                    async for section_result in icf_service.generate_icf_streaming(
+                        protocol_collection_name=protocol_collection_name,
+                        protocol_metadata=protocol_metadata,
+                    ):
+                        event_data = None
+                        
+                        if section_result["type"] == "section_start":
+                            event_data = {
+                                "event": "section_start",
+                                "data": {"section_name": section_result["section_name"]}
+                            }
+                        elif section_result["type"] == "token":
+                            event_data = {
+                                "event": "token",
+                                "data": {
+                                    "section_name": section_result["section_name"],
+                                    "content": section_result["content"],
+                                    "accumulated_content": section_result["accumulated_content"]
+                                }
+                            }
+                        elif section_result["type"] == "section_complete":
+                            event_data = {
+                                "event": "section_complete",
+                                "data": {
+                                    "section_name": section_result["section_name"],
+                                    "content": section_result["content"],
+                                    "word_count": len(section_result["content"].split())
+                                }
+                            }
+                        elif section_result["type"] == "section_error":
+                            event_data = {
+                                "event": "section_error",
+                                "data": {
+                                    "section_name": section_result["section_name"],
+                                    "error": section_result["error"]
+                                }
+                            }
+                        elif section_result["type"] == "complete":
+                            event_data = {
+                                "event": "complete",
+                                "data": {
+                                    "total_sections": section_result["total_sections"],
+                                    "completed_sections": section_result["completed_sections"],
+                                    "errors": section_result["errors"]
+                                }
+                            }
+                        elif section_result["type"] == "error":
+                            event_data = {
+                                "event": "error",
+                                "data": {"error": section_result["error"]}
+                            }
+                        
+                        if event_data:
+                            self.wfile.write(f"data: {json.dumps(event_data)}\n\n".encode())
+                            self.wfile.flush()
+                
+                except Exception as e:
+                    error_event = {
+                        "event": "error",
+                        "data": {"error": f"Generation failed: {str(e)}"}
+                    }
+                    self.wfile.write(f"data: {json.dumps(error_event)}\n\n".encode())
+            
+            # Run the async streaming function
+            loop.run_until_complete(stream_sections())
+            
+        except Exception as e:
+            print(f"Error in _handle_icf_stream: {e}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
+            error_event = {
+                "event": "error",
+                "data": {"error": str(e), "type": type(e).__name__}
+            }
+            self.wfile.write(f"data: {json.dumps(error_event)}\n\n".encode())
