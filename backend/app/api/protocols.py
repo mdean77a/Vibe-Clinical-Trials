@@ -403,7 +403,7 @@ async def upload_protocol_text(request: dict) -> ProtocolResponse:
                         **protocol_metadata,
                         "chunk_index": i,
                         "chunk_size": len(chunk),
-                        "embedding_model": "text-embedding-ada-002",
+                        "embedding_model": "text-embedding-3-small",
                         "processing_version": "1.0",
                         "last_updated": datetime.now().isoformat(),
                     },
