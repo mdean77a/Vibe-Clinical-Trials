@@ -97,7 +97,7 @@ Each vector point includes comprehensive metadata:
   "created_at": "2024-12-15T14:30:22Z",
   "chunk_index": 0,
   "chunk_text": "Document content...",
-  "embedding_model": "text-embedding-ada-002"
+  "embedding_model": "text-embedding-3-small"
 }
 ```
 

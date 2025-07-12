@@ -80,15 +80,12 @@ class LangChainQdrantService:
         else:
             openai_api_key = os.getenv("OPENAI_API_KEY")
             if openai_api_key:
-                embedding_model = os.getenv(
-                    "OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002"
-                )
                 self.embeddings = OpenAIEmbeddings(
-                    model=embedding_model,
+                    model="text-embedding-3-small",
                     openai_api_key=openai_api_key,
                 )
                 logger.info(
-                    f"OpenAI embeddings initialized successfully with model: {embedding_model}"
+                    "OpenAI embeddings initialized successfully with model: text-embedding-3-small"
                 )
             else:
                 self.embeddings = None

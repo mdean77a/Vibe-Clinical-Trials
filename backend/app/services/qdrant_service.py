@@ -106,9 +106,7 @@ class QdrantService:
                 )
 
         # Configuration
-        self.embedding_model = os.getenv(
-            "OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002"
-        )
+        self.embedding_model = "text-embedding-3-small"
         # No need to ensure protocols collection - we'll use collection listing instead
 
     def generate_collection_name(self, study_acronym: str) -> str:
