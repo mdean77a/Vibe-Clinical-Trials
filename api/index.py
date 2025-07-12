@@ -306,7 +306,6 @@ class handler(BaseHTTPRequestHandler):
                                 "protocol_title": metadata.get("protocol_title", ""),
                                 "collection_name": collection_name,
                                 "upload_date": metadata.get("upload_date", ""),
-                                "status": metadata.get("status", "processed"),
                                 "file_path": metadata.get("file_path", ""),
                                 "created_at": metadata.get("created_at", ""),
                                 "chunk_count": collection_detail.points_count,
@@ -316,6 +315,13 @@ class handler(BaseHTTPRequestHandler):
                     except Exception as e:
                         print(f"Error processing collection {collection_name}: {e}")
                         continue
+                
+                # Sort protocols by upload_date (newest first)
+                # Use created_at as fallback if upload_date is missing
+                protocols.sort(
+                    key=lambda p: p.get("upload_date") or p.get("created_at") or "1970-01-01",
+                    reverse=True
+                )
                 
                 return {"protocols": protocols}
                 

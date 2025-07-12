@@ -246,38 +246,66 @@ class TestListAllProtocols:
 
         assert results == []
 
+    # Status filter test removed - protocols in Qdrant are always active
+
     @pytest.mark.unit
     @pytest.mark.qdrant
-    def test_list_protocols_with_status_filter(
-        self, mock_qdrant_client, multiple_protocols_metadata
-    ):
-        """Test listing protocols with status filter."""
-        # Set one protocol to 'completed' status
-        completed_metadata = multiple_protocols_metadata[0].copy()
-        completed_metadata["status"] = "completed"
+    def test_list_protocols_sorted_by_date(self, mock_qdrant_client):
+        """Test that protocols are sorted by upload_date with newest first."""
+        # Create protocols with different upload dates
+        protocols_data = [
+            {
+                "protocol_id": "proto_1",
+                "study_acronym": "OLD",
+                "protocol_title": "Old Protocol",
+                "upload_date": "2024-01-01T10:00:00",
+            },
+            {
+                "protocol_id": "proto_2",
+                "study_acronym": "NEW",
+                "protocol_title": "New Protocol",
+                "upload_date": "2024-12-01T10:00:00",
+            },
+            {
+                "protocol_id": "proto_3",
+                "study_acronym": "MIDDLE",
+                "protocol_title": "Middle Protocol",
+                "upload_date": "2024-06-15T10:00:00",
+            },
+        ]
 
-        # Mock collections
-        mock_collection_info = MagicMock()
-        mock_collection_info.name = "TEST-12345678"
+        # Mock collections with multiple protocol collections
         mock_collections = MagicMock()
-        mock_collections.collections = [mock_collection_info]
+        mock_collections.collections = []
+        for i, data in enumerate(protocols_data):
+            mock_collection = MagicMock()
+            mock_collection.name = f"{data['study_acronym']}-1234567{i}"
+            mock_collections.collections.append(mock_collection)
+
         mock_qdrant_client.get_collections.return_value = mock_collections
 
-        # Mock scroll returning the completed protocol
-        mock_points = [MagicMock(payload=completed_metadata)]
-        mock_qdrant_client.scroll.return_value = (mock_points, None)
+        # Mock scroll results for each collection
+        def mock_scroll_side_effect(collection_name, **kwargs):
+            for i, data in enumerate(protocols_data):
+                if f"{data['study_acronym']}-1234567{i}" == collection_name:
+                    return ([MagicMock(payload=data)], None)
+            return ([], None)
 
-        # Mock collection detail
+        mock_qdrant_client.scroll.side_effect = mock_scroll_side_effect
+
+        # Mock get_collection for point counts
         mock_collection_detail = MagicMock()
-        mock_collection_detail.points_count = 1
+        mock_collection_detail.points_count = 10
         mock_qdrant_client.get_collection.return_value = mock_collection_detail
 
         service = QdrantService(client=mock_qdrant_client)
-        protocols = service.list_all_protocols()
-        results = [p for p in protocols if p.get("status") == "completed"]
+        results = service.list_all_protocols()
 
-        assert len(results) == 1
-        assert results[0]["status"] == "completed"
+        # Verify sorting - newest first
+        assert len(results) == 3
+        assert results[0]["study_acronym"] == "NEW"  # Dec 2024
+        assert results[1]["study_acronym"] == "MIDDLE"  # June 2024
+        assert results[2]["study_acronym"] == "OLD"  # Jan 2024
 
 
 class TestIntegrationScenarios:

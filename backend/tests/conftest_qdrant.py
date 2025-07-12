@@ -35,7 +35,7 @@ class ProtocolMetadataFactory(Factory):
     protocol_title = Faker("sentence", nb_words=6)
     filename = LazyAttribute(lambda obj: f"{obj.study_acronym.lower()}.pdf")
     upload_date = Faker("date_time")
-    status = "processing"
+    # status field removed - protocols in Qdrant are always active
     document_id = LazyAttribute(lambda obj: str(uuid.uuid4()))
 
 

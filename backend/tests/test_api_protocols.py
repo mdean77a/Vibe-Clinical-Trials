@@ -33,7 +33,6 @@ class TestCreateProtocolEndpoint:
         assert data["study_acronym"] == sample_protocol_create_data["study_acronym"]
         assert data["protocol_title"] == sample_protocol_create_data["protocol_title"]
         assert data["file_path"] == sample_protocol_create_data["file_path"]
-        assert data["status"] == "processing"
         assert "protocol_id" in data
         assert "collection_name" in data
         assert "upload_date" in data
@@ -193,123 +192,6 @@ class TestListProtocolsEndpoint:
         for i in range(len(data) - 1):
             assert data[i]["upload_date"] >= data[i + 1]["upload_date"]
 
-    @pytest.mark.unit
-    def test_list_protocols_with_status_filter(
-        self, test_client, sample_protocol_create_data
-    ):
-        """Test listing protocols with status filter."""
-        # Create a protocol
-        create_response = test_client.post(
-            "/api/protocols/", json=sample_protocol_create_data
-        )
-        created_protocol = create_response.json()
-        protocol_id = created_protocol["protocol_id"]
-
-        # Update its status using collection name endpoint
-        update_data = {"status": "processed"}
-        test_client.patch(
-            f"/api/protocols/collection/{created_protocol['collection_name']}/status",
-            json=update_data,
-        )
-
-        # List protocols with processing status filter
-        response = test_client.get("/api/protocols/?status_filter=processing")
-        assert response.status_code == 200
-        processing_protocols = response.json()
-        assert len(processing_protocols) == 0
-
-        # List protocols with processed status filter
-        response = test_client.get("/api/protocols/?status_filter=processed")
-        assert response.status_code == 200
-        processed_protocols = response.json()
-        assert len(processed_protocols) == 1
-        assert processed_protocols[0]["status"] == "processed"
-
-
-class TestUpdateProtocolStatusEndpoint:
-    """Test cases for PATCH /protocols/{protocol_id}/status endpoint."""
-
-    @pytest.mark.unit
-    def test_update_protocol_status_success(
-        self, test_client, sample_protocol_create_data
-    ):
-        """Test successful protocol status update."""
-        # Create a protocol first
-        create_response = test_client.post(
-            "/api/protocols/", json=sample_protocol_create_data
-        )
-        created_protocol = create_response.json()
-        protocol_id = created_protocol["protocol_id"]
-
-        # Update status using collection name endpoint
-        update_data = {"status": "processed"}
-        response = test_client.patch(
-            f"/api/protocols/collection/{created_protocol['collection_name']}/status",
-            json=update_data,
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-
-        assert data["protocol_id"] == protocol_id
-        assert data["status"] == "processed"
-        assert data["study_acronym"] == sample_protocol_create_data["study_acronym"]
-
-    @pytest.mark.unit
-    def test_update_protocol_status_not_found(self, test_client):
-        """Test update protocol status with non-existent protocol."""
-        update_data = {"status": "processed"}
-        response = test_client.patch(
-            "/api/protocols/collection/nonexistent_collection/status", json=update_data
-        )
-
-        assert response.status_code == 404
-        assert "not found" in response.json()["detail"].lower()
-
-    @pytest.mark.unit
-    def test_update_protocol_status_invalid_status(
-        self, test_client, sample_protocol_create_data
-    ):
-        """Test update protocol status with invalid status value."""
-        # Create a protocol first
-        create_response = test_client.post(
-            "/api/protocols/", json=sample_protocol_create_data
-        )
-        created_protocol = create_response.json()
-        protocol_id = created_protocol["protocol_id"]
-
-        # Try to update with invalid status using collection name endpoint
-        update_data = {"status": "invalid_status"}
-        response = test_client.patch(
-            f"/api/protocols/collection/{created_protocol['collection_name']}/status",
-            json=update_data,
-        )
-
-        assert response.status_code == 422  # Validation error
-
-    @pytest.mark.unit
-    def test_update_protocol_status_to_failed(
-        self, test_client, sample_protocol_create_data
-    ):
-        """Test updating protocol status to failed."""
-        # Create a protocol first
-        create_response = test_client.post(
-            "/api/protocols/", json=sample_protocol_create_data
-        )
-        created_protocol = create_response.json()
-        protocol_id = created_protocol["protocol_id"]
-
-        # Update to failed status using collection name endpoint
-        update_data = {"status": "failed"}
-        response = test_client.patch(
-            f"/api/protocols/collection/{created_protocol['collection_name']}/status",
-            json=update_data,
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "failed"
-
 
 class TestDeleteProtocolEndpoint:
     """Test cases for DELETE /protocols/{protocol_id} endpoint."""
@@ -404,21 +286,11 @@ class TestIntegrationScenarios:
         )
         assert collection_response.status_code == 200
 
-        # Update status using collection name endpoint
-        update_data = {"status": "processed"}
-        update_response = test_client.patch(
-            f"/api/protocols/collection/{collection_name}/status", json=update_data
-        )
-        assert update_response.status_code == 200
-        updated_protocol = update_response.json()
-        assert updated_protocol["status"] == "processed"
-
         # Verify in list
         list_response = test_client.get("/api/protocols/")
         assert list_response.status_code == 200
         all_protocols = list_response.json()
         assert len(all_protocols) == 1
-        assert all_protocols[0]["status"] == "processed"
 
         # Delete using collection name endpoint
         delete_response = test_client.delete(
