@@ -15,7 +15,6 @@ from app.models import (
     ProtocolCreate,
     ProtocolInDB,
     ProtocolResponse,
-    ProtocolUpdate,
 )
 
 
@@ -161,7 +160,6 @@ class TestProtocolInDB:
             protocol_title="Test Protocol",
             collection_name="study_123_20241201_120000",
             upload_date=now,
-            status="processing",
             file_path="/uploads/test.pdf",
             created_at=now,
         )
@@ -171,24 +169,10 @@ class TestProtocolInDB:
         assert protocol.protocol_title == "Test Protocol"
         assert protocol.collection_name == "study_123_20241201_120000"
         assert protocol.upload_date == now
-        assert protocol.status == "processing"
         assert protocol.file_path == "/uploads/test.pdf"
         assert protocol.created_at == now
 
-    @pytest.mark.unit
-    def test_protocol_in_db_with_default_status(self):
-        """Test ProtocolInDB with default status."""
-        now = datetime.now().isoformat()
-        protocol = ProtocolInDB(
-            protocol_id="proto_123",
-            study_acronym="STUDY-123",
-            protocol_title="Test Protocol",
-            collection_name="study_123_20241201_120000",
-            upload_date=now,
-            created_at=now,
-        )
-
-        assert protocol.status == "processing"
+    # Default status test removed - protocols no longer have status field
 
     @pytest.mark.unit
     def test_protocol_in_db_without_file_path(self):
@@ -244,45 +228,7 @@ class TestProtocolResponse:
         assert protocol.study_acronym == "STUDY-123"
 
 
-class TestProtocolUpdate:
-    """Test cases for ProtocolUpdate model."""
-
-    @pytest.mark.unit
-    def test_valid_protocol_update_processing(self):
-        """Test creating a valid ProtocolUpdate with processing status."""
-        update = ProtocolUpdate(status="processing")
-        assert update.status == "processing"
-
-    @pytest.mark.unit
-    def test_valid_protocol_update_processed(self):
-        """Test creating a valid ProtocolUpdate with processed status."""
-        update = ProtocolUpdate(status="processed")
-        assert update.status == "processed"
-
-    @pytest.mark.unit
-    def test_valid_protocol_update_failed(self):
-        """Test creating a valid ProtocolUpdate with failed status."""
-        update = ProtocolUpdate(status="failed")
-        assert update.status == "failed"
-
-    @pytest.mark.unit
-    def test_invalid_status_raises_validation_error(self):
-        """Test that invalid status raises ValidationError."""
-        with pytest.raises(ValidationError) as exc_info:
-            ProtocolUpdate(status="invalid_status")
-
-        assert "Status must be one of" in str(exc_info.value)
-        assert "processing" in str(exc_info.value)
-        assert "processed" in str(exc_info.value)
-        assert "failed" in str(exc_info.value)
-
-    @pytest.mark.unit
-    def test_empty_status_raises_validation_error(self):
-        """Test that empty status raises ValidationError."""
-        with pytest.raises(ValidationError) as exc_info:
-            ProtocolUpdate(status="")
-
-        assert "Status must be one of" in str(exc_info.value)
+# TestProtocolUpdate class removed - ProtocolUpdate model no longer exists
 
 
 class TestModelSerialization:
@@ -335,4 +281,3 @@ class TestModelSerialization:
 
         assert '"protocol_id":"proto_123"' in json_data
         assert '"study_acronym":"STUDY-123"' in json_data
-        assert '"status":"processing"' in json_data

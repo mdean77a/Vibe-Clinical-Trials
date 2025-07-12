@@ -306,7 +306,6 @@ class handler(BaseHTTPRequestHandler):
                                 "protocol_title": metadata.get("protocol_title", ""),
                                 "collection_name": collection_name,
                                 "upload_date": metadata.get("upload_date", ""),
-                                "status": metadata.get("status", "processed"),
                                 "file_path": metadata.get("file_path", ""),
                                 "created_at": metadata.get("created_at", ""),
                                 "chunk_count": collection_detail.points_count,

@@ -61,7 +61,6 @@ class ProtocolInDB(ProtocolBase):
     upload_date: str = Field(
         ..., description="ISO timestamp when protocol was uploaded"
     )
-    status: str = Field(default="processing", description="Protocol processing status")
     file_path: Optional[str] = Field(
         None, description="Path to the uploaded protocol PDF file"
     )
@@ -76,16 +75,5 @@ class ProtocolResponse(ProtocolInDB):
     pass
 
 
-class ProtocolUpdate(BaseModel):
-    """Model for updating protocol status."""
-
-    status: str = Field(..., description="New protocol status")
-
-    @field_validator("status")
-    @classmethod
-    def validate_status(cls, v: str) -> str:
-        """Validate status values."""
-        valid_statuses = {"processing", "processed", "failed"}
-        if v not in valid_statuses:
-            raise ValueError(f"Status must be one of: {valid_statuses}")
-        return v
+# ProtocolUpdate model removed - status updates no longer needed
+# since protocols in Qdrant are always active by definition

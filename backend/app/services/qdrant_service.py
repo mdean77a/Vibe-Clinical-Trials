@@ -14,7 +14,7 @@ import os
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from openai import OpenAI
 from qdrant_client import QdrantClient
@@ -47,6 +47,8 @@ class QdrantError(Exception):
 
 class QdrantService:
     """Service class for Qdrant operations - handles all protocol metadata and vector operations."""
+
+    openai_client: Optional[OpenAI]
 
     def __init__(
         self,
@@ -218,12 +220,12 @@ class QdrantService:
                         point_count = collection_info_detail.points_count
 
                         # Handle different payload structures (LangChain vs raw Qdrant)
-                        if "metadata" in payload:
+                        if payload and "metadata" in payload:
                             # LangChain structure: metadata is nested
                             metadata = payload["metadata"]
                         else:
                             # Raw Qdrant structure: metadata is at top level
-                            metadata = payload
+                            metadata = payload or {}
 
                         protocol_data = {
                             "protocol_id": metadata.get("protocol_id"),
@@ -231,7 +233,6 @@ class QdrantService:
                             "protocol_title": metadata.get("protocol_title"),
                             "collection_name": collection_name,
                             "upload_date": metadata.get("upload_date"),
-                            "status": metadata.get("status", "processing"),
                             "file_path": metadata.get("file_path"),
                             "created_at": metadata.get("created_at")
                             or metadata.get("upload_date")
@@ -241,7 +242,7 @@ class QdrantService:
 
                         protocols.append(protocol_data)
                         logger.debug(
-                            f"Added protocol: {payload.get('study_acronym', 'UNKNOWN')}"
+                            f"Added protocol: {metadata.get('study_acronym', 'UNKNOWN')}"
                         )
 
                     else:
@@ -256,8 +257,10 @@ class QdrantService:
             # Sort protocols by upload_date (newest first)
             # Use created_at as fallback if upload_date is missing
             protocols.sort(
-                key=lambda p: p.get("upload_date") or p.get("created_at") or "1970-01-01",
-                reverse=True
+                key=lambda p: p.get("upload_date")
+                or p.get("created_at")
+                or "1970-01-01",
+                reverse=True,
             )
 
             logger.info(f"Successfully retrieved {len(protocols)} protocols")
@@ -290,12 +293,12 @@ class QdrantService:
                 collection_info = self.client.get_collection(collection_name)
 
                 # Handle different payload structures (LangChain vs raw Qdrant)
-                if "metadata" in payload:
+                if payload and "metadata" in payload:
                     # LangChain structure: metadata is nested
                     metadata = payload["metadata"]
                 else:
                     # Raw Qdrant structure: metadata is at top level
-                    metadata = payload
+                    metadata = payload or {}
 
                 return {
                     "protocol_id": metadata.get("protocol_id"),
@@ -303,7 +306,6 @@ class QdrantService:
                     "protocol_title": metadata.get("protocol_title"),
                     "collection_name": collection_name,
                     "upload_date": metadata.get("upload_date"),
-                    "status": metadata.get("status"),
                     "file_path": metadata.get("file_path"),
                     "created_at": metadata.get("created_at")
                     or metadata.get("upload_date")
@@ -342,35 +344,7 @@ class QdrantService:
             )
             return None
 
-    def update_protocol_status(self, collection_name: str, status: str) -> bool:
-        """Update status for all points in a protocol collection."""
-        try:
-            # Get all points in the protocol collection
-            result = self.client.scroll(
-                collection_name=collection_name, limit=10000, with_payload=True
-            )
-
-            points, _ = result
-            point_ids = [point.id for point in points]
-
-            if point_ids:
-                self.client.set_payload(
-                    collection_name=collection_name,
-                    payload={
-                        "status": status,
-                        "last_updated": datetime.now().isoformat(),
-                    },
-                    points=point_ids,
-                )
-                logger.info(
-                    f"Updated status to {status} for collection {collection_name}"
-                )
-                return True
-            return False
-
-        except Exception as e:
-            logger.error(f"Error updating status for collection {collection_name}: {e}")
-            return False
+    # update_protocol_status method removed - protocols in Qdrant are always active
 
     def delete_protocol(self, collection_name: str) -> bool:
         """Delete an entire protocol collection."""
@@ -412,7 +386,10 @@ class QdrantService:
             # Format results
             results = []
             for hit in search_results:
-                results.append({"score": hit.score, **hit.payload})
+                result_dict = {"score": hit.score}
+                if hit.payload:
+                    result_dict.update(hit.payload)
+                results.append(result_dict)
 
             return results
 
