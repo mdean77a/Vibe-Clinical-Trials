@@ -253,6 +253,13 @@ class QdrantService:
                     )
                     continue
 
+            # Sort protocols by upload_date (newest first)
+            # Use created_at as fallback if upload_date is missing
+            protocols.sort(
+                key=lambda p: p.get("upload_date") or p.get("created_at") or "1970-01-01",
+                reverse=True
+            )
+
             logger.info(f"Successfully retrieved {len(protocols)} protocols")
             return protocols
 
