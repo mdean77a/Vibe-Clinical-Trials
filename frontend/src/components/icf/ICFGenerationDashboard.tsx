@@ -3,6 +3,7 @@ import ICFSection, { type ICFSectionData } from './ICFSection';
 import { icfApi } from '../../utils/api';
 import type { Protocol } from '../../types/protocol';
 import { getProtocolId } from '../../types/protocol';
+import { generateICFPdf, getPdfStats, validateSectionsForPdf, getFileSystemCapabilities } from '../../utils/pdfGenerator';
 
 interface ICFGenerationDashboardProps {
   protocol: Protocol;
@@ -309,6 +310,46 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
     ));
   };
 
+  const handleExportPdf = async () => {
+    try {
+      // Validate sections before generating
+      const validation = validateSectionsForPdf(sections);
+      
+      if (!validation.isValid) {
+        alert(validation.message);
+        return;
+      }
+      
+      // Show warnings if any (but don't break user gesture with confirm dialog if file picker is supported)
+      const capabilities = getFileSystemCapabilities();
+      
+      if (validation.warnings.length > 0 && !capabilities.hasFileSystemAccess) {
+        // Only show confirmation dialog for fallback download method
+        const proceed = confirm(
+          `PDF generation warnings:\n${validation.warnings.join('\n')}\n\nDo you want to continue with download to default folder?`
+        );
+        if (!proceed) return;
+      }
+      
+      // Generate and save PDF - file picker (if supported) will be shown immediately
+      await generateICFPdf(sections, protocol, {
+        includeAllSections: false, // Only include ready_for_review and approved sections
+        useFilePicker: true, // Enable file picker if supported
+      });
+      
+      console.log('PDF export completed successfully');
+    } catch (error) {
+      console.error('PDF export failed:', error);
+      
+      if (error instanceof Error && error.message === 'File save cancelled by user') {
+        console.log('PDF export cancelled by user');
+        return; // Don't show error alert for user cancellation
+      }
+      
+      alert(`Failed to export PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
 
   const hasGeneratedSections = sections.some(s => s.status === 'ready_for_review' || s.status === 'approved');
 
@@ -515,6 +556,35 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
                     ✓ Approve All Sections
                   </button>
                 )}
+                <button
+                  onClick={handleExportPdf}
+                  disabled={progress.isGenerating || !validateSectionsForPdf(sections).isValid}
+                  style={{
+                    padding: '12px 24px',
+                    fontSize: '0.875rem',
+                    border: '1px solid #8b5cf6',
+                    borderRadius: '8px',
+                    backgroundColor: '#8b5cf6',
+                    color: '#ffffff',
+                    cursor: progress.isGenerating || !validateSectionsForPdf(sections).isValid ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s',
+                    opacity: progress.isGenerating || !validateSectionsForPdf(sections).isValid ? 0.6 : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!progress.isGenerating && validateSectionsForPdf(sections).isValid) {
+                      e.currentTarget.style.backgroundColor = '#7c3aed';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!progress.isGenerating && validateSectionsForPdf(sections).isValid) {
+                      e.currentTarget.style.backgroundColor = '#8b5cf6';
+                    }
+                  }}
+                  title={!validateSectionsForPdf(sections).isValid ? 'Generate sections first to export PDF' : 
+                    `Export ICF as PDF - ${getFileSystemCapabilities().description}`}
+                >
+                  📄 Export PDF
+                </button>
               </div>
             )}
           </div>
