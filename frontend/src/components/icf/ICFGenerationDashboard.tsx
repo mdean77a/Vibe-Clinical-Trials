@@ -3,6 +3,7 @@ import ICFSection, { type ICFSectionData } from './ICFSection';
 import { icfApi } from '../../utils/api';
 import type { Protocol } from '../../types/protocol';
 import { getProtocolId } from '../../types/protocol';
+import { generateICFPdf, getPdfStats, validateSectionsForPdf } from '../../utils/pdfGenerator';
 
 interface ICFGenerationDashboardProps {
   protocol: Protocol;
@@ -309,6 +310,36 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
     ));
   };
 
+  const handleExportPdf = async () => {
+    try {
+      // Validate sections before generating
+      const validation = validateSectionsForPdf(sections);
+      
+      if (!validation.isValid) {
+        alert(validation.message);
+        return;
+      }
+      
+      // Show warnings if any
+      if (validation.warnings.length > 0) {
+        const proceed = confirm(
+          `PDF generation warnings:\n${validation.warnings.join('\n')}\n\nDo you want to continue?`
+        );
+        if (!proceed) return;
+      }
+      
+      // Generate and download PDF
+      await generateICFPdf(sections, protocol, {
+        includeAllSections: false, // Only include ready_for_review and approved sections
+      });
+      
+      console.log('PDF export completed successfully');
+    } catch (error) {
+      console.error('PDF export failed:', error);
+      alert(`Failed to export PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
 
   const hasGeneratedSections = sections.some(s => s.status === 'ready_for_review' || s.status === 'approved');
 
@@ -515,6 +546,34 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
                     ✓ Approve All Sections
                   </button>
                 )}
+                <button
+                  onClick={handleExportPdf}
+                  disabled={progress.isGenerating || !validateSectionsForPdf(sections).isValid}
+                  style={{
+                    padding: '12px 24px',
+                    fontSize: '0.875rem',
+                    border: '1px solid #8b5cf6',
+                    borderRadius: '8px',
+                    backgroundColor: '#8b5cf6',
+                    color: '#ffffff',
+                    cursor: progress.isGenerating || !validateSectionsForPdf(sections).isValid ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s',
+                    opacity: progress.isGenerating || !validateSectionsForPdf(sections).isValid ? 0.6 : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!progress.isGenerating && validateSectionsForPdf(sections).isValid) {
+                      e.currentTarget.style.backgroundColor = '#7c3aed';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!progress.isGenerating && validateSectionsForPdf(sections).isValid) {
+                      e.currentTarget.style.backgroundColor = '#8b5cf6';
+                    }
+                  }}
+                  title={!validateSectionsForPdf(sections).isValid ? 'Generate sections first to export PDF' : 'Export ICF as PDF'}
+                >
+                  📄 Export PDF
+                </button>
               </div>
             )}
           </div>
