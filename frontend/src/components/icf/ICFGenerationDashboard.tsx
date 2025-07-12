@@ -4,6 +4,8 @@ import { icfApi } from '../../utils/api';
 import type { Protocol } from '../../types/protocol';
 import { getProtocolId } from '../../types/protocol';
 import { generateICFPdf, getPdfStats, validateSectionsForPdf, getFileSystemCapabilities } from '../../utils/pdfGenerator';
+import { generateICFDocx, validateSectionsForDocx, getDocxFileSystemCapabilities } from '../../utils/docxGenerator';
+import { generateICFMarkdown, validateSectionsForMarkdown, getMarkdownFileSystemCapabilities } from '../../utils/markdownGenerator';
 
 interface ICFGenerationDashboardProps {
   protocol: Protocol;
@@ -350,6 +352,86 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
     }
   };
 
+  const handleExportDocx = async () => {
+    try {
+      // Validate sections before generating
+      const validation = validateSectionsForDocx(sections);
+      
+      if (!validation.isValid) {
+        alert(validation.message);
+        return;
+      }
+      
+      // Show warnings if any (but don't break user gesture with confirm dialog if file picker is supported)
+      const capabilities = getDocxFileSystemCapabilities();
+      
+      if (validation.warnings.length > 0 && !capabilities.hasFileSystemAccess) {
+        // Only show confirmation dialog for fallback download method
+        const proceed = confirm(
+          `Word document generation warnings:\n${validation.warnings.join('\n')}\n\nDo you want to continue with download to default folder?`
+        );
+        if (!proceed) return;
+      }
+      
+      // Generate and save Word document - file picker (if supported) will be shown immediately
+      await generateICFDocx(sections, protocol, {
+        includeAllSections: false, // Only include ready_for_review and approved sections
+        useFilePicker: true, // Enable file picker if supported
+      });
+      
+      console.log('Word document export completed successfully');
+    } catch (error) {
+      console.error('Word document export failed:', error);
+      
+      if (error instanceof Error && error.message === 'File save cancelled by user') {
+        console.log('Word document export cancelled by user');
+        return; // Don't show error alert for user cancellation
+      }
+      
+      alert(`Failed to export Word document: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleExportMarkdown = async () => {
+    try {
+      // Validate sections before generating
+      const validation = validateSectionsForMarkdown(sections);
+      
+      if (!validation.isValid) {
+        alert(validation.message);
+        return;
+      }
+      
+      // Show warnings if any (but don't break user gesture with confirm dialog if file picker is supported)
+      const capabilities = getMarkdownFileSystemCapabilities();
+      
+      if (validation.warnings.length > 0 && !capabilities.hasFileSystemAccess) {
+        // Only show confirmation dialog for fallback download method
+        const proceed = confirm(
+          `Markdown generation warnings:\n${validation.warnings.join('\n')}\n\nDo you want to continue with download to default folder?`
+        );
+        if (!proceed) return;
+      }
+      
+      // Generate and save Markdown - file picker (if supported) will be shown immediately
+      await generateICFMarkdown(sections, protocol, {
+        includeAllSections: false, // Only include ready_for_review and approved sections
+        useFilePicker: true, // Enable file picker if supported
+      });
+      
+      console.log('Markdown export completed successfully');
+    } catch (error) {
+      console.error('Markdown export failed:', error);
+      
+      if (error instanceof Error && error.message === 'File save cancelled by user') {
+        console.log('Markdown export cancelled by user');
+        return; // Don't show error alert for user cancellation
+      }
+      
+      alert(`Failed to export Markdown: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
 
   const hasGeneratedSections = sections.some(s => s.status === 'ready_for_review' || s.status === 'approved');
 
@@ -560,11 +642,11 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
                   onClick={handleExportPdf}
                   disabled={progress.isGenerating || !validateSectionsForPdf(sections).isValid}
                   style={{
-                    padding: '12px 24px',
+                    padding: '10px 20px',
                     fontSize: '0.875rem',
-                    border: '1px solid #8b5cf6',
+                    border: '1px solid #ef4444',
                     borderRadius: '8px',
-                    backgroundColor: '#8b5cf6',
+                    backgroundColor: '#ef4444',
                     color: '#ffffff',
                     cursor: progress.isGenerating || !validateSectionsForPdf(sections).isValid ? 'not-allowed' : 'pointer',
                     transition: 'all 0.2s',
@@ -572,18 +654,76 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
                   }}
                   onMouseEnter={(e) => {
                     if (!progress.isGenerating && validateSectionsForPdf(sections).isValid) {
-                      e.currentTarget.style.backgroundColor = '#7c3aed';
+                      e.currentTarget.style.backgroundColor = '#dc2626';
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (!progress.isGenerating && validateSectionsForPdf(sections).isValid) {
-                      e.currentTarget.style.backgroundColor = '#8b5cf6';
+                      e.currentTarget.style.backgroundColor = '#ef4444';
                     }
                   }}
                   title={!validateSectionsForPdf(sections).isValid ? 'Generate sections first to export PDF' : 
                     `Export ICF as PDF - ${getFileSystemCapabilities().description}`}
                 >
-                  📄 Export PDF
+                  📄 PDF
+                </button>
+                <button
+                  onClick={handleExportDocx}
+                  disabled={progress.isGenerating || !validateSectionsForDocx(sections).isValid}
+                  style={{
+                    padding: '10px 20px',
+                    fontSize: '0.875rem',
+                    border: '1px solid #2563eb',
+                    borderRadius: '8px',
+                    backgroundColor: '#2563eb',
+                    color: '#ffffff',
+                    cursor: progress.isGenerating || !validateSectionsForDocx(sections).isValid ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s',
+                    opacity: progress.isGenerating || !validateSectionsForDocx(sections).isValid ? 0.6 : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!progress.isGenerating && validateSectionsForDocx(sections).isValid) {
+                      e.currentTarget.style.backgroundColor = '#1d4ed8';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!progress.isGenerating && validateSectionsForDocx(sections).isValid) {
+                      e.currentTarget.style.backgroundColor = '#2563eb';
+                    }
+                  }}
+                  title={!validateSectionsForDocx(sections).isValid ? 'Generate sections first to export Word' : 
+                    `Export ICF as Word document - ${getDocxFileSystemCapabilities().description}`}
+                >
+                  📝 Word
+                </button>
+                <button
+                  onClick={handleExportMarkdown}
+                  disabled={progress.isGenerating || !validateSectionsForMarkdown(sections).isValid}
+                  style={{
+                    padding: '10px 20px',
+                    fontSize: '0.875rem',
+                    border: '1px solid #059669',
+                    borderRadius: '8px',
+                    backgroundColor: '#059669',
+                    color: '#ffffff',
+                    cursor: progress.isGenerating || !validateSectionsForMarkdown(sections).isValid ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s',
+                    opacity: progress.isGenerating || !validateSectionsForMarkdown(sections).isValid ? 0.6 : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!progress.isGenerating && validateSectionsForMarkdown(sections).isValid) {
+                      e.currentTarget.style.backgroundColor = '#047857';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!progress.isGenerating && validateSectionsForMarkdown(sections).isValid) {
+                      e.currentTarget.style.backgroundColor = '#059669';
+                    }
+                  }}
+                  title={!validateSectionsForMarkdown(sections).isValid ? 'Generate sections first to export Markdown' : 
+                    `Export ICF as Markdown - ${getMarkdownFileSystemCapabilities().description}`}
+                >
+                  📝 Markdown
                 </button>
               </div>
             )}
