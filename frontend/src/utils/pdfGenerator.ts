@@ -279,7 +279,76 @@ const createPDFDocument = async (sections: ICFSectionData[], protocol: Protocol)
 };
 
 /**
- * Generate and download ICF PDF
+ * Check if File System Access API is supported
+ */
+const isFileSystemAccessSupported = (): boolean => {
+  return typeof window !== 'undefined' && 'showSaveFilePicker' in window;
+};
+
+/**
+ * Get file handle using File System Access API (must be called during user gesture)
+ */
+const getFileHandleForSaving = async (defaultFilename: string) => {
+  try {
+    // @ts-ignore - File System Access API types may not be available
+    const fileHandle = await window.showSaveFilePicker({
+      suggestedName: defaultFilename,
+      types: [
+        {
+          description: 'PDF files',
+          accept: {
+            'application/pdf': ['.pdf'],
+          },
+        },
+      ],
+    });
+    return fileHandle;
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') {
+      throw new Error('File save cancelled by user');
+    }
+    throw error;
+  }
+};
+
+/**
+ * Save PDF to file handle
+ */
+const savePdfToFileHandle = async (pdfBlob: Blob, fileHandle: any): Promise<void> => {
+  try {
+    const writable = await fileHandle.createWritable();
+    await writable.write(pdfBlob);
+    await writable.close();
+    
+    console.log(`PDF saved successfully to user-selected location`);
+  } catch (error) {
+    console.error('Error writing to file:', error);
+    throw new Error('Failed to write PDF to selected location');
+  }
+};
+
+/**
+ * Save PDF using traditional download (fallback method)
+ */
+const savePdfWithDownload = (pdfBlob: Blob, filename: string): void => {
+  const url = URL.createObjectURL(pdfBlob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  
+  // Trigger download
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  // Clean up
+  URL.revokeObjectURL(url);
+  
+  console.log(`PDF downloaded to default location: ${filename}`);
+};
+
+/**
+ * Generate and save ICF PDF with user-selectable location
  */
 export const generateICFPdf = async (
   sections: ICFSectionData[], 
@@ -287,6 +356,7 @@ export const generateICFPdf = async (
   options: {
     includeAllSections?: boolean;
     filename?: string;
+    useFilePicker?: boolean; // New option to control save method
   } = {}
 ): Promise<void> => {
   try {
@@ -299,6 +369,19 @@ export const generateICFPdf = async (
       throw new Error('No sections available for PDF generation. Please generate or approve sections first.');
     }
 
+    // Generate filename
+    const timestamp = new Date().toISOString().split('T')[0];
+    const defaultFilename = options.filename || `${protocol.study_acronym}_ICF_${timestamp}.pdf`;
+    
+    // Determine save method and get file handle first if using file picker
+    const useFilePicker = options.useFilePicker !== false && isFileSystemAccessSupported();
+    let fileHandle: any = null;
+    
+    if (useFilePicker) {
+      // Get file handle first (during user gesture) before generating PDF
+      fileHandle = await getFileHandleForSaving(defaultFilename);
+    }
+
     // Load PDF module and create document
     const { pdf } = await loadPDFModule();
     const PDFDocument = await createPDFDocument(sectionsToInclude, protocol);
@@ -306,29 +389,33 @@ export const generateICFPdf = async (
     // Generate PDF blob
     const pdfBlob = await pdf(React.createElement(PDFDocument)).toBlob();
     
-    // Create download link
-    const url = URL.createObjectURL(pdfBlob);
-    const link = document.createElement('a');
-    link.href = url;
+    if (fileHandle) {
+      // Save to user-selected location
+      await savePdfToFileHandle(pdfBlob, fileHandle);
+    } else {
+      // Fallback to traditional download
+      savePdfWithDownload(pdfBlob, defaultFilename);
+    }
     
-    // Generate filename
-    const timestamp = new Date().toISOString().split('T')[0];
-    const defaultFilename = `${protocol.study_acronym}_ICF_${timestamp}.pdf`;
-    link.download = options.filename || defaultFilename;
-    
-    // Trigger download
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Clean up
-    URL.revokeObjectURL(url);
-    
-    console.log(`PDF generated successfully: ${link.download}`);
   } catch (error) {
     console.error('Error generating PDF:', error);
     throw error;
   }
+};
+
+/**
+ * Check if the browser supports the File System Access API for save dialogs
+ */
+export const getFileSystemCapabilities = () => {
+  const hasFileSystemAccess = isFileSystemAccessSupported();
+  
+  return {
+    hasFileSystemAccess,
+    saveMethod: hasFileSystemAccess ? 'file-picker' : 'download',
+    description: hasFileSystemAccess 
+      ? 'Browser supports choosing save location'
+      : 'Browser will download to default Downloads folder'
+  };
 };
 
 /**
