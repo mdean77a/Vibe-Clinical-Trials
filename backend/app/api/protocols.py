@@ -13,7 +13,7 @@ Now using Qdrant-only architecture (migrated from SQLite).
 import logging
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, status
@@ -61,9 +61,9 @@ async def create_new_protocol(protocol: ProtocolCreate) -> ProtocolResponse:
             "study_acronym": protocol.study_acronym,
             "protocol_title": protocol.protocol_title,
             "collection_name": collection_name,
-            "upload_date": datetime.now().isoformat(),
+            "upload_date": datetime.now(timezone.utc).isoformat(),
             "file_path": getattr(protocol, "file_path", None),
-            "created_at": datetime.now().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
         # Store initial metadata (will be updated when document is processed)
@@ -386,9 +386,9 @@ async def upload_protocol_text(request: dict) -> ProtocolResponse:
                 "protocol_id": f"proto_{int(time.time() * 1000)}",
                 "study_acronym": study_acronym,
                 "protocol_title": protocol_title,
-                "upload_date": datetime.now().isoformat(),
+                "upload_date": datetime.now(timezone.utc).isoformat(),
                 "file_path": original_filename,
-                "created_at": datetime.now().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
                 "chunk_count": len(meaningful_chunks),
                 "processing_method": "client-side-extraction",
                 "page_count": page_count,

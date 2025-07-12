@@ -13,7 +13,7 @@ import logging
 import os
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
 
 from openai import OpenAI
@@ -161,7 +161,7 @@ class QdrantService:
                     "chunk_size": len(chunk),
                     "embedding_model": self.embedding_model,
                     "processing_version": "1.0",
-                    "last_updated": datetime.now().isoformat(),
+                    "last_updated": datetime.now(timezone.utc).isoformat(),
                 }
 
                 points.append(
@@ -236,7 +236,7 @@ class QdrantService:
                             "file_path": metadata.get("file_path"),
                             "created_at": metadata.get("created_at")
                             or metadata.get("upload_date")
-                            or datetime.now().isoformat(),
+                            or datetime.now(timezone.utc).isoformat(),
                             "chunk_count": point_count,
                         }
 
@@ -309,7 +309,7 @@ class QdrantService:
                     "file_path": metadata.get("file_path"),
                     "created_at": metadata.get("created_at")
                     or metadata.get("upload_date")
-                    or datetime.now().isoformat(),
+                    or datetime.now(timezone.utc).isoformat(),
                     "chunk_count": collection_info.points_count,
                 }
             return None

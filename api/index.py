@@ -100,7 +100,7 @@ class handler(BaseHTTPRequestHandler):
                     raise ValueError(f"{field} is required")
             
             # Import and use the actual backend logic
-            from datetime import datetime
+            from datetime import datetime, timezone
             import time
             
             study_acronym = data['study_acronym'].strip().upper()
@@ -146,10 +146,10 @@ class handler(BaseHTTPRequestHandler):
                 "protocol_id": f"proto_{int(time.time() * 1000)}",
                 "study_acronym": study_acronym,
                 "protocol_title": protocol_title,
-                "upload_date": datetime.now().isoformat(),
+                "upload_date": datetime.now(timezone.utc).isoformat(),
                 "status": "processed",
                 "file_path": original_filename,
-                "created_at": datetime.now().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
                 "chunk_count": len(meaningful_chunks),
                 "processing_method": "client-side-extraction",
                 "page_count": page_count,
@@ -166,7 +166,7 @@ class handler(BaseHTTPRequestHandler):
                         "chunk_size": len(chunk),
                         "embedding_model": "text-embedding-ada-002",
                         "processing_version": "1.0",
-                        "last_updated": datetime.now().isoformat(),
+                        "last_updated": datetime.now(timezone.utc).isoformat(),
                     },
                 )
                 documents.append(doc)
