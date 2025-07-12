@@ -20,6 +20,7 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient
 
+from ..prompts.generation_prompts import SECTION_GENERATION_PROMPT
 from ..prompts.icf_prompts import ICF_PROMPTS, ICF_SECTION_QUERIES
 from ..prompts.site_checklist_prompts import SITE_CHECKLIST_PROMPTS
 
@@ -234,7 +235,9 @@ class WorkflowBase(ABC):
             messages = [
                 SystemMessage(content=section_prompt),
                 HumanMessage(
-                    content=f"Context: {context}\n\nGenerate the {section_name} section."
+                    content=SECTION_GENERATION_PROMPT.format(
+                        context=context, section_name=section_name
+                    )
                 ),
             ]
 
@@ -527,7 +530,9 @@ class StreamingICFWorkflow(ICFWorkflow):
                 messages = [
                     SystemMessage(content=section_prompt),
                     HumanMessage(
-                        content=f"Context: {context_text}\n\nGenerate the {section_name} section."
+                        content=SECTION_GENERATION_PROMPT.format(
+                            context=context_text, section_name=section_name
+                        )
                     ),
                 ]
 
