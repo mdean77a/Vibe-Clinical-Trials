@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from qdrant_client import QdrantClient
 
+from ..prompts.generation_prompts import SECTION_GENERATION_PROMPT
 from ..prompts.icf_prompts import ICF_SECTION_QUERIES
 from .document_generator import (
     DocumentGenerationError,
@@ -317,7 +318,9 @@ class ICFGenerationService:
             messages = [
                 SystemMessage(content=section_prompt),
                 HumanMessage(
-                    content=f"Context: {context}\n\nGenerate the {section_name} section."
+                    content=SECTION_GENERATION_PROMPT.format(
+                        context=context, section_name=section_name
+                    )
                 ),
             ]
 
