@@ -31,6 +31,7 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
     errors: [],
   });
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false);
+  const [editingSections, setEditingSections] = useState<Set<string>>(new Set());
 
   // Initialize sections from API requirements
   useEffect(() => {
@@ -228,6 +229,9 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
 
   const handleSectionRegenerate = async (sectionName: string) => {
     if (progress.isGenerating) return;
+    
+    // Check if any section is currently generating
+    if (anySectionGenerating) return;
 
     // Set specific section to generating
     setSections(prev => prev.map(section =>
@@ -313,6 +317,11 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
   };
 
   const handleExportPdf = async () => {
+    // Early return if export is not allowed
+    if (!canExport) {
+      return;
+    }
+    
     try {
       // Validate sections before generating
       const validation = validateSectionsForPdf(sections);
@@ -341,18 +350,22 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
       
       console.log('PDF export completed successfully');
     } catch (error) {
-      console.error('PDF export failed:', error);
-      
       if (error instanceof Error && error.message === 'File save cancelled by user') {
         console.log('PDF export cancelled by user');
         return; // Don't show error alert for user cancellation
       }
       
+      console.error('PDF export failed:', error);
       alert(`Failed to export PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
   const handleExportDocx = async () => {
+    // Early return if export is not allowed
+    if (!canExport) {
+      return;
+    }
+    
     try {
       // Validate sections before generating
       const validation = validateSectionsForDocx(sections);
@@ -381,18 +394,22 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
       
       console.log('Word document export completed successfully');
     } catch (error) {
-      console.error('Word document export failed:', error);
-      
       if (error instanceof Error && error.message === 'File save cancelled by user') {
         console.log('Word document export cancelled by user');
         return; // Don't show error alert for user cancellation
       }
       
+      console.error('Word document export failed:', error);
       alert(`Failed to export Word document: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
   const handleExportMarkdown = async () => {
+    // Early return if export is not allowed
+    if (!canExport) {
+      return;
+    }
+    
     try {
       // Validate sections before generating
       const validation = validateSectionsForMarkdown(sections);
@@ -421,19 +438,27 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
       
       console.log('Markdown export completed successfully');
     } catch (error) {
-      console.error('Markdown export failed:', error);
-      
       if (error instanceof Error && error.message === 'File save cancelled by user') {
         console.log('Markdown export cancelled by user');
         return; // Don't show error alert for user cancellation
       }
       
+      console.error('Markdown export failed:', error);
       alert(`Failed to export Markdown: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
 
   const hasGeneratedSections = sections.some(s => s.status === 'ready_for_review' || s.status === 'approved');
+  
+  // Check if ALL sections are approved (required for export)
+  const allSectionsApproved = sections.length > 0 && sections.every(s => s.status === 'approved');
+  
+  // Check if any section is currently generating
+  const anySectionGenerating = sections.some(s => s.status === 'generating');
+  
+  // Export buttons should be enabled only when all sections are approved and nothing is generating
+  const canExport = allSectionsApproved && !progress.isGenerating && !anySectionGenerating;
 
   return (
     <div style={{ 
@@ -640,7 +665,7 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
                 )}
                 <button
                   onClick={handleExportPdf}
-                  disabled={progress.isGenerating || !validateSectionsForPdf(sections).isValid}
+                  disabled={!canExport}
                   style={{
                     padding: '10px 20px',
                     fontSize: '0.875rem',
@@ -648,28 +673,28 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
                     borderRadius: '8px',
                     backgroundColor: '#ef4444',
                     color: '#ffffff',
-                    cursor: progress.isGenerating || !validateSectionsForPdf(sections).isValid ? 'not-allowed' : 'pointer',
+                    cursor: !canExport ? 'not-allowed' : 'pointer',
                     transition: 'all 0.2s',
-                    opacity: progress.isGenerating || !validateSectionsForPdf(sections).isValid ? 0.6 : 1,
+                    opacity: !canExport ? 0.6 : 1,
                   }}
                   onMouseEnter={(e) => {
-                    if (!progress.isGenerating && validateSectionsForPdf(sections).isValid) {
+                    if (canExport) {
                       e.currentTarget.style.backgroundColor = '#dc2626';
                     }
                   }}
                   onMouseLeave={(e) => {
-                    if (!progress.isGenerating && validateSectionsForPdf(sections).isValid) {
+                    if (canExport) {
                       e.currentTarget.style.backgroundColor = '#ef4444';
                     }
                   }}
-                  title={!validateSectionsForPdf(sections).isValid ? 'Generate sections first to export PDF' : 
+                  title={!canExport ? 'All sections must be approved before exporting' : 
                     `Export ICF as PDF - ${getFileSystemCapabilities().description}`}
                 >
                   📄 PDF
                 </button>
                 <button
                   onClick={handleExportDocx}
-                  disabled={progress.isGenerating || !validateSectionsForDocx(sections).isValid}
+                  disabled={!canExport}
                   style={{
                     padding: '10px 20px',
                     fontSize: '0.875rem',
@@ -677,28 +702,28 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
                     borderRadius: '8px',
                     backgroundColor: '#2563eb',
                     color: '#ffffff',
-                    cursor: progress.isGenerating || !validateSectionsForDocx(sections).isValid ? 'not-allowed' : 'pointer',
+                    cursor: !canExport ? 'not-allowed' : 'pointer',
                     transition: 'all 0.2s',
-                    opacity: progress.isGenerating || !validateSectionsForDocx(sections).isValid ? 0.6 : 1,
+                    opacity: !canExport ? 0.6 : 1,
                   }}
                   onMouseEnter={(e) => {
-                    if (!progress.isGenerating && validateSectionsForDocx(sections).isValid) {
+                    if (canExport) {
                       e.currentTarget.style.backgroundColor = '#1d4ed8';
                     }
                   }}
                   onMouseLeave={(e) => {
-                    if (!progress.isGenerating && validateSectionsForDocx(sections).isValid) {
+                    if (canExport) {
                       e.currentTarget.style.backgroundColor = '#2563eb';
                     }
                   }}
-                  title={!validateSectionsForDocx(sections).isValid ? 'Generate sections first to export Word' : 
+                  title={!canExport ? 'All sections must be approved before exporting' : 
                     `Export ICF as Word document - ${getDocxFileSystemCapabilities().description}`}
                 >
                   📝 Word
                 </button>
                 <button
                   onClick={handleExportMarkdown}
-                  disabled={progress.isGenerating || !validateSectionsForMarkdown(sections).isValid}
+                  disabled={!canExport}
                   style={{
                     padding: '10px 20px',
                     fontSize: '0.875rem',
@@ -706,21 +731,21 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
                     borderRadius: '8px',
                     backgroundColor: '#059669',
                     color: '#ffffff',
-                    cursor: progress.isGenerating || !validateSectionsForMarkdown(sections).isValid ? 'not-allowed' : 'pointer',
+                    cursor: !canExport ? 'not-allowed' : 'pointer',
                     transition: 'all 0.2s',
-                    opacity: progress.isGenerating || !validateSectionsForMarkdown(sections).isValid ? 0.6 : 1,
+                    opacity: !canExport ? 0.6 : 1,
                   }}
                   onMouseEnter={(e) => {
-                    if (!progress.isGenerating && validateSectionsForMarkdown(sections).isValid) {
+                    if (canExport) {
                       e.currentTarget.style.backgroundColor = '#047857';
                     }
                   }}
                   onMouseLeave={(e) => {
-                    if (!progress.isGenerating && validateSectionsForMarkdown(sections).isValid) {
+                    if (canExport) {
                       e.currentTarget.style.backgroundColor = '#059669';
                     }
                   }}
-                  title={!validateSectionsForMarkdown(sections).isValid ? 'Generate sections first to export Markdown' : 
+                  title={!canExport ? 'All sections must be approved before exporting' : 
                     `Export ICF as Markdown - ${getMarkdownFileSystemCapabilities().description}`}
                 >
                   📝 Markdown
@@ -733,7 +758,7 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
             <ICFSection
               key={section.name}
               section={section}
-              isGenerating={progress.isGenerating}
+              isGenerating={progress.isGenerating || anySectionGenerating}
               onApprove={handleSectionApprove}
               onEdit={handleSectionEdit}
               onRegenerate={handleSectionRegenerate}
