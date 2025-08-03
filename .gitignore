@@ -4,7 +4,11 @@
 
 # BMad agent files
 bmad-agent/
+.bmad-core/
+ 
+.cursor 
 
+.claude/
 # macOS
 .DS_Store
 
