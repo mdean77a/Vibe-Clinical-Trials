@@ -32,5 +32,8 @@
   "license": "MIT",
   "devDependencies": {
     "@next/eslint-plugin-next": "^15.3.4"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^1.5.0"
   }
 }
