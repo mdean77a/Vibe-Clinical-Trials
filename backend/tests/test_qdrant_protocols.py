@@ -1,235 +1,95 @@
 """
-Tests for protocol operations using Qdrant-only architecture.
+Tests for protocol collection management using Qdrant.
 
-This module tests the complete protocol lifecycle using the migrated
-Qdrant-only storage system (no SQLite dependencies).
+This module tests collection creation and management functionality
+in the qdrant_service. Document storage tests are in test_langchain_qdrant.py.
 """
 
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.models import ProtocolCreate, ProtocolResponse
 from app.services.qdrant_service import QdrantError, QdrantService
 
 
 class TestQdrantProtocolService:
-    """Test suite for Qdrant protocol service operations."""
+    """Test suite for Qdrant protocol collection management."""
 
     def test_create_protocol_collection(self, qdrant_service, sample_protocol_data):
         """Test creating a protocol collection."""
         collection_name = qdrant_service.create_protocol_collection(
-            study_acronym=sample_protocol_data["study_acronym"],
-            protocol_title=sample_protocol_data["protocol_title"],
-            file_path=sample_protocol_data["file_path"],
+            **sample_protocol_data
         )
 
-        assert collection_name.startswith("TEST001-")
-        assert len(collection_name.split("-")) == 2  # ACRONYM-8charuuid format
+        # Verify collection name format (special chars are cleaned)
+        expected_prefix = "".join(
+            c for c in sample_protocol_data["study_acronym"] if c.isalnum()
+        ).upper()
+        assert collection_name.startswith(expected_prefix)
+        assert "-" in collection_name
         assert len(collection_name.split("-")[1]) == 8  # 8-char UUID
 
-    def test_store_protocol_with_metadata(self, qdrant_service, sample_protocol_data):
-        """Test storing protocol with metadata."""
-        collection_name = qdrant_service.create_protocol_collection(
-            **sample_protocol_data
-        )
+    def test_generate_collection_name(self, qdrant_service):
+        """Test collection name generation."""
+        # Test with simple acronym
+        name1 = qdrant_service.generate_collection_name("TEST")
+        assert name1.startswith("TEST-")
+        assert len(name1.split("-")[1]) == 8
 
-        protocol_metadata = {
-            "protocol_id": "test_001",
-            "study_acronym": sample_protocol_data["study_acronym"],
-            "protocol_title": sample_protocol_data["protocol_title"],
-            "collection_name": collection_name,
-            "upload_date": datetime.now().isoformat(),
-            "file_path": sample_protocol_data["file_path"],
-            "created_at": datetime.now().isoformat(),
-        }
+        # Test with special characters (should be cleaned)
+        name2 = qdrant_service.generate_collection_name("TEST-123")
+        assert name2.startswith("TEST123-")
 
-        success = qdrant_service.store_protocol_with_metadata(
-            collection_name=collection_name,
-            chunks=["test chunk 1", "test chunk 2"],
-            embeddings=[[0.1] * 1536, [0.2] * 1536],
-            protocol_metadata=protocol_metadata,
-        )
+        # Test uniqueness
+        name3 = qdrant_service.generate_collection_name("TEST")
+        assert name1 != name3  # Should generate different UUIDs
 
-        assert success is True
+    def test_list_all_protocols_empty(self, qdrant_service):
+        """Test listing protocols when none exist."""
+        # Mock the client to return empty collections
+        qdrant_service.client.get_collections = MagicMock()
+        qdrant_service.client.get_collections.return_value.collections = []
 
-    def test_list_all_protocols(self, qdrant_service, sample_protocol_data):
-        """Test listing all protocols."""
-        # Create and store a test protocol
-        collection_name = qdrant_service.create_protocol_collection(
-            **sample_protocol_data
-        )
-
-        protocol_metadata = {
-            "protocol_id": "test_001",
-            "study_acronym": sample_protocol_data["study_acronym"],
-            "protocol_title": sample_protocol_data["protocol_title"],
-            "collection_name": collection_name,
-            "upload_date": datetime.now().isoformat(),
-            "file_path": sample_protocol_data["file_path"],
-            "created_at": datetime.now().isoformat(),
-        }
-
-        qdrant_service.store_protocol_with_metadata(
-            collection_name=collection_name,
-            chunks=["test chunk"],
-            embeddings=[[0.1] * 1536],
-            protocol_metadata=protocol_metadata,
-        )
-
-        # List protocols
         protocols = qdrant_service.list_all_protocols()
+        assert protocols == []
 
-        assert len(protocols) == 1
-        assert protocols[0]["study_acronym"] == "TEST-001"
-        assert protocols[0]["protocol_title"] == "Test Protocol for Unit Testing"
+    def test_test_connection(self, qdrant_service):
+        """Test connection testing."""
+        # Mock successful connection
+        qdrant_service.client.get_collections = MagicMock()
+        assert qdrant_service.test_connection() is True
 
-    def test_get_protocol_by_collection(self, qdrant_service, sample_protocol_data):
-        """Test getting protocol by collection name."""
-        # Create and store a test protocol
-        collection_name = qdrant_service.create_protocol_collection(
-            **sample_protocol_data
+        # Mock failed connection
+        qdrant_service.client.get_collections.side_effect = Exception(
+            "Connection failed"
         )
-
-        protocol_metadata = {
-            "protocol_id": "test_001",
-            "study_acronym": sample_protocol_data["study_acronym"],
-            "protocol_title": sample_protocol_data["protocol_title"],
-            "collection_name": collection_name,
-            "upload_date": datetime.now().isoformat(),
-            "file_path": sample_protocol_data["file_path"],
-            "created_at": datetime.now().isoformat(),
-        }
-
-        qdrant_service.store_protocol_with_metadata(
-            collection_name=collection_name,
-            chunks=["test chunk"],
-            embeddings=[[0.1] * 1536],
-            protocol_metadata=protocol_metadata,
-        )
-
-        # Retrieve protocol
-        protocol = qdrant_service.get_protocol_by_collection(collection_name)
-
-        assert protocol is not None
-        assert protocol["study_acronym"] == "TEST-001"
-        assert protocol["collection_name"] == collection_name
-
-    def test_get_protocol_by_id(self, qdrant_service, sample_protocol_data):
-        """Test getting protocol by protocol ID."""
-        # Create and store a test protocol
-        collection_name = qdrant_service.create_protocol_collection(
-            **sample_protocol_data
-        )
-
-        protocol_metadata = {
-            "protocol_id": "test_001",
-            "study_acronym": sample_protocol_data["study_acronym"],
-            "protocol_title": sample_protocol_data["protocol_title"],
-            "collection_name": collection_name,
-            "upload_date": datetime.now().isoformat(),
-            "file_path": sample_protocol_data["file_path"],
-            "created_at": datetime.now().isoformat(),
-        }
-
-        qdrant_service.store_protocol_with_metadata(
-            collection_name=collection_name,
-            chunks=["test chunk"],
-            embeddings=[[0.1] * 1536],
-            protocol_metadata=protocol_metadata,
-        )
-
-        # Retrieve protocol by ID
-        protocol = qdrant_service.get_protocol_by_id("test_001")
-
-        assert protocol is not None
-        assert protocol["protocol_id"] == "test_001"
-        assert protocol["study_acronym"] == "TEST-001"
-
-    def test_delete_protocol(self, qdrant_service, sample_protocol_data):
-        """Test deleting a protocol."""
-        # Create and store a test protocol
-        collection_name = qdrant_service.create_protocol_collection(
-            **sample_protocol_data
-        )
-
-        protocol_metadata = {
-            "protocol_id": "test_001",
-            "study_acronym": sample_protocol_data["study_acronym"],
-            "protocol_title": sample_protocol_data["protocol_title"],
-            "collection_name": collection_name,
-            "upload_date": datetime.now().isoformat(),
-            "file_path": sample_protocol_data["file_path"],
-            "created_at": datetime.now().isoformat(),
-        }
-
-        qdrant_service.store_protocol_with_metadata(
-            collection_name=collection_name,
-            chunks=["test chunk"],
-            embeddings=[[0.1] * 1536],
-            protocol_metadata=protocol_metadata,
-        )
-
-        # Delete protocol
-        success = qdrant_service.delete_protocol(collection_name)
-        assert success is True
-
-        # Verify protocol was deleted
-        protocol = qdrant_service.get_protocol_by_collection(collection_name)
-        assert protocol is None
-
-    def test_search_protocols(self, qdrant_service, sample_protocol_data):
-        """Test searching protocols by content."""
-        # Create and store a test protocol
-        collection_name = qdrant_service.create_protocol_collection(
-            **sample_protocol_data
-        )
-
-        protocol_metadata = {
-            "protocol_id": "test_001",
-            "study_acronym": sample_protocol_data["study_acronym"],
-            "protocol_title": sample_protocol_data["protocol_title"],
-            "collection_name": collection_name,
-            "upload_date": datetime.now().isoformat(),
-            "file_path": sample_protocol_data["file_path"],
-            "created_at": datetime.now().isoformat(),
-        }
-
-        qdrant_service.store_protocol_with_metadata(
-            collection_name=collection_name,
-            chunks=["clinical trial procedures"],
-            embeddings=[[0.1] * 1536],
-            protocol_metadata=protocol_metadata,
-        )
-
-        # Search protocols
-        results = qdrant_service.search_protocol_documents(
-            collection_name, "clinical trial", limit=5
-        )
-
-        # Should find our stored protocol (though with placeholder embeddings)
-        assert isinstance(results, list)
-        # Note: With placeholder embeddings, search might not return meaningful results
-        # but we're testing the interface works
-
-
-class TestQdrantProtocolErrors:
-    """Test error handling in Qdrant protocol operations."""
+        assert qdrant_service.test_connection() is False
 
     def test_get_nonexistent_protocol_by_collection(self, qdrant_service):
-        """Test getting a non-existent protocol by collection name."""
-        protocol = qdrant_service.get_protocol_by_collection("nonexistent_collection")
-        assert protocol is None
+        """Test retrieving non-existent protocol by collection name."""
+        result = qdrant_service.get_protocol_by_collection("nonexistent-collection")
+        assert result is None
 
-    def test_get_nonexistent_protocol_by_id(self, qdrant_service):
-        """Test getting a non-existent protocol by ID."""
-        protocol = qdrant_service.get_protocol_by_id("nonexistent_id")
-        assert protocol is None
+    def test_search_protocol_documents_no_embeddings(self, qdrant_service):
+        """Test searching when embeddings are not available."""
+        # Mock OpenAI client to be None
+        qdrant_service.openai_client = None
 
-    def test_delete_nonexistent_protocol(self, qdrant_service):
-        """Test deleting non-existent protocol."""
-        # Note: delete_protocol returns False only on exception, not for non-existent collections
-        # The actual behavior depends on Qdrant client implementation
-        success = qdrant_service.delete_protocol("nonexistent_collection")
-        assert isinstance(success, bool)  # Just verify it returns a boolean
+        results = qdrant_service.search_protocol_documents(
+            protocol_collection_name="test-collection", query="test query"
+        )
+        assert results == []
+
+    @pytest.mark.integration
+    def test_collection_creation_error_handling(self, qdrant_service):
+        """Test error handling during collection creation."""
+        # Mock collection creation to fail
+        qdrant_service.client.create_collection = MagicMock(
+            side_effect=Exception("Collection already exists")
+        )
+
+        with pytest.raises(QdrantError, match="Failed to create protocol collection"):
+            qdrant_service.create_protocol_collection(
+                study_acronym="TEST", protocol_title="Test Protocol"
+            )

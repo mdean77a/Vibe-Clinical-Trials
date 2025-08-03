@@ -343,27 +343,17 @@ class TestIntegrationScenarios:
     ):
         """Test end-to-end ICF generation process."""
         # First store protocol in Qdrant
-        with patch(
-            "app.services.qdrant_service.QdrantService.get_embeddings",
-            return_value=[[0.1] * 1536 for _ in sample_protocol_chunks],
-        ):
-            from app.services.qdrant_service import QdrantService
+        # Create a protocol collection for testing
+        from app.services.qdrant_service import QdrantService
 
-            qdrant_service = QdrantService()
-            qdrant_service.client = memory_qdrant_client  # Use test client
+        qdrant_service = QdrantService()
+        qdrant_service.client = memory_qdrant_client  # Use test client
 
-            embeddings = [[0.1] * 1536 for _ in sample_protocol_chunks]
-            collection_name = qdrant_service.create_protocol_collection(
-                sample_protocol_metadata["document_id"],
-                sample_protocol_metadata["protocol_title"],
-            )
-
-            qdrant_service.store_protocol_with_metadata(
-                collection_name=collection_name,
-                chunks=sample_protocol_chunks,
-                embeddings=embeddings,
-                protocol_metadata=sample_protocol_metadata,
-            )
+        collection_name = qdrant_service.create_protocol_collection(
+            study_acronym="TEST",
+            protocol_title=sample_protocol_metadata["protocol_title"],
+        )
+        sample_protocol_metadata["collection_name"] = collection_name
 
         # Mock ICF workflow
         mock_workflow = MagicMock()

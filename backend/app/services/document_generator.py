@@ -134,6 +134,7 @@ class WorkflowBase(ABC):
         # Try OpenAI first (now the primary)
         try:
             from langchain_openai import ChatOpenAI
+
             self.llm = ChatOpenAI(
                 model=self.llm_config["model"],
                 max_tokens=self.llm_config["max_tokens"],
@@ -151,7 +152,9 @@ class WorkflowBase(ABC):
                 )
                 logger.info("Using Claude Sonnet 4 as fallback LLM")
             except Exception as fallback_error:
-                logger.error(f"Fallback LLM (Anthropic) initialization failed: {fallback_error}")
+                logger.error(
+                    f"Fallback LLM (Anthropic) initialization failed: {fallback_error}"
+                )
                 raise DocumentGenerationError(
                     f"Failed to initialize any LLM: OpenAI: {e}, Anthropic: {fallback_error}"
                 )
@@ -245,8 +248,10 @@ class WorkflowBase(ABC):
             response = self.llm.invoke(messages)
             return response.content
         except Exception as e:
-            logger.error(f"Failed to generate {section_name} section with primary LLM: {e}")
-            
+            logger.error(
+                f"Failed to generate {section_name} section with primary LLM: {e}"
+            )
+
             # Try fallback to Anthropic if OpenAI fails
             try:
                 logger.info(f"Attempting fallback to Claude for section {section_name}")
@@ -256,10 +261,14 @@ class WorkflowBase(ABC):
                     temperature=self.llm_config["temperature"],
                 )
                 response = fallback_llm.invoke(messages)
-                logger.info(f"Successfully generated {section_name} using Claude fallback")
+                logger.info(
+                    f"Successfully generated {section_name} using Claude fallback"
+                )
                 return response.content
             except Exception as fallback_error:
-                logger.error(f"Fallback LLM also failed for {section_name}: {fallback_error}")
+                logger.error(
+                    f"Fallback LLM also failed for {section_name}: {fallback_error}"
+                )
                 raise DocumentGenerationError(
                     f"Failed to generate {section_name} with both LLMs: primary: {str(e)}, fallback: {str(fallback_error)}"
                 )
@@ -577,7 +586,7 @@ class StreamingICFWorkflow(ICFWorkflow):
                 # Stream tokens from the LLM with fallback support
                 section_content = ""
                 fallback_used = False
-                
+
                 try:
                     for chunk in self.llm.stream(messages):
                         if hasattr(chunk, "content") and chunk.content:
@@ -620,37 +629,44 @@ class StreamingICFWorkflow(ICFWorkflow):
                                     # Continue streaming even if we can't queue individual tokens
 
                 except Exception as e:
-                    logger.error(f"Failed to stream {section_name} with primary LLM: {e}")
-                    
+                    logger.error(
+                        f"Failed to stream {section_name} with primary LLM: {e}"
+                    )
+
                     # Try streaming with Anthropic fallback
                     try:
-                        logger.info(f"Attempting streaming fallback to Claude for section {section_name}")
+                        logger.info(
+                            f"Attempting streaming fallback to Claude for section {section_name}"
+                        )
                         fallback_llm = ChatAnthropic(
                             model="claude-sonnet-4-20250514",
                             max_tokens=self.llm_config["max_tokens"],
                             temperature=self.llm_config["temperature"],
                         )
-                        
+
                         # Reset content and notify about fallback
                         section_content = ""
                         fallback_used = True
-                        
+
                         if self.event_queue and self.main_loop:
                             try:
                                 import asyncio
+
                                 if not self.main_loop.is_closed():
                                     future = asyncio.run_coroutine_threadsafe(
-                                        self.event_queue.put({
-                                            "type": "info",
-                                            "section_name": section_name,
-                                            "message": "Switching to Claude due to OpenAI issue..."
-                                        }),
+                                        self.event_queue.put(
+                                            {
+                                                "type": "info",
+                                                "section_name": section_name,
+                                                "message": "Switching to Claude due to OpenAI issue...",
+                                            }
+                                        ),
                                         self.main_loop,
                                     )
                                     future.result(timeout=0.5)
                             except:
                                 pass
-                        
+
                         # Stream with fallback
                         for chunk in fallback_llm.stream(messages):
                             if hasattr(chunk, "content") and chunk.content:
@@ -675,14 +691,22 @@ class StreamingICFWorkflow(ICFWorkflow):
                                             )
                                             future.result(timeout=0.1)
                                     except asyncio.TimeoutError:
-                                        logger.debug(f"Token queuing timeout for {section_name}")
+                                        logger.debug(
+                                            f"Token queuing timeout for {section_name}"
+                                        )
                                     except Exception as e:
-                                        logger.error(f"Failed to queue token for {section_name}: {e}")
-                        
-                        logger.info(f"Successfully streamed {section_name} using Claude fallback")
-                        
+                                        logger.error(
+                                            f"Failed to queue token for {section_name}: {e}"
+                                        )
+
+                        logger.info(
+                            f"Successfully streamed {section_name} using Claude fallback"
+                        )
+
                     except Exception as fallback_error:
-                        logger.error(f"Fallback streaming also failed for {section_name}: {fallback_error}")
+                        logger.error(
+                            f"Fallback streaming also failed for {section_name}: {fallback_error}"
+                        )
                         # Last resort - non-streaming generation
                         section_content = self._generate_section_with_llm(
                             section_name, context_text, section_prompt

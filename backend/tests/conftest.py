@@ -112,10 +112,24 @@ def test_client() -> TestClient:
 
         def create_protocol_collection(study_acronym, protocol_title, file_path=None):
             timestamp = int(time.time() * 1000)  # More precise timestamp
-            return f"{study_acronym.lower()}_{timestamp}"
+            collection_name = f"{study_acronym.lower()}_{timestamp}"
+
+            # Store basic protocol metadata for API tests
+            protocol_id = f"proto_{timestamp}"
+            protocol_metadata = {
+                "protocol_id": protocol_id,
+                "study_acronym": study_acronym,
+                "protocol_title": protocol_title,
+                "collection_name": collection_name,
+                "upload_date": f"{timestamp}",
+                "file_path": file_path,
+                "created_at": f"{timestamp}",
+            }
+            created_protocols[protocol_id] = protocol_metadata
+
+            return collection_name
 
         mock_service.create_protocol_collection.side_effect = create_protocol_collection
-        mock_service.store_protocol_with_metadata.return_value = None
 
         # Protocol retrieval methods with dynamic responses
         def get_protocol_by_id(protocol_id):
@@ -131,20 +145,9 @@ def test_client() -> TestClient:
             # Return None if not found
             return None
 
-        def store_protocol_with_metadata(
-            collection_name, chunks, embeddings, protocol_metadata
-        ):
-            # Store the protocol data for later retrieval
-            protocol_id = protocol_metadata["protocol_id"]
-            created_protocols[protocol_id] = protocol_metadata
-            return None
-
         mock_service.get_protocol_by_id.side_effect = get_protocol_by_id
         mock_service.get_protocol_by_collection.side_effect = get_protocol_by_collection
         mock_service.get_protocol.side_effect = get_protocol_by_id
-        mock_service.store_protocol_with_metadata.side_effect = (
-            store_protocol_with_metadata
-        )
 
         # Protocol listing methods
         def list_all_protocols():

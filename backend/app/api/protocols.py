@@ -66,14 +66,7 @@ async def create_new_protocol(protocol: ProtocolCreate) -> ProtocolResponse:
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        # Store initial metadata (will be updated when document is processed)
-        qdrant_service.store_protocol_with_metadata(
-            collection_name=collection_name,
-            chunks=["Initial protocol entry"],
-            embeddings=[[0.0] * 1536],  # Placeholder embedding
-            protocol_metadata=protocol_metadata,
-        )
-
+        # Collection is created empty and will be populated when document is uploaded
         logger.info(f"Successfully created protocol with collection {collection_name}")
         return ProtocolResponse.model_validate(protocol_metadata)
 

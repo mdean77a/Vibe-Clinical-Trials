@@ -1,31 +1,25 @@
 """
-Qdrant service for vector database operations.
+Qdrant service for protocol metadata and collection management.
 
-This module handles:
-- Protocol storage with metadata and embeddings
-- Vector similarity search
-- Protocol retrieval and listing
-- Collection management
-- Complete protocol metadata operations (replacing SQLite)
+This service provides low-level Qdrant operations for protocol management:
+- Protocol collection creation and deletion
+- Protocol metadata retrieval and listing
+- Collection name generation
+- Direct Qdrant client operations
+
+NOTE: For document storage and RAG operations, use langchain_qdrant_service.py
+which provides LangChain-integrated document chunking, embedding, and retrieval.
 """
 
 import logging
 import os
-import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
 from qdrant_client import QdrantClient
-from qdrant_client.models import (
-    Distance,
-    FieldCondition,
-    Filter,
-    MatchValue,
-    PointStruct,
-    VectorParams,
-)
+from qdrant_client.models import Distance, VectorParams
 
 # Load environment variables for local development
 try:
@@ -123,7 +117,16 @@ class QdrantService:
     def create_protocol_collection(
         self, study_acronym: str, protocol_title: str, file_path: Optional[str] = None
     ) -> str:
-        """Create a new collection for a protocol's vector embeddings."""
+        """Create a new collection for a protocol's vector embeddings.
+
+        Args:
+            study_acronym: The study acronym for the protocol
+            protocol_title: The title of the protocol (kept for backward compatibility)
+            file_path: Optional file path (kept for backward compatibility)
+
+        Returns:
+            str: The generated collection name
+        """
         collection_name = self.generate_collection_name(study_acronym)
 
         try:
@@ -136,49 +139,6 @@ class QdrantService:
             return collection_name
         except Exception as e:
             raise QdrantError(f"Failed to create protocol collection: {str(e)}")
-
-    def store_protocol_with_metadata(
-        self,
-        collection_name: str,
-        chunks: List[str],
-        embeddings: List[List[float]],
-        protocol_metadata: dict,
-    ) -> bool:
-        """Store document chunks in the protocol's individual collection."""
-        try:
-            # Store document chunks in the protocol's own collection
-            points = []
-
-            for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-                payload = {
-                    # Protocol metadata (same for all chunks)
-                    **protocol_metadata,
-                    # Chunk-specific metadata
-                    "chunk_index": i,
-                    "chunk_text": chunk,
-                    "chunk_size": len(chunk),
-                    "embedding_model": self.embedding_model,
-                    "processing_version": "1.0",
-                    "last_updated": datetime.now(timezone.utc).isoformat(),
-                }
-
-                points.append(
-                    PointStruct(
-                        id=str(uuid.uuid4()),  # Use proper UUID for point ID
-                        vector=embedding,
-                        payload=payload,
-                    )
-                )
-
-            # Store chunks in the protocol's individual collection
-            self.client.upsert(collection_name=collection_name, points=points)
-
-            logger.info(f"Stored {len(chunks)} chunks in collection {collection_name}")
-            return True
-
-        except Exception as e:
-            logger.error(f"Error storing protocol with metadata: {e}")
-            raise QdrantError(f"Failed to store protocol: {str(e)}")
 
     def list_all_protocols(self) -> List[dict]:
         """List all protocols by querying Qdrant collections and extracting metadata."""
@@ -371,6 +331,13 @@ class QdrantService:
     ) -> List[Dict[str, Any]]:
         """Search within a specific protocol's document collection using vector similarity."""
         try:
+            # If no OpenAI client available, return empty results
+            if not self.openai_client:
+                logger.warning(
+                    "OpenAI client not available, cannot perform semantic search"
+                )
+                return []
+
             # Generate query embedding
             query_embedding = self.get_embeddings([query])[0]
 

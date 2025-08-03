@@ -1,25 +1,27 @@
 """
-LangChain-based Qdrant service for vector operations.
+LangChain-based Qdrant service for document storage and RAG operations.
 
-This module provides a LangChain-integrated approach to Qdrant operations:
-- Uses QdrantVectorStore for document storage and retrieval
-- Implements LangChain retriever patterns for RAG operations
-- Maintains raw client access for collection management
-- Provides unified interface for document operations
+This service provides high-level document operations using LangChain:
+- Document chunking and embedding via LangChain
+- Similarity search for RAG (Retrieval-Augmented Generation)
+- LangChain retriever patterns for document generation workflows
+- Integration with LangGraph for ICF and checklist generation
+
+NOTE: For protocol metadata and collection management, use qdrant_service.py
+which provides direct Qdrant client operations.
 """
 
 import logging
 import os
-import uuid
 from typing import Any, Dict, List, Optional
 
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
-from langchain_core.vectorstores import VectorStore
 from langchain_openai import OpenAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams
+
+from .qdrant_service import get_qdrant_service
 
 # Load environment variables for local development
 try:
@@ -91,17 +93,6 @@ class LangChainQdrantService:
                 self.embeddings = None
                 logger.warning("OpenAI API key not found - embeddings will not work")
 
-    def generate_collection_name(self, study_acronym: str) -> str:
-        """Generate unique collection name for protocol using acronym + 8-char UUID."""
-        # Clean acronym to only include alphanumeric characters
-        clean_acronym = "".join(c for c in study_acronym if c.isalnum()).upper()
-
-        # Generate 8-character UUID
-        uuid_str = str(uuid.uuid4()).replace("-", "")[:8].lower()
-
-        # Format: ACRONYM-8charuuid (e.g., THAPCA-08ndfes)
-        return f"{clean_acronym}-{uuid_str}"
-
     def get_vector_store(self, collection_name: str) -> QdrantVectorStore:
         """Get LangChain QdrantVectorStore for a specific collection."""
         if not self.embeddings:
@@ -117,12 +108,13 @@ class LangChainQdrantService:
         self,
         documents: List[Document],
         study_acronym: str,
-        ids: Optional[List[str]] = None,
+        ids: Optional[List[str]] = None,  # Kept for backward compatibility
     ) -> tuple[List[str], str]:
         """Store documents in a Qdrant collection using LangChain."""
         try:
-            # Generate collection name
-            collection_name = self.generate_collection_name(study_acronym)
+            # Generate collection name using qdrant service
+            qdrant_service = get_qdrant_service()
+            collection_name = qdrant_service.generate_collection_name(study_acronym)
             logger.info(
                 f"Generated collection name: {collection_name} for study: {study_acronym}"
             )
@@ -131,7 +123,7 @@ class LangChainQdrantService:
             logger.info(
                 f"Creating collection and storing {len(documents)} documents with embeddings model: {self.embeddings}"
             )
-            vector_store = QdrantVectorStore.from_documents(
+            QdrantVectorStore.from_documents(
                 documents=documents,
                 embedding=self.embeddings,
                 collection_name=collection_name,

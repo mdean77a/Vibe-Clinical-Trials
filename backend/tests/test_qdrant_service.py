@@ -54,70 +54,6 @@ class TestQdrantService:
             service.create_collection("test_collection")
 
 
-class TestStoreProtocolWithMetadata:
-    """Test cases for storing protocol with metadata."""
-
-    @pytest.mark.unit
-    @pytest.mark.qdrant
-    def test_store_protocol_success(
-        self, mock_qdrant_client, sample_protocol_chunks, sample_protocol_metadata
-    ):
-        """Test successful protocol storage with metadata."""
-        # Mock embeddings
-        mock_embeddings = [[0.1] * 1536 for _ in sample_protocol_chunks]
-
-        service = QdrantService(client=mock_qdrant_client)
-
-        with patch.object(service, "get_embeddings", return_value=mock_embeddings):
-            result = service.store_protocol_with_metadata(
-                collection_name="test-collection",
-                chunks=sample_protocol_chunks,
-                embeddings=mock_embeddings,
-                protocol_metadata=sample_protocol_metadata,
-            )
-
-        assert result is True
-        mock_qdrant_client.upsert.assert_called()
-
-    @pytest.mark.unit
-    @pytest.mark.qdrant
-    def test_store_protocol_embedding_error(
-        self, mock_qdrant_client, sample_protocol_chunks, sample_protocol_metadata
-    ):
-        """Test protocol storage with invalid embeddings."""
-        service = QdrantService(client=mock_qdrant_client)
-        # Invalid embeddings - wrong dimensions
-        invalid_embeddings = [[0.1] * 10 for _ in sample_protocol_chunks]  # Wrong size
-
-        mock_qdrant_client.upsert.side_effect = Exception("Invalid vector dimension")
-
-        with pytest.raises(QdrantError, match="Failed to store protocol"):
-            service.store_protocol_with_metadata(
-                collection_name="test-collection",
-                chunks=sample_protocol_chunks,
-                embeddings=invalid_embeddings,
-                protocol_metadata=sample_protocol_metadata,
-            )
-
-    @pytest.mark.unit
-    @pytest.mark.qdrant
-    def test_store_protocol_qdrant_error(
-        self, mock_qdrant_client, sample_protocol_chunks, sample_protocol_metadata
-    ):
-        """Test protocol storage with Qdrant error."""
-        mock_qdrant_client.upsert.side_effect = Exception("Qdrant connection failed")
-        service = QdrantService(client=mock_qdrant_client)
-        mock_embeddings = [[0.1] * 1536 for _ in sample_protocol_chunks]
-
-        with pytest.raises(QdrantError, match="Failed to store protocol"):
-            service.store_protocol_with_metadata(
-                collection_name="test-collection",
-                chunks=sample_protocol_chunks,
-                embeddings=mock_embeddings,
-                protocol_metadata=sample_protocol_metadata,
-            )
-
-
 class TestSearchProtocols:
     """Test cases for protocol search functionality."""
 
@@ -313,10 +249,8 @@ class TestIntegrationScenarios:
 
     @pytest.mark.integration
     @pytest.mark.qdrant
-    def test_full_protocol_lifecycle_qdrant(
-        self, memory_qdrant_client, sample_protocol_chunks, sample_protocol_metadata
-    ):
-        """Test complete protocol lifecycle with new QdrantService."""
+    def test_protocol_collection_lifecycle(self, memory_qdrant_client):
+        """Test protocol collection creation and management."""
         service = QdrantService(client=memory_qdrant_client)
 
         # Create protocol collection
@@ -324,34 +258,9 @@ class TestIntegrationScenarios:
             study_acronym="TEST", protocol_title="Test Protocol"
         )
 
-        # Store protocol with metadata
-        mock_embeddings = [[0.1] * 1536 for _ in sample_protocol_chunks]
-        with patch.object(
-            service,
-            "get_embeddings",
-            return_value=mock_embeddings,
-        ):
-            success = service.store_protocol_with_metadata(
-                collection_name=collection_name,
-                chunks=sample_protocol_chunks,
-                embeddings=mock_embeddings,
-                protocol_metadata=sample_protocol_metadata,
-            )
+        # Verify collection was created with proper format
+        assert collection_name.startswith("TEST-")
+        assert len(collection_name.split("-")[1]) == 8  # 8-char UUID
 
-        assert success is True
-
-        # Retrieve by collection name
-        retrieved = service.get_protocol_by_collection(collection_name)
-        assert retrieved is not None
-        assert retrieved["study_acronym"] == sample_protocol_metadata["study_acronym"]
-
-        # List all protocols (should find our new collection)
-        all_protocols = service.list_all_protocols()
-        assert len(all_protocols) >= 1
-
-        # Search within the protocol collection
-        with patch.object(service, "get_embeddings", return_value=[[0.1] * 1536]):
-            search_results = service.search_protocol_documents(
-                protocol_collection_name=collection_name, query="clinical trial"
-            )
-            assert len(search_results) >= 1
+        # Test connection
+        assert service.test_connection() is True
