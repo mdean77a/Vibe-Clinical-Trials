@@ -97,6 +97,10 @@ uv run mypy app/        # Type checking
 2. **Document Generation**: RAG retrieval + LangGraph workflows → streaming generation
 3. **Frontend Interface**: React components with real-time updates and human-in-the-loop editing
 
+## Git Branch Management
+
+**IMPORTANT**: When merging branches, ALWAYS preserve commit history using `git merge --no-ff` to maintain a complete development record. Never use fast-forward merges that lose branch context.
+
 ## Environment Setup
 
 Copy `.env.example` to `.env` and configure:
