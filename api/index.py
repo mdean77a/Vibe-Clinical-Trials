@@ -12,6 +12,9 @@ from urllib.parse import urlparse, parse_qs
 # Add the backend directory to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
+# Import configuration after adding to path
+from app.config import EMBEDDING_MODEL
+
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         """Handle GET requests"""
@@ -164,7 +167,7 @@ class handler(BaseHTTPRequestHandler):
                         **protocol_metadata,
                         "chunk_index": i,
                         "chunk_size": len(chunk),
-                        "embedding_model": "text-embedding-ada-002",
+                        "embedding_model": EMBEDDING_MODEL,
                         "processing_version": "1.0",
                         "last_updated": datetime.now(timezone.utc).isoformat(),
                     },
