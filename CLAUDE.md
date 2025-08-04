@@ -124,29 +124,29 @@ Copy `.env.example` to `.env` and configure:
 
 ## Recent Updates (Latest Session)
 
-### ✅ Streaming Section Regeneration (Completed)
-- **Feature**: Real-time token streaming for individual ICF section regeneration
-- **Implementation**: Added `sections_filter` parameter to `generate_icf_streaming()` method
-- **UX Improvement**: Users now see immediate feedback instead of waiting without visual progress
-- **Technical**: Uses existing SSE infrastructure for consistency with full generation
-- **Files Updated**: 
-  - `backend/app/services/icf_service.py` - Added sections filtering support
-  - `backend/app/api/icf_generation.py` - Modified `/regenerate-section` to use streaming
-  - `frontend/src/utils/api.ts` - Updated `regenerateSection` to consume SSE stream
-  - `frontend/src/components/icf/ICFGenerationDashboard.tsx` - Added streaming UI handling
+### ✅ Embedding Strategy Consolidation (Completed)
+- **Problem**: Redundant embedding implementations in `qdrant_service.py` and `langchain_qdrant_service.py`
+- **Solution**: Unified all embedding operations through LangChain with centralized configuration
+- **Key Changes**:
+  - Created `backend/app/config.py` with centralized `EMBEDDING_MODEL = "text-embedding-3-small"`
+  - Removed duplicate `get_embeddings()` and `search_protocol_documents()` methods from `qdrant_service.py`
+  - Updated all services to use centralized config constants
+  - Fixed Vercel serverless function (`/api/index.py`) that was missed initially
+- **Result**: Single embedding model configuration, no redundancy, all new documents use `text-embedding-3-small`
+- **Tests**: All 76 backend + 153 frontend tests passing
+- **Files Updated**:
+  - `backend/app/config.py` - New centralized configuration
+  - `backend/app/services/qdrant_service.py` - Removed redundant embedding code
+  - `backend/app/services/langchain_qdrant_service.py` - Uses centralized config
+  - `backend/app/api/protocols.py` - Uses centralized config
+  - `/api/index.py` - Fixed Vercel function to use centralized config
+  - Test files updated to remove obsolete embedding tests
 
-### ✅ Test Suite Fixes (Completed)
-- **Frontend Tests**: Fixed all 153 tests passing (was 13 failing due to PDF extractor mocking)
-- **Backend Tests**: Updated 98 tests passing (improved LangChain service mocking)
-- **Key Issues Resolved**: 
-  - `import.meta` compatibility in Jest environment
-  - Async/await handling in React Testing Library
-  - PDF extractor module mocking for CI/CD reliability
-- **Files Updated**: `frontend/src/components/__tests__/ProtocolUpload.test.tsx`
-
-### ✅ Git History Management (Completed)
-- **Merged**: 16 commits from `frontendPdf` branch into `main` using `--no-ff` merge
-- **Preserved**: Complete development history showing Vercel deployment journey
+### ✅ Repository Cleanup (Completed)
+- **Branch Management**: Cleaned up merged feature branches
+- **Deleted Branches**: `cleanupEmbeddings`, `cleanupQdrant`, `feature/regeneration-comments`
+- **Current State**: Clean repository with only `main` branch (local + remote)
+- **Merge Strategy**: Used `--no-ff` merges to preserve development history
 - **Ready**: All changes committed and ready for team collaboration
 
 ## Current Status
