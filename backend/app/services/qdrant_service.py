@@ -17,9 +17,10 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from openai import OpenAI
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
+
+from ..config import EMBEDDING_DIMENSION
 
 # Load environment variables for local development
 try:
@@ -42,12 +43,9 @@ class QdrantError(Exception):
 class QdrantService:
     """Service class for Qdrant operations - handles all protocol metadata and vector operations."""
 
-    openai_client: Optional[OpenAI]
-
     def __init__(
         self,
         client: Optional[QdrantClient] = None,
-        openai_client: Optional[OpenAI] = None,
     ):
         """Initialize Qdrant service with appropriate client for environment."""
         if client:
@@ -81,26 +79,6 @@ class QdrantService:
                 self.client = QdrantClient(":memory:")
                 logger.warning("Using in-memory Qdrant - data will not persist")
 
-        # Initialize OpenAI client
-        if openai_client:
-            self.openai_client = openai_client
-        else:
-            openai_api_key = os.getenv("OPENAI_API_KEY")
-            if openai_api_key:
-                self.openai_client = OpenAI(
-                    api_key=openai_api_key,
-                    max_retries=int(os.getenv("OPENAI_MAX_RETRIES", "3")),
-                    timeout=float(os.getenv("OPENAI_TIMEOUT", "30")),
-                )
-                logger.info("OpenAI client initialized successfully")
-            else:
-                self.openai_client = None
-                logger.warning(
-                    "OpenAI API key not found - embeddings will use mock data"
-                )
-
-        # Configuration
-        self.embedding_model = "text-embedding-3-small"
         # No need to ensure protocols collection - we'll use collection listing instead
 
     def generate_collection_name(self, study_acronym: str) -> str:
@@ -133,7 +111,7 @@ class QdrantService:
             # Actually create the individual collection for this protocol
             self.client.create_collection(
                 collection_name=collection_name,
-                vectors_config=VectorParams(size=1536, distance=Distance.COSINE),
+                vectors_config=VectorParams(size=EMBEDDING_DIMENSION, distance=Distance.COSINE),
             )
             logger.info(f"Created protocol collection: {collection_name}")
             return collection_name
@@ -320,94 +298,12 @@ class QdrantService:
         try:
             self.client.create_collection(
                 collection_name=collection_name,
-                vectors_config=VectorParams(size=1536, distance=Distance.COSINE),
+                vectors_config=VectorParams(size=EMBEDDING_DIMENSION, distance=Distance.COSINE),
             )
             return True
         except Exception as e:
             raise QdrantError(f"Failed to create collection: {str(e)}")
 
-    def search_protocol_documents(
-        self, protocol_collection_name: str, query: str, limit: int = 5
-    ) -> List[Dict[str, Any]]:
-        """Search within a specific protocol's document collection using vector similarity."""
-        try:
-            # If no OpenAI client available, return empty results
-            if not self.openai_client:
-                logger.warning(
-                    "OpenAI client not available, cannot perform semantic search"
-                )
-                return []
-
-            # Generate query embedding
-            query_embedding = self.get_embeddings([query])[0]
-
-            # Search in the specific protocol's collection
-            search_results = self.client.search(
-                collection_name=protocol_collection_name,
-                query_vector=query_embedding,
-                limit=limit,
-            )
-
-            # Format results
-            results = []
-            for hit in search_results:
-                result_dict = {"score": hit.score}
-                if hit.payload:
-                    result_dict.update(hit.payload)
-                results.append(result_dict)
-
-            return results
-
-        except Exception as e:
-            logger.error(
-                f"Error searching protocol documents in {protocol_collection_name}: {e}"
-            )
-            raise QdrantError(f"Failed to search protocol documents: {str(e)}")
-
-    def get_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings for texts using OpenAI API."""
-        if not self.openai_client:
-            # Fallback to mock embeddings if OpenAI client not available
-            logger.warning("OpenAI client not available, using mock embeddings")
-            return [[0.1] * 1536 for _ in texts]
-
-        try:
-            # Filter out empty texts
-            non_empty_texts = [text.strip() for text in texts if text.strip()]
-            if not non_empty_texts:
-                logger.warning("No non-empty texts provided for embedding")
-                return [[0.0] * 1536 for _ in texts]
-
-            # Generate embeddings using OpenAI
-            response = self.openai_client.embeddings.create(
-                model=self.embedding_model, input=non_empty_texts
-            )
-
-            # Extract embeddings from response
-            embeddings = [embedding.embedding for embedding in response.data]
-
-            # Handle case where some original texts were empty
-            result_embeddings = []
-            non_empty_idx = 0
-
-            for text in texts:
-                if text.strip():
-                    result_embeddings.append(embeddings[non_empty_idx])
-                    non_empty_idx += 1
-                else:
-                    # Use zero vector for empty texts
-                    result_embeddings.append([0.0] * 1536)
-
-            logger.info(
-                f"Generated {len(result_embeddings)} embeddings using {self.embedding_model}"
-            )
-            return result_embeddings
-
-        except Exception as e:
-            logger.error(f"Error generating embeddings with OpenAI: {e}")
-            # Fallback to mock embeddings on error
-            logger.warning("Falling back to mock embeddings due to OpenAI error")
-            return [[0.1] * 1536 for _ in texts]
 
     def test_connection(self) -> bool:
         """Test Qdrant connection and log results."""

@@ -71,15 +71,6 @@ class TestQdrantProtocolService:
         result = qdrant_service.get_protocol_by_collection("nonexistent-collection")
         assert result is None
 
-    def test_search_protocol_documents_no_embeddings(self, qdrant_service):
-        """Test searching when embeddings are not available."""
-        # Mock OpenAI client to be None
-        qdrant_service.openai_client = None
-
-        results = qdrant_service.search_protocol_documents(
-            protocol_collection_name="test-collection", query="test query"
-        )
-        assert results == []
 
     @pytest.mark.integration
     def test_collection_creation_error_handling(self, qdrant_service):

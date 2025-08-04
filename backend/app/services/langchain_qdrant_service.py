@@ -21,6 +21,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 
+from ..config import EMBEDDING_MODEL
 from .qdrant_service import get_qdrant_service
 
 # Load environment variables for local development
@@ -83,11 +84,11 @@ class LangChainQdrantService:
             openai_api_key = os.getenv("OPENAI_API_KEY")
             if openai_api_key:
                 self.embeddings = OpenAIEmbeddings(
-                    model="text-embedding-3-small",
+                    model=EMBEDDING_MODEL,
                     openai_api_key=openai_api_key,
                 )
                 logger.info(
-                    "OpenAI embeddings initialized successfully with model: text-embedding-3-small"
+                    f"OpenAI embeddings initialized successfully with model: {EMBEDDING_MODEL}"
                 )
             else:
                 self.embeddings = None
