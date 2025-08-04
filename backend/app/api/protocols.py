@@ -18,6 +18,8 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, status
 
+from ..config import EMBEDDING_MODEL, MIN_CHUNK_LENGTH, TEXT_CHUNK_OVERLAP, TEXT_CHUNK_SIZE
+
 from ..models import ProtocolCreate, ProtocolResponse
 from ..services.qdrant_service import QdrantError, get_qdrant_service
 
@@ -338,8 +340,8 @@ async def upload_protocol_text(request: dict) -> ProtocolResponse:
 
             # Use the same text splitter configuration as extract_and_chunk_pdf
             text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000,
-                chunk_overlap=200,
+                chunk_size=TEXT_CHUNK_SIZE,
+                chunk_overlap=TEXT_CHUNK_OVERLAP,
                 length_function=len,
                 separators=["\n\n", "\n", ". ", " ", ""],
             )
@@ -348,7 +350,7 @@ async def upload_protocol_text(request: dict) -> ProtocolResponse:
 
             # Filter out very short chunks
             meaningful_chunks = [
-                chunk.strip() for chunk in text_chunks if len(chunk.strip()) > 50
+                chunk.strip() for chunk in text_chunks if len(chunk.strip()) > MIN_CHUNK_LENGTH
             ]
 
             if not meaningful_chunks:
@@ -396,7 +398,7 @@ async def upload_protocol_text(request: dict) -> ProtocolResponse:
                         **protocol_metadata,
                         "chunk_index": i,
                         "chunk_size": len(chunk),
-                        "embedding_model": "text-embedding-3-small",
+                        "embedding_model": EMBEDDING_MODEL,
                         "processing_version": "1.0",
                         "last_updated": datetime.now().isoformat(),
                     },

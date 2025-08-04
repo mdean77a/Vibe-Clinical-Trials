@@ -57,45 +57,9 @@ class TestQdrantService:
 class TestSearchProtocols:
     """Test cases for protocol search functionality."""
 
-    @pytest.mark.unit
-    @pytest.mark.qdrant
-    def test_search_protocols_success(self, mock_qdrant_client):
-        """Test successful protocol search."""
-        # Mock search results with MagicMock to avoid validation issues
-        mock_point = MagicMock()
-        mock_point.score = 0.95
-        mock_point.payload = {
-            "study_acronym": "STUDY-001",
-            "protocol_title": "Test Protocol",
-        }
-        mock_points = [mock_point]
-        mock_qdrant_client.search.return_value = mock_points
-
-        service = QdrantService(client=mock_qdrant_client)
-        with patch.object(service, "get_embeddings", return_value=[[0.1] * 1536]):
-            results = service.search_protocol_documents(
-                protocol_collection_name="test-collection",
-                query="clinical trial safety",
-                limit=5,
-            )
-
-        assert len(results) == 1
-        assert results[0]["study_acronym"] == "STUDY-001"
-        assert results[0]["score"] == 0.95
-
-    @pytest.mark.unit
-    @pytest.mark.qdrant
-    def test_search_protocols_no_results(self, mock_qdrant_client):
-        """Test protocol search with no results."""
-        mock_qdrant_client.search.return_value = []
-
-        service = QdrantService(client=mock_qdrant_client)
-        with patch.object(service, "get_embeddings", return_value=[[0.1] * 1536]):
-            results = service.search_protocol_documents(
-                protocol_collection_name="test-collection", query="nonexistent protocol"
-            )
-
-        assert results == []
+    # Note: search_protocol_documents method has been removed from QdrantService
+    # as part of the embedding consolidation. Search functionality is now
+    # handled through LangChain's vector store search capabilities.
 
 
 class TestGetProtocolById:
