@@ -124,6 +124,32 @@ Copy `.env.example` to `.env` and configure:
 
 ## Recent Updates (Latest Session)
 
+### ✅ LLM Configuration Consolidation (Completed)
+- **Problem**: LLM model names and configurations scattered across multiple files with redundant fallback logic
+- **Solution**: Centralized all LLM configurations and implemented proper working model pattern
+- **Key Changes**:
+  - Added centralized LLM constants to `backend/app/config.py`:
+    - `PRIMARY_LLM_MODEL = "gpt-4o-mini"` (OpenAI primary model)
+    - `FALLBACK_LLM_MODEL = "claude-sonnet-4-20250514"` (Anthropic fallback model)  
+    - `LLM_MAX_TOKENS = 8192`, `LLM_TEMPERATURE = 0.1`
+  - Implemented proper working model initialization in `document_generator.py`:
+    - Try PRIMARY_LLM_MODEL first, then FALLBACK_LLM_MODEL
+    - Smart provider detection based on model name prefixes ("gpt", "o1", "claude")
+    - Clear error handling when both models fail to initialize
+    - Single working model used throughout the session
+  - Removed ~100 lines of redundant fallback logic from generation functions:
+    - Eliminated complex streaming fallback code
+    - Simplified `_generate_section_with_llm` to use working model only
+    - No more runtime fallback attempts during text generation
+  - Updated `icf_service.py` to use centralized config constants instead of hardcoded values
+- **Result**: Clean, logical LLM configuration strategy with single source of truth
+- **Tests**: All 76 backend + 153 frontend tests passing
+- **Files Updated**:
+  - `backend/app/config.py` - Added LLM configuration constants
+  - `backend/app/services/document_generator.py` - Implemented working model pattern, removed redundant fallbacks
+  - `backend/app/services/icf_service.py` - Uses centralized config
+- **Branch**: Merged `feature/llm-config-consolidation` to main with `--no-ff` to preserve history
+
 ### ✅ Embedding Strategy Consolidation (Completed)
 - **Problem**: Redundant embedding implementations in `qdrant_service.py` and `langchain_qdrant_service.py`
 - **Solution**: Unified all embedding operations through LangChain with centralized configuration
@@ -144,8 +170,8 @@ Copy `.env.example` to `.env` and configure:
 
 ### ✅ Repository Cleanup (Completed)
 - **Branch Management**: Cleaned up merged feature branches
-- **Deleted Branches**: `cleanupEmbeddings`, `cleanupQdrant`, `feature/regeneration-comments`
-- **Current State**: Clean repository with only `main` branch (local + remote)
+- **Deleted Branches**: `cleanupEmbeddings`, `cleanupQdrant`, `feature/regeneration-comments`, `feature/llm-config-consolidation`
+- **Current State**: Clean repository with only `main` branch (local)
 - **Merge Strategy**: Used `--no-ff` merges to preserve development history
 - **Ready**: All changes committed and ready for team collaboration
 
