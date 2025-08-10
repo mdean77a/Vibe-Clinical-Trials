@@ -111,7 +111,9 @@ class QdrantService:
             # Actually create the individual collection for this protocol
             self.client.create_collection(
                 collection_name=collection_name,
-                vectors_config=VectorParams(size=EMBEDDING_DIMENSION, distance=Distance.COSINE),
+                vectors_config=VectorParams(
+                    size=EMBEDDING_DIMENSION, distance=Distance.COSINE
+                ),
             )
             logger.info(f"Created protocol collection: {collection_name}")
             return collection_name
@@ -298,12 +300,13 @@ class QdrantService:
         try:
             self.client.create_collection(
                 collection_name=collection_name,
-                vectors_config=VectorParams(size=EMBEDDING_DIMENSION, distance=Distance.COSINE),
+                vectors_config=VectorParams(
+                    size=EMBEDDING_DIMENSION, distance=Distance.COSINE
+                ),
             )
             return True
         except Exception as e:
             raise QdrantError(f"Failed to create collection: {str(e)}")
-
 
     def test_connection(self) -> bool:
         """Test Qdrant connection and log results."""

@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from qdrant_client import QdrantClient
 
+from ..config import LLM_MAX_TOKENS, LLM_TEMPERATURE, PRIMARY_LLM_MODEL
 from ..prompts.generation_prompts import SECTION_GENERATION_PROMPT
 from ..prompts.icf_prompts import ICF_SECTION_QUERIES
 from .document_generator import (
@@ -34,11 +35,11 @@ class ICFGenerationService:
         self.qdrant_client = qdrant_client or get_qdrant_service().client
         self.document_generator = DocumentGenerator(self.qdrant_client)
 
-        # LLM configuration for Claude Sonnet 4
+        # LLM configuration - uses primary model by default
         self.llm_config = {
-            "model": "claude-sonnet-4-20250514",
-            "max_tokens": 8192,
-            "temperature": 0.1,
+            "model": PRIMARY_LLM_MODEL,
+            "max_tokens": LLM_MAX_TOKENS,
+            "temperature": LLM_TEMPERATURE,
         }
 
         # Initialize workflows
