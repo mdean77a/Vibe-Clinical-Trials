@@ -71,7 +71,6 @@ class TestQdrantProtocolService:
         result = qdrant_service.get_protocol_by_collection("nonexistent-collection")
         assert result is None
 
-
     @pytest.mark.integration
     def test_collection_creation_error_handling(self, qdrant_service):
         """Test error handling during collection creation."""

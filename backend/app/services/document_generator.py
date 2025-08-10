@@ -20,6 +20,12 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient
 
+from ..config import (
+    FALLBACK_LLM_MODEL,
+    LLM_MAX_TOKENS,
+    LLM_TEMPERATURE,
+    PRIMARY_LLM_MODEL,
+)
 from ..prompts.generation_prompts import SECTION_GENERATION_PROMPT
 from ..prompts.icf_prompts import ICF_PROMPTS, ICF_SECTION_QUERIES
 from ..prompts.site_checklist_prompts import SITE_CHECKLIST_PROMPTS
@@ -122,42 +128,81 @@ class WorkflowBase(ABC):
     def __init__(self, llm_config: Optional[Dict[str, Any]] = None):
         self.name = "base_workflow"
         self.llm_config = llm_config or {
-            "model": "gpt-4.1",
-            "max_tokens": 8192,
-            "temperature": 0.1,
+            "model": PRIMARY_LLM_MODEL,
+            "max_tokens": LLM_MAX_TOKENS,
+            "temperature": LLM_TEMPERATURE,
         }
         self._compiled_graph: Optional[CompiledStateGraph] = None
         self._initialize_llm()
 
     def _initialize_llm(self) -> None:
-        """Initialize the LLM for the workflow - OpenAI primary, Anthropic fallback."""
-        # Try OpenAI first (now the primary)
-        try:
-            from langchain_openai import ChatOpenAI
+        """Initialize the working LLM for the workflow.
 
-            self.llm = ChatOpenAI(
-                model=self.llm_config["model"],
-                max_tokens=self.llm_config["max_tokens"],
-                temperature=self.llm_config["temperature"],
-            )
-            logger.info(f"Using OpenAI {self.llm_config['model']} as primary LLM")
+        Attempts to initialize LLMs in order of preference:
+        1. Try the PRIMARY_LLM_MODEL (or configured model)
+        2. If that fails, try the FALLBACK_LLM_MODEL
+        3. If both fail, raise an error
+
+        The successfully initialized model becomes the working model for all operations.
+        """
+        # Get configuration
+        primary_model = self.llm_config.get("model", PRIMARY_LLM_MODEL)
+        max_tokens = self.llm_config.get("max_tokens", LLM_MAX_TOKENS)
+        temperature = self.llm_config.get("temperature", LLM_TEMPERATURE)
+
+        # Helper function to initialize a model with the correct provider
+        def init_model(model_name: str):
+            """Initialize a model with the appropriate provider based on the model name."""
+            if model_name.startswith("gpt") or model_name.startswith("o1"):
+                # OpenAI models (gpt-4, gpt-3.5, o1-preview, etc.)
+                from langchain_openai import ChatOpenAI
+
+                return ChatOpenAI(
+                    model=model_name,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+            elif model_name.startswith("claude"):
+                # Anthropic models
+                return ChatAnthropic(
+                    model=model_name,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+            else:
+                # Unknown model - raise an error rather than guessing
+                raise ValueError(
+                    f"Unknown model type: {model_name}. Must start with 'gpt', 'o1', or 'claude'"
+                )
+
+        # Try to initialize the primary model first
+        primary_error = None
+        try:
+            self.llm = init_model(primary_model)
+            logger.info(f"Successfully initialized primary LLM: {primary_model}")
+            return  # Success - we have our working model
         except Exception as e:
-            logger.error(f"Failed to initialize OpenAI LLM: {e}")
-            # Fallback to Anthropic
-            try:
-                self.llm = ChatAnthropic(
-                    model="claude-sonnet-4-20250514",
-                    max_tokens=self.llm_config["max_tokens"],
-                    temperature=self.llm_config["temperature"],
-                )
-                logger.info("Using Claude Sonnet 4 as fallback LLM")
-            except Exception as fallback_error:
-                logger.error(
-                    f"Fallback LLM (Anthropic) initialization failed: {fallback_error}"
-                )
-                raise DocumentGenerationError(
-                    f"Failed to initialize any LLM: OpenAI: {e}, Anthropic: {fallback_error}"
-                )
+            primary_error = e
+            logger.warning(f"Failed to initialize primary model {primary_model}: {e}")
+
+        # Primary failed, try the fallback model
+        fallback_error = None
+        try:
+            self.llm = init_model(FALLBACK_LLM_MODEL)
+            logger.info(f"Successfully initialized fallback LLM: {FALLBACK_LLM_MODEL}")
+            return  # Success - we have our working model
+        except Exception as e:
+            fallback_error = e
+            logger.error(
+                f"Failed to initialize fallback model {FALLBACK_LLM_MODEL}: {e}"
+            )
+
+        # Both models failed - text generation cannot proceed
+        raise DocumentGenerationError(
+            f"Failed to initialize any LLM. Text generation cannot proceed.\n"
+            f"Primary model ({primary_model}) error: {primary_error}\n"
+            f"Fallback model ({FALLBACK_LLM_MODEL}) error: {fallback_error}"
+        )
 
     @abstractmethod
     def build_graph(self) -> StateGraph:
@@ -234,7 +279,7 @@ class WorkflowBase(ABC):
     def _generate_section_with_llm(
         self, section_name: str, context: str, section_prompt: str
     ) -> str:
-        """Generate a section using the LLM with automatic fallback."""
+        """Generate a section using the initialized working model."""
         messages = [
             SystemMessage(content=section_prompt),
             HumanMessage(
@@ -249,29 +294,11 @@ class WorkflowBase(ABC):
             return response.content
         except Exception as e:
             logger.error(
-                f"Failed to generate {section_name} section with primary LLM: {e}"
+                f"Failed to generate {section_name} section with working LLM: {e}"
             )
-
-            # Try fallback to Anthropic if OpenAI fails
-            try:
-                logger.info(f"Attempting fallback to Claude for section {section_name}")
-                fallback_llm = ChatAnthropic(
-                    model="claude-sonnet-4-20250514",
-                    max_tokens=self.llm_config["max_tokens"],
-                    temperature=self.llm_config["temperature"],
-                )
-                response = fallback_llm.invoke(messages)
-                logger.info(
-                    f"Successfully generated {section_name} using Claude fallback"
-                )
-                return response.content
-            except Exception as fallback_error:
-                logger.error(
-                    f"Fallback LLM also failed for {section_name}: {fallback_error}"
-                )
-                raise DocumentGenerationError(
-                    f"Failed to generate {section_name} with both LLMs: primary: {str(e)}, fallback: {str(fallback_error)}"
-                )
+            raise DocumentGenerationError(
+                f"Failed to generate {section_name}: {str(e)}"
+            )
 
 
 class ICFWorkflow(WorkflowBase):
@@ -583,9 +610,8 @@ class StreamingICFWorkflow(ICFWorkflow):
                             f"Failed to queue section start for {section_name}: {e}"
                         )
 
-                # Stream tokens from the LLM with fallback support
+                # Stream tokens from the working LLM
                 section_content = ""
-                fallback_used = False
 
                 try:
                     for chunk in self.llm.stream(messages):
@@ -630,87 +656,12 @@ class StreamingICFWorkflow(ICFWorkflow):
 
                 except Exception as e:
                     logger.error(
-                        f"Failed to stream {section_name} with primary LLM: {e}"
+                        f"Failed to stream {section_name} with working LLM: {e}"
                     )
-
-                    # Try streaming with Anthropic fallback
-                    try:
-                        logger.info(
-                            f"Attempting streaming fallback to Claude for section {section_name}"
-                        )
-                        fallback_llm = ChatAnthropic(
-                            model="claude-sonnet-4-20250514",
-                            max_tokens=self.llm_config["max_tokens"],
-                            temperature=self.llm_config["temperature"],
-                        )
-
-                        # Reset content and notify about fallback
-                        section_content = ""
-                        fallback_used = True
-
-                        if self.event_queue and self.main_loop:
-                            try:
-                                import asyncio
-
-                                if not self.main_loop.is_closed():
-                                    future = asyncio.run_coroutine_threadsafe(
-                                        self.event_queue.put(
-                                            {
-                                                "type": "info",
-                                                "section_name": section_name,
-                                                "message": "Switching to Claude due to OpenAI issue...",
-                                            }
-                                        ),
-                                        self.main_loop,
-                                    )
-                                    future.result(timeout=0.5)
-                            except:
-                                pass
-
-                        # Stream with fallback
-                        for chunk in fallback_llm.stream(messages):
-                            if hasattr(chunk, "content") and chunk.content:
-                                section_content += chunk.content
-
-                                # Send each token to the queue
-                                if self.event_queue and self.main_loop:
-                                    try:
-                                        import asyncio
-
-                                        if not self.main_loop.is_closed():
-                                            future = asyncio.run_coroutine_threadsafe(
-                                                self.event_queue.put(
-                                                    {
-                                                        "type": "token",
-                                                        "section_name": section_name,
-                                                        "content": chunk.content,
-                                                        "accumulated_content": section_content,
-                                                    }
-                                                ),
-                                                self.main_loop,
-                                            )
-                                            future.result(timeout=0.1)
-                                    except asyncio.TimeoutError:
-                                        logger.debug(
-                                            f"Token queuing timeout for {section_name}"
-                                        )
-                                    except Exception as e:
-                                        logger.error(
-                                            f"Failed to queue token for {section_name}: {e}"
-                                        )
-
-                        logger.info(
-                            f"Successfully streamed {section_name} using Claude fallback"
-                        )
-
-                    except Exception as fallback_error:
-                        logger.error(
-                            f"Fallback streaming also failed for {section_name}: {fallback_error}"
-                        )
-                        # Last resort - non-streaming generation
-                        section_content = self._generate_section_with_llm(
-                            section_name, context_text, section_prompt
-                        )
+                    # Fall back to non-streaming generation
+                    section_content = self._generate_section_with_llm(
+                        section_name, context_text, section_prompt
+                    )
 
                 # Send section complete event
                 if self.event_queue and self.main_loop:
