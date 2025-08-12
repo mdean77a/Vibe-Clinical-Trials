@@ -7,6 +7,7 @@ and handles application startup/shutdown events.
 
 import logging
 from contextlib import asynccontextmanager
+from typing import Any, Dict
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,7 +32,7 @@ else:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> Any:
     """
     Application lifespan manager.
 
@@ -76,7 +77,7 @@ app.include_router(icf_router)
 
 
 @app.get("/")
-async def root():
+async def root() -> Dict[str, str]:
     """Root endpoint for health check."""
     return {
         "message": "Clinical Trial Accelerator API",
@@ -86,7 +87,7 @@ async def root():
 
 
 @app.get("/api/health")
-async def health_check():
+async def health_check() -> Dict[str, str]:
     """Health check endpoint."""
     return {"status": "healthy"}
 

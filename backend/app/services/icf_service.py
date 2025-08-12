@@ -8,6 +8,7 @@ using LangGraph workflows and RAG context retrieval.
 import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from queue import Queue
 from typing import Any, Dict, List, Optional
 
 from qdrant_client import QdrantClient
@@ -85,7 +86,7 @@ class ICFGenerationService:
             logger.error(f"Async ICF generation failed: {e}")
             raise DocumentGenerationError(f"Failed to generate ICF: {str(e)}")
 
-    async def generate_icf_streaming(
+    async def generate_icf_streaming(  # type: ignore[no-untyped-def]
         self,
         protocol_collection_name: str,
         protocol_metadata: Optional[Dict[str, Any]] = None,
@@ -117,7 +118,7 @@ class ICFGenerationService:
             )
 
             # Create a queue to collect streaming events from all sections
-            event_queue = Queue()
+            event_queue: Queue[Dict[str, Any]] = Queue()
 
             # Get the current event loop to pass to the workflow
             main_loop = asyncio.get_running_loop()
@@ -150,7 +151,7 @@ class ICFGenerationService:
             logger.info(f"Using collection name: '{protocol_collection_name}'")
 
             # Initialize state with empty lists for all sections
-            workflow_inputs = {
+            workflow_inputs: Dict[str, Any] = {
                 "summary": [],
                 "background": [],
                 "participants": [],
@@ -229,7 +230,7 @@ class ICFGenerationService:
             logger.error(f"Streaming ICF generation failed: {e}")
             yield {"type": "error", "error": f"Generation failed: {str(e)}"}
 
-    async def _execute_streaming_workflow(self, workflow, inputs, event_queue):
+    async def _execute_streaming_workflow(self, workflow, inputs, event_queue) -> Any:  # type: ignore[no-untyped-def]
         """Execute the streaming workflow in the background."""
         try:
             # Run the workflow (this will populate the event_queue via the streaming nodes)
@@ -242,7 +243,7 @@ class ICFGenerationService:
                 {"type": "error", "error": f"Workflow execution failed: {str(e)}"}
             )
 
-    def _generate_section_streaming_sync(
+    def _generate_section_streaming_sync(  # type: ignore[no-untyped-def]
         self,
         protocol_collection_name: str,
         section_name: str,
@@ -262,7 +263,7 @@ class ICFGenerationService:
             Async generator yielding streaming tokens
         """
 
-        async def stream_section():
+        async def stream_section() -> Any:
             try:
                 # Use the same section queries as initial generation for consistency
                 query = ICF_SECTION_QUERIES.get(
@@ -299,7 +300,7 @@ class ICFGenerationService:
 
         return stream_section()
 
-    async def _generate_section_with_streaming_llm(
+    async def _generate_section_with_streaming_llm(  # type: ignore[no-untyped-def]
         self, section_name: str, context: str, section_prompt: str
     ):
         """
@@ -641,9 +642,17 @@ class ICFGenerationService:
                 "collection_name": collection_name,
                 "status": "ready",
                 "protocol_metadata": {
-                    "title": payload.get("protocol_title", "Unknown"),
-                    "filename": payload.get("filename", "Unknown"),
-                    "document_id": payload.get("document_id", "Unknown"),
+                    "title": (
+                        payload.get("protocol_title", "Unknown")
+                        if payload
+                        else "Unknown"
+                    ),
+                    "filename": (
+                        payload.get("filename", "Unknown") if payload else "Unknown"
+                    ),
+                    "document_id": (
+                        payload.get("document_id", "Unknown") if payload else "Unknown"
+                    ),
                     "total_chunks": len(search_results[0]),
                 },
             }

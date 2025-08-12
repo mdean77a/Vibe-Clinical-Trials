@@ -169,17 +169,8 @@ def test_client() -> TestClient:
                     return True
             return False
 
-        def delete_protocol(collection_name):
-            for protocol_id, protocol_data in list(created_protocols.items()):
-                if protocol_data.get("collection_name") == collection_name:
-                    del created_protocols[protocol_id]
-                    return True
-            return False
-
         mock_service.update_protocol_status.side_effect = update_protocol_status
         mock_service.update_protocol.return_value = True
-        mock_service.delete_protocol_by_id.return_value = True
-        mock_service.delete_protocol.side_effect = delete_protocol
 
         yield TestClient(app)
 

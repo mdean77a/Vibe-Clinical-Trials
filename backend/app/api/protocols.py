@@ -11,10 +11,9 @@ Now using Qdrant-only architecture (migrated from SQLite).
 """
 
 import logging
-import os
 import time
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -92,61 +91,6 @@ async def create_new_protocol(protocol: ProtocolCreate) -> ProtocolResponse:
 
 # Legacy PyMuPDF upload endpoint removed - application now uses client-side PDF.js extraction
 # See /upload-text endpoint below for the current implementation
-
-
-@router.get("/diagnostics")
-async def get_diagnostics() -> dict:
-    """
-    Get diagnostic information about the Qdrant connection and protocols.
-
-    Returns:
-        dict: Diagnostic information
-    """
-    try:
-        diagnostics = {
-            "qdrant_connection": False,
-            "total_collections": 0,
-            "protocol_collections": 0,
-            "environment": {
-                "qdrant_url": "SET" if os.getenv("QDRANT_URL") else "NOT SET",
-                "qdrant_api_key": "SET" if os.getenv("QDRANT_API_KEY") else "NOT SET",
-                "openai_api_key": "SET" if os.getenv("OPENAI_API_KEY") else "NOT SET",
-            },
-            "error": None,
-        }
-
-        # Test Qdrant connection
-        connection_ok = qdrant_service.test_connection()
-        diagnostics["qdrant_connection"] = connection_ok
-
-        if connection_ok:
-            # Get collection counts
-            collections = qdrant_service.client.get_collections()
-            diagnostics["total_collections"] = len(collections.collections)
-
-            protocol_collections = [
-                col.name
-                for col in collections.collections
-                if qdrant_service._is_protocol_collection(col.name)
-            ]
-            diagnostics["protocol_collections"] = len(protocol_collections)
-            diagnostics["protocol_collection_names"] = protocol_collections
-
-        return diagnostics
-
-    except Exception as e:
-        logger.error(f"Error in diagnostics: {e}")
-        return {
-            "qdrant_connection": False,
-            "total_collections": 0,
-            "protocol_collections": 0,
-            "environment": {
-                "qdrant_url": "SET" if os.getenv("QDRANT_URL") else "NOT SET",
-                "qdrant_api_key": "SET" if os.getenv("QDRANT_API_KEY") else "NOT SET",
-                "openai_api_key": "SET" if os.getenv("OPENAI_API_KEY") else "NOT SET",
-            },
-            "error": str(e),
-        }
 
 
 @router.get("/{protocol_id}", response_model=ProtocolResponse)
@@ -248,48 +192,6 @@ async def list_protocols() -> List[ProtocolResponse]:
 
 
 # Status update endpoint removed - protocols in Qdrant are always active
-
-
-@router.delete("/collection/{collection_name}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_protocol_endpoint(collection_name: str) -> None:
-    """
-    Delete a protocol from Qdrant by collection name.
-
-    Args:
-        collection_name: Collection name to delete
-
-    Raises:
-        HTTPException: 404 if protocol not found, 500 for other errors
-    """
-    try:
-        logger.info(f"Deleting protocol with collection {collection_name}")
-
-        # First verify protocol exists
-        protocol_data = qdrant_service.get_protocol_by_collection(collection_name)
-        if not protocol_data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Protocol with collection {collection_name} not found",
-            )
-
-        # Delete protocol
-        success = qdrant_service.delete_protocol(collection_name)
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to delete protocol",
-            )
-
-        logger.info(f"Successfully deleted protocol {collection_name}")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error deleting protocol: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        )
 
 
 @router.post("/upload-text", response_model=ProtocolResponse)

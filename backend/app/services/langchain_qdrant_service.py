@@ -83,7 +83,7 @@ class LangChainQdrantService:
         else:
             openai_api_key = os.getenv("OPENAI_API_KEY")
             if openai_api_key:
-                self.embeddings = OpenAIEmbeddings(
+                self.embeddings = OpenAIEmbeddings(  # type: ignore[call-arg]
                     model=EMBEDDING_MODEL,
                     openai_api_key=openai_api_key,
                 )
@@ -91,7 +91,7 @@ class LangChainQdrantService:
                     f"OpenAI embeddings initialized successfully with model: {EMBEDDING_MODEL}"
                 )
             else:
-                self.embeddings = None
+                self.embeddings = None  # type: ignore[assignment]
                 logger.warning("OpenAI API key not found - embeddings will not work")
 
     def get_vector_store(self, collection_name: str) -> QdrantVectorStore:
@@ -178,9 +178,16 @@ class LangChainQdrantService:
             vector_store = self.get_vector_store(collection_name)
 
             if score_threshold is not None:
-                return vector_store.similarity_search_with_score_threshold(
-                    query, k=k, score_threshold=score_threshold
+                # Get results with scores and filter by threshold
+                results_with_scores = vector_store.similarity_search_with_score(
+                    query, k=k
                 )
+                filtered_results = [
+                    doc
+                    for doc, score in results_with_scores
+                    if score >= score_threshold
+                ]
+                return filtered_results
             else:
                 return vector_store.similarity_search(query, k=k)
         except Exception as e:
