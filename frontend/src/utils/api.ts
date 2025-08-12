@@ -162,14 +162,6 @@ export const protocolsApi = {
     });
   },
 
-  /**
-   * Delete a protocol
-   */
-  delete: async (id: number) => {
-    return apiRequest(`protocols/${id}`, {
-      method: 'DELETE',
-    });
-  },
 };
 
 /**

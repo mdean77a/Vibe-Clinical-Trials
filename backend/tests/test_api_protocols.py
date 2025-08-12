@@ -196,38 +196,6 @@ class TestListProtocolsEndpoint:
 class TestDeleteProtocolEndpoint:
     """Test cases for DELETE /protocols/{protocol_id} endpoint."""
 
-    @pytest.mark.unit
-    def test_delete_protocol_success(self, test_client, sample_protocol_create_data):
-        """Test successful protocol deletion."""
-        # Create a protocol first
-        create_response = test_client.post(
-            "/api/protocols/", json=sample_protocol_create_data
-        )
-        created_protocol = create_response.json()
-        protocol_id = created_protocol["protocol_id"]
-
-        # Delete it using collection name endpoint
-        response = test_client.delete(
-            f"/api/protocols/collection/{created_protocol['collection_name']}"
-        )
-
-        assert response.status_code == 204
-        assert response.content == b""  # No content for 204
-
-        # Verify it's deleted
-        get_response = test_client.get(f"/api/protocols/{protocol_id}")
-        assert get_response.status_code == 404
-
-    @pytest.mark.unit
-    def test_delete_protocol_not_found(self, test_client):
-        """Test delete protocol with non-existent protocol."""
-        response = test_client.delete(
-            "/api/protocols/collection/nonexistent_collection"
-        )
-
-        assert response.status_code == 404
-        assert "not found" in response.json()["detail"].lower()
-
 
 class TestHealthEndpoints:
     """Test cases for health check endpoints."""
@@ -291,22 +259,6 @@ class TestIntegrationScenarios:
         assert list_response.status_code == 200
         all_protocols = list_response.json()
         assert len(all_protocols) == 1
-
-        # Delete using collection name endpoint
-        delete_response = test_client.delete(
-            f"/api/protocols/collection/{collection_name}"
-        )
-        assert delete_response.status_code == 204
-
-        # Verify deleted
-        get_deleted_response = test_client.get(f"/api/protocols/{protocol_id}")
-        assert get_deleted_response.status_code == 404
-
-        # Verify empty list
-        final_list_response = test_client.get("/api/protocols/")
-        assert final_list_response.status_code == 200
-        final_protocols = final_list_response.json()
-        assert len(final_protocols) == 0
 
     @pytest.mark.integration
     def test_concurrent_protocol_creation_via_api(self, test_client):

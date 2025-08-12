@@ -36,7 +36,6 @@ Complete reference of all backend API endpoints with methods, purposes, and resp
 | `GET` | `/api/protocols/{protocol_id}` | Get protocol by ID | `ProtocolResponse` |
 | `GET` | `/api/protocols/collection/{collection_name}` | Get by collection | `ProtocolResponse` |
 | `PATCH` | `/api/protocols/collection/{collection_name}/status` | Update status | `ProtocolResponse` |
-| `DELETE` | `/api/protocols/collection/{collection_name}` | Delete protocol | `204 No Content` |
 
 **Frontend Usage:**
 - `HomePage` - Protocol listing and selection

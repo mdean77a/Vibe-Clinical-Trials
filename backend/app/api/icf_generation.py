@@ -181,7 +181,7 @@ async def generate_icf_stream(
     - complete: When all sections are finished
     """
 
-    async def stream_generator():
+    async def stream_generator() -> Any:
         try:
             logger.info(
                 f"Streaming ICF generation for collection: {request.protocol_collection_name}"
@@ -290,7 +290,7 @@ async def regenerate_icf_section(
     providing immediate feedback during generation.
     """
 
-    async def stream_generator():
+    async def stream_generator() -> Any:
         try:
             logger.info(
                 f"Streaming section regeneration for: {request.section_name} in collection: {request.protocol_collection_name}"
@@ -530,7 +530,7 @@ async def icf_health_check() -> Dict[str, str]:
             "status": "healthy",
             "service": "ICF Generation",
             "workflow": icf_service.icf_workflow.name,
-            "llm_model": icf_service.llm_config["model"],
+            "llm_model": str(icf_service.llm_config["model"]),
         }
     except Exception as e:
         logger.error(f"ICF service health check failed: {e}")

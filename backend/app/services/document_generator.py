@@ -72,8 +72,11 @@ class DocumentGenerator:
     """Main document generator service."""
 
     def __init__(
-        self, qdrant_client: QdrantClient, icf_workflow=None, checklist_workflow=None
-    ):
+        self,
+        qdrant_client: QdrantClient,
+        icf_workflow: Optional[Any] = None,
+        checklist_workflow: Optional[Any] = None,
+    ) -> None:
         self.qdrant_client = qdrant_client
         self.icf_workflow = icf_workflow
         self.checklist_workflow = checklist_workflow
@@ -125,6 +128,8 @@ class DocumentGenerator:
 class WorkflowBase(ABC):
     """Base class for LangGraph workflows."""
 
+    sections: List[str] = []  # Will be overridden by child classes
+
     def __init__(self, llm_config: Optional[Dict[str, Any]] = None):
         self.name = "base_workflow"
         self.llm_config = llm_config or {
@@ -151,20 +156,20 @@ class WorkflowBase(ABC):
         temperature = self.llm_config.get("temperature", LLM_TEMPERATURE)
 
         # Helper function to initialize a model with the correct provider
-        def init_model(model_name: str):
+        def init_model(model_name: str) -> Any:
             """Initialize a model with the appropriate provider based on the model name."""
             if model_name.startswith("gpt") or model_name.startswith("o1"):
                 # OpenAI models (gpt-4, gpt-3.5, o1-preview, etc.)
                 from langchain_openai import ChatOpenAI
 
-                return ChatOpenAI(
+                return ChatOpenAI(  # type: ignore[call-arg]
                     model=model_name,
                     max_tokens=max_tokens,
                     temperature=temperature,
                 )
             elif model_name.startswith("claude"):
                 # Anthropic models
-                return ChatAnthropic(
+                return ChatAnthropic(  # type: ignore[call-arg]
                     model=model_name,
                     max_tokens=max_tokens,
                     temperature=temperature,
@@ -228,7 +233,7 @@ class WorkflowBase(ABC):
                 document_generator._current_document_id = document_id
 
             # Initialize only the section fields and document_generator - no conflicting fields
-            workflow_state = {
+            workflow_state: Dict[str, Any] = {
                 "summary": [],
                 "background": [],
                 "participants": [],
@@ -291,7 +296,7 @@ class WorkflowBase(ABC):
 
         try:
             response = self.llm.invoke(messages)
-            return response.content
+            return str(response.content)
         except Exception as e:
             logger.error(
                 f"Failed to generate {section_name} section with working LLM: {e}"
@@ -358,7 +363,7 @@ class ICFWorkflow(WorkflowBase):
             "procedures", context, self._get_section_prompt("procedures")
         )
 
-    def _create_section_generator(self, section_name: str):
+    def _create_section_generator(self, section_name: str) -> Any:
         """Create a section generator function with individual RAG retrieval like the prototype."""
 
         def generate_section(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -463,11 +468,11 @@ class SiteChecklistWorkflow(WorkflowBase):
         # Add parallel section generation nodes
         for section in self.sections:
             workflow.add_node(
-                f"generate_{section}", self._create_section_generator(section)
+                f"generate_{section}", self._create_section_generator(section)  # type: ignore[attr-defined]
             )
 
         # Add compilation node
-        workflow.add_node("compile_checklist", self._compile_checklist)
+        workflow.add_node("compile_checklist", self._compile_checklist)  # type: ignore[attr-defined]
 
         # Set entry point
         workflow.set_entry_point("generate_regulatory")
@@ -489,19 +494,19 @@ class SiteChecklistWorkflow(WorkflowBase):
     def generate_regulatory(self, context: str) -> str:
         """Generate regulatory requirements section - kept for backward compatibility."""
         return self._generate_section_with_llm(
-            "regulatory", context, self._get_section_prompt("regulatory")
+            "regulatory", context, self._get_section_prompt("regulatory")  # type: ignore[attr-defined]
         )
 
     def generate_training(self, context: str) -> str:
         """Generate training requirements section - kept for backward compatibility."""
         return self._generate_section_with_llm(
-            "training", context, self._get_section_prompt("training")
+            "training", context, self._get_section_prompt("training")  # type: ignore[attr-defined]
         )
 
     def generate_equipment(self, context: str) -> str:
         """Generate equipment requirements section - kept for backward compatibility."""
         return self._generate_section_with_llm(
-            "equipment", context, self._get_section_prompt("equipment")
+            "equipment", context, self._get_section_prompt("equipment")  # type: ignore[attr-defined]
         )
 
 
@@ -511,11 +516,11 @@ class StreamingICFWorkflow(ICFWorkflow):
     def __init__(
         self,
         llm_config: Optional[Dict[str, Any]] = None,
-        event_queue=None,
-        document_generator=None,
-        document_id=None,
-        main_loop=None,
-        sections_filter=None,
+        event_queue: Optional[Any] = None,
+        document_generator: Optional[Any] = None,
+        document_id: Optional[str] = None,
+        main_loop: Optional[Any] = None,
+        sections_filter: Optional[List[str]] = None,
     ):
         super().__init__(llm_config)
         self.event_queue = event_queue
@@ -528,7 +533,7 @@ class StreamingICFWorkflow(ICFWorkflow):
         if sections_filter:
             self.sections = sections_filter
 
-    def _create_section_generator(self, section_name: str):
+    def _create_section_generator(self, section_name: str) -> Any:
         """Create a section generator that streams tokens via the event queue."""
 
         def generate_section(state: AgentState) -> AgentState:
@@ -777,7 +782,7 @@ class StreamingICFWorkflow(ICFWorkflow):
 
 def get_langgraph_workflow(
     workflow_type: str, llm_config: Optional[Dict[str, Any]] = None
-):
+) -> Union[ICFWorkflow, SiteChecklistWorkflow]:
     """Get LangGraph workflow instance."""
     if workflow_type == "icf":
         return ICFWorkflow(llm_config)
@@ -788,7 +793,7 @@ def get_langgraph_workflow(
 
 
 def generate_icf_sections(
-    document_id: str, qdrant_client: QdrantClient, workflow=None
+    document_id: str, qdrant_client: QdrantClient, workflow: Optional[Any] = None
 ) -> Dict[str, str]:
     """Generate ICF sections for a protocol."""
     try:
@@ -834,7 +839,7 @@ def generate_icf_sections(
 
 
 def generate_site_checklist_sections(
-    document_id: str, qdrant_client: QdrantClient, workflow=None
+    document_id: str, qdrant_client: QdrantClient, workflow: Optional[Any] = None
 ) -> Dict[str, str]:
     """Generate Site Initiation Checklist sections for a protocol."""
     try:

@@ -284,17 +284,6 @@ class QdrantService:
 
     # update_protocol_status method removed - protocols in Qdrant are always active
 
-    def delete_protocol(self, collection_name: str) -> bool:
-        """Delete an entire protocol collection."""
-        try:
-            self.client.delete_collection(collection_name=collection_name)
-            logger.info(f"Deleted protocol collection {collection_name}")
-            return True
-
-        except Exception as e:
-            logger.error(f"Error deleting collection {collection_name}: {e}")
-            return False
-
     def create_collection(self, collection_name: str) -> bool:
         """Create a new Qdrant collection."""
         try:

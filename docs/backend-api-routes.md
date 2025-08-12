@@ -95,15 +95,6 @@ Currently, no authentication is required for API endpoints.
 **Request Body**: `ProtocolUpdate`
 **Response**: `ProtocolResponse`
 
-### Delete Protocol
-
-#### `DELETE /api/protocols/collection/{collection_name}`
-**Description**: Delete a protocol and its associated data  
-**Path Parameters**:
-- `collection_name`: Qdrant collection identifier
-
-**Response**: 204 No Content
-
 ---
 
 ## 🧾 ICF Generation Routes (`/api/icf`)
