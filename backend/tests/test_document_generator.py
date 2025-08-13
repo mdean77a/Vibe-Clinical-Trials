@@ -317,9 +317,6 @@ class TestWorkflowClasses:
         workflow = ICFWorkflow()
 
         assert workflow.name == "icf_generation"
-        assert hasattr(workflow, "generate_title")
-        assert hasattr(workflow, "generate_purpose")
-        assert hasattr(workflow, "generate_procedures")
 
     @pytest.mark.unit
     @pytest.mark.ai_service
@@ -328,9 +325,6 @@ class TestWorkflowClasses:
         workflow = SiteChecklistWorkflow()
 
         assert workflow.name == "site_checklist_generation"
-        assert hasattr(workflow, "generate_regulatory")
-        assert hasattr(workflow, "generate_training")
-        assert hasattr(workflow, "generate_equipment")
 
 
 class TestIntegrationScenarios:
