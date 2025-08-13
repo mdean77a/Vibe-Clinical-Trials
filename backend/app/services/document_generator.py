@@ -33,22 +33,6 @@ from ..prompts.site_checklist_prompts import SITE_CHECKLIST_PROMPTS
 logger = logging.getLogger(__name__)
 
 
-def merge_sections(left: Dict[str, str], right: Dict[str, str]) -> Dict[str, str]:
-    """Custom reducer to merge sections dictionaries safely."""
-    result = left.copy() if left else {}
-    if right:
-        result.update(right)
-    return result
-
-
-def merge_errors(left: List[str], right: List[str]) -> List[str]:
-    """Custom reducer to merge error lists safely."""
-    result = left.copy() if left else []
-    if right:
-        result.extend(right)
-    return result
-
-
 class DocumentGenerationError(Exception):
     """Exception raised for document generation errors."""
 
@@ -345,24 +329,6 @@ class ICFWorkflow(WorkflowBase):
             section_name, "informed consent form requirements"
         )
 
-    def generate_title(self, context: str) -> str:
-        """Generate title section - kept for backward compatibility."""
-        return self._generate_section_with_llm(
-            "title", context, self._get_section_prompt("summary")
-        )
-
-    def generate_purpose(self, context: str) -> str:
-        """Generate purpose section - kept for backward compatibility."""
-        return self._generate_section_with_llm(
-            "purpose", context, self._get_section_prompt("background")
-        )
-
-    def generate_procedures(self, context: str) -> str:
-        """Generate procedures section - kept for backward compatibility."""
-        return self._generate_section_with_llm(
-            "procedures", context, self._get_section_prompt("procedures")
-        )
-
     def _create_section_generator(self, section_name: str) -> Any:
         """Create a section generator function with individual RAG retrieval like the prototype."""
 
@@ -463,7 +429,7 @@ class SiteChecklistWorkflow(WorkflowBase):
 
     def build_graph(self) -> StateGraph:
         """Build the site checklist generation workflow graph."""
-        workflow = StateGraph(dict)
+        workflow = StateGraph(AgentState)
 
         # Add parallel section generation nodes
         for section in self.sections:
@@ -490,24 +456,6 @@ class SiteChecklistWorkflow(WorkflowBase):
         workflow.add_edge("compile_checklist", END)
 
         return workflow
-
-    def generate_regulatory(self, context: str) -> str:
-        """Generate regulatory requirements section - kept for backward compatibility."""
-        return self._generate_section_with_llm(
-            "regulatory", context, self._get_section_prompt("regulatory")  # type: ignore[attr-defined]
-        )
-
-    def generate_training(self, context: str) -> str:
-        """Generate training requirements section - kept for backward compatibility."""
-        return self._generate_section_with_llm(
-            "training", context, self._get_section_prompt("training")  # type: ignore[attr-defined]
-        )
-
-    def generate_equipment(self, context: str) -> str:
-        """Generate equipment requirements section - kept for backward compatibility."""
-        return self._generate_section_with_llm(
-            "equipment", context, self._get_section_prompt("equipment")  # type: ignore[attr-defined]
-        )
 
 
 class StreamingICFWorkflow(ICFWorkflow):
