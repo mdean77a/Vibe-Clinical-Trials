@@ -8,7 +8,7 @@ bmad-agent/
  
 .cursor 
 
-.claude/
+# .claude/
 # macOS
 .DS_Store
 
