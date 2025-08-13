@@ -505,7 +505,13 @@ class StreamingICFWorkflow(ICFWorkflow):
                 try:
                     for chunk in self.llm.stream(messages):
                         if hasattr(chunk, "content") and chunk.content:
-                            section_content += chunk.content
+                            # Ensure content is a string for concatenation
+                            content = chunk.content
+                            if isinstance(content, str):
+                                section_content += content
+                            else:
+                                # Handle non-string content (convert to string)
+                                section_content += str(content)
 
                             # Send each token to the queue
                             if self.event_queue and self.main_loop:

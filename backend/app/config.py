@@ -4,6 +4,9 @@ Configuration constants for the Clinical Trial Accelerator backend.
 
 from typing import Union
 
+from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
+
 # Embedding configuration
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIMENSION = 1536
@@ -18,7 +21,7 @@ def get_llm_chat_model(
     model: str = LLM_MODEL,
     max_tokens: int = LLM_MAX_TOKENS,
     temperature: float = LLM_TEMPERATURE,
-) -> Union["ChatOpenAI", "ChatAnthropic"]:
+) -> Union[ChatOpenAI, ChatAnthropic]:
     """
     Get the appropriate chat model based on the model name.
 
@@ -39,18 +42,14 @@ def get_llm_chat_model(
     """
     if model.startswith("gpt") or model.startswith("o1"):
         # OpenAI models (gpt-4, gpt-3.5, o1-preview, etc.)
-        from langchain_openai import ChatOpenAI
-
         return ChatOpenAI(
             model=model,
-            max_tokens=max_tokens,
+            # max_tokens=max_tokens,
             temperature=temperature,
         )
     elif model.startswith("claude"):
         # Anthropic models
-        from langchain_anthropic import ChatAnthropic
-
-        return ChatAnthropic(
+        return ChatAnthropic(  # type: ignore[call-arg]
             model=model,
             max_tokens=max_tokens,
             temperature=temperature,
