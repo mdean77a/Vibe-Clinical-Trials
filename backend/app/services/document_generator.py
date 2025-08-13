@@ -12,7 +12,6 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Annotated, Any, Dict, List, Optional, TypedDict, Union
 
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
@@ -20,12 +19,7 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient
 
-from ..config import (
-    FALLBACK_LLM_MODEL,
-    LLM_MAX_TOKENS,
-    LLM_TEMPERATURE,
-    PRIMARY_LLM_MODEL,
-)
+from ..config import get_llm_chat_model
 from ..prompts.generation_prompts import SECTION_GENERATION_PROMPT
 from ..prompts.icf_prompts import ICF_PROMPTS, ICF_SECTION_QUERIES
 from ..prompts.site_checklist_prompts import SITE_CHECKLIST_PROMPTS
@@ -116,82 +110,24 @@ class WorkflowBase(ABC):
 
     def __init__(self, llm_config: Optional[Dict[str, Any]] = None):
         self.name = "base_workflow"
-        self.llm_config = llm_config or {
-            "model": PRIMARY_LLM_MODEL,
-            "max_tokens": LLM_MAX_TOKENS,
-            "temperature": LLM_TEMPERATURE,
-        }
+        self.llm_config = llm_config or {}
         self._compiled_graph: Optional[CompiledStateGraph] = None
         self._initialize_llm()
 
     def _initialize_llm(self) -> None:
-        """Initialize the working LLM for the workflow.
-
-        Attempts to initialize LLMs in order of preference:
-        1. Try the PRIMARY_LLM_MODEL (or configured model)
-        2. If that fails, try the FALLBACK_LLM_MODEL
-        3. If both fail, raise an error
-
-        The successfully initialized model becomes the working model for all operations.
-        """
-        # Get configuration
-        primary_model = self.llm_config.get("model", PRIMARY_LLM_MODEL)
-        max_tokens = self.llm_config.get("max_tokens", LLM_MAX_TOKENS)
-        temperature = self.llm_config.get("temperature", LLM_TEMPERATURE)
-
-        # Helper function to initialize a model with the correct provider
-        def init_model(model_name: str) -> Any:
-            """Initialize a model with the appropriate provider based on the model name."""
-            if model_name.startswith("gpt") or model_name.startswith("o1"):
-                # OpenAI models (gpt-4, gpt-3.5, o1-preview, etc.)
-                from langchain_openai import ChatOpenAI
-
-                return ChatOpenAI(  # type: ignore[call-arg]
-                    model=model_name,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                )
-            elif model_name.startswith("claude"):
-                # Anthropic models
-                return ChatAnthropic(  # type: ignore[call-arg]
-                    model=model_name,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                )
-            else:
-                # Unknown model - raise an error rather than guessing
-                raise ValueError(
-                    f"Unknown model type: {model_name}. Must start with 'gpt', 'o1', or 'claude'"
-                )
-
-        # Try to initialize the primary model first
-        primary_error = None
+        """Initialize the LLM for the workflow using centralized configuration."""
         try:
-            self.llm = init_model(primary_model)
-            logger.info(f"Successfully initialized primary LLM: {primary_model}")
-            return  # Success - we have our working model
-        except Exception as e:
-            primary_error = e
-            logger.warning(f"Failed to initialize primary model {primary_model}: {e}")
+            # Pass any custom config to get_llm_chat_model, it will use defaults for missing values
+            self.llm = get_llm_chat_model(**self.llm_config)
+            from ..config import LLM_MODEL
 
-        # Primary failed, try the fallback model
-        fallback_error = None
-        try:
-            self.llm = init_model(FALLBACK_LLM_MODEL)
-            logger.info(f"Successfully initialized fallback LLM: {FALLBACK_LLM_MODEL}")
-            return  # Success - we have our working model
+            model_name = self.llm_config.get("model", LLM_MODEL)
+            logger.info(f"Successfully initialized LLM: {model_name}")
         except Exception as e:
-            fallback_error = e
-            logger.error(
-                f"Failed to initialize fallback model {FALLBACK_LLM_MODEL}: {e}"
+            logger.error(f"Failed to initialize LLM: {e}")
+            raise DocumentGenerationError(
+                f"Failed to initialize LLM. Text generation cannot proceed: {e}"
             )
-
-        # Both models failed - text generation cannot proceed
-        raise DocumentGenerationError(
-            f"Failed to initialize any LLM. Text generation cannot proceed.\n"
-            f"Primary model ({primary_model}) error: {primary_error}\n"
-            f"Fallback model ({FALLBACK_LLM_MODEL}) error: {fallback_error}"
-        )
 
     @abstractmethod
     def build_graph(self) -> StateGraph:

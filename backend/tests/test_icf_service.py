@@ -25,10 +25,9 @@ class TestICFGenerationService:
         service = ICFGenerationService(mock_qdrant_client)
 
         assert service.qdrant_client == mock_qdrant_client
-        assert service.llm_config["model"] is not None
-        assert len(service.llm_config["model"]) > 0  # Just verify a model is configured
-        # Skip checking model-specific parameters like max_tokens and temperature
+        assert service.llm_config is not None  # Empty dict but should exist
         assert service.icf_workflow is not None
+        assert service.icf_workflow.llm is not None  # LLM should be initialized
 
     @pytest.mark.unit
     @pytest.mark.ai_service

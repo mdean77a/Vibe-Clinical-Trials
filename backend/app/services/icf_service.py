@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from qdrant_client import QdrantClient
 
-from ..config import LLM_MAX_TOKENS, LLM_TEMPERATURE, PRIMARY_LLM_MODEL
+from ..config import get_llm_chat_model
 from ..prompts.generation_prompts import SECTION_GENERATION_PROMPT
 from ..prompts.icf_prompts import ICF_SECTION_QUERIES
 from .document_generator import (
@@ -36,12 +36,8 @@ class ICFGenerationService:
         self.qdrant_client = qdrant_client or get_qdrant_service().client
         self.document_generator = DocumentGenerator(self.qdrant_client)
 
-        # LLM configuration - uses primary model by default
-        self.llm_config = {
-            "model": PRIMARY_LLM_MODEL,
-            "max_tokens": LLM_MAX_TOKENS,
-            "temperature": LLM_TEMPERATURE,
-        }
+        # LLM configuration - uses default config from get_llm_chat_model
+        self.llm_config: Dict[str, Any] = {}
 
         # Initialize workflows
         self.icf_workflow = ICFWorkflow(self.llm_config)
