@@ -22,7 +22,6 @@ from qdrant_client import QdrantClient
 from ..config import get_llm_chat_model
 from ..prompts.generation_prompts import SECTION_GENERATION_PROMPT
 from ..prompts.icf_prompts import ICF_PROMPTS, ICF_SECTION_QUERIES
-from ..prompts.site_checklist_prompts import SITE_CHECKLIST_PROMPTS
 
 logger = logging.getLogger(__name__)
 
@@ -661,13 +660,6 @@ class StreamingICFWorkflow(ICFWorkflow):
             formatted.append(f"[Relevance: {score:.2f}] {text}")
 
         return "\n\n".join(formatted)
-
-    def _get_section_prompt(self, section_name: str) -> str:
-        """Get the prompt for a specific checklist section."""
-        return SITE_CHECKLIST_PROMPTS.get(
-            section_name,
-            "Generate an appropriate checklist section based on the context.",
-        )
 
 
 def get_langgraph_workflow(
