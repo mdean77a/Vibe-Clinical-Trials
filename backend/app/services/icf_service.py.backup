@@ -7,6 +7,7 @@ using LangGraph workflows and RAG context retrieval.
 
 import asyncio
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 from typing import Any, Dict, List, Optional
 
@@ -18,6 +19,7 @@ from ..prompts.icf_prompts import ICF_SECTION_QUERIES
 from .document_generator import (
     DocumentGenerationError,
     DocumentGenerator,
+    ICFWorkflow,
     StreamingICFWorkflow,
     get_langgraph_workflow,
 )
@@ -60,8 +62,6 @@ class ICFGenerationService:
         import asyncio
         import time
         from asyncio import Queue
-        from queue import Queue as ThreadQueue
-        import threading
 
         try:
             # Start timing the generation process
@@ -70,27 +70,8 @@ class ICFGenerationService:
                 f"🚀 Starting streaming ICF generation for collection: {protocol_collection_name} at {time.strftime('%H:%M:%S')}"
             )
 
-            # Create a thread-safe queue that can be accessed from both async and sync contexts
-            thread_queue: ThreadQueue[Dict[str, Any]] = ThreadQueue()
+            # Create a queue to collect streaming events from all sections
             event_queue: Queue[Dict[str, Any]] = Queue()
-            
-            # Start a background task to transfer events from thread queue to async queue
-            async def queue_transfer():
-                """Transfer events from thread-safe queue to async queue."""
-                while True:
-                    try:
-                        # Check for events from the workflow thread (non-blocking)
-                        try:
-                            event = thread_queue.get_nowait()
-                            await event_queue.put(event)
-                        except:
-                            # No events available, yield control briefly
-                            await asyncio.sleep(0.01)
-                    except Exception as e:
-                        logger.error(f"Queue transfer error: {e}")
-                        break
-                        
-            transfer_task = asyncio.create_task(queue_transfer())
 
             # Get the current event loop to pass to the workflow
             main_loop = asyncio.get_running_loop()
@@ -98,7 +79,7 @@ class ICFGenerationService:
             # Create a modified ICF workflow that supports streaming
             streaming_workflow = StreamingICFWorkflow(
                 self.llm_config,
-                thread_queue,  # Use thread-safe queue
+                event_queue,
                 self.document_generator,
                 protocol_collection_name,
                 main_loop,
@@ -171,13 +152,6 @@ class ICFGenerationService:
                 await asyncio.wait_for(workflow_task, timeout=10.0)
             except asyncio.TimeoutError:
                 logger.warning("Workflow cleanup timeout")
-            finally:
-                # Stop the queue transfer task
-                transfer_task.cancel()
-                try:
-                    await transfer_task
-                except asyncio.CancelledError:
-                    pass
 
             # Calculate total generation time
             generation_end_time = time.time()
@@ -212,9 +186,9 @@ class ICFGenerationService:
     async def _execute_streaming_workflow(self, workflow, inputs, event_queue) -> Any:  # type: ignore[no-untyped-def]
         """Execute the streaming workflow in the background."""
         try:
-            # Use async invoke to allow events to be processed concurrently
-            result = await asyncio.get_running_loop().run_in_executor(
-                None, workflow.invoke, inputs
+            # Run the workflow (this will populate the event_queue via the streaming nodes)
+            result = await asyncio.get_event_loop().run_in_executor(
+                self.executor, workflow.invoke, inputs
             )
             return result
         except Exception as e:
@@ -264,9 +238,9 @@ class ICFGenerationService:
                 async for chunk in self._generate_section_with_streaming_llm(
                     section_name=section_name,
                     context="\n\n".join(
-                        [item.get("text", "") for item in context[:5]]
-                    ),  # Top 5 items for better context
-                    section_prompt=self._get_section_prompt(section_name),
+                        [item.get("text", "") for item in context[:3]]
+                    ),  # Top 3 items
+                    section_prompt=self.icf_workflow._get_section_prompt(section_name),
                 ):
                     yield chunk
 
@@ -306,8 +280,7 @@ class ICFGenerationService:
             ]
 
             # Stream tokens from the LLM
-            llm = get_llm_chat_model()
-            async for chunk in llm.astream(messages):
+            async for chunk in self.icf_workflow.llm.astream(messages):
                 if hasattr(chunk, "content") and chunk.content:
                     yield {"type": "token", "content": chunk.content}
 
@@ -318,13 +291,232 @@ class ICFGenerationService:
                 "error": f"Failed to generate {section_name}: {str(e)}",
             }
 
+    def _generate_icf_sync(
+        self,
+        protocol_collection_name: str,
+        protocol_metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Synchronous ICF generation using LangGraph workflow.
+
+        Args:
+            protocol_collection_name: The Qdrant collection name for the protocol
+            protocol_metadata: Optional metadata about the protocol
+
+        Returns:
+            Dict containing generated ICF sections and metadata
+        """
+        try:
+            # Get protocol context for general ICF requirements
+            context = self.document_generator.get_protocol_context(
+                protocol_collection_name,
+                "informed consent form requirements eligibility procedures risks benefits",
+                min_score=0.3,  # Lower threshold for broader context
+            )
+
+            logger.info(
+                f"Retrieved {len(context)} context items for {protocol_collection_name}"
+            )
+            for i, item in enumerate(context[:3]):
+                text = item.get("text", "")
+                score = item.get("score", 0)
+                logger.info(
+                    f"Context {i+1}: score={score:.3f}, length={len(text)}, preview='{text[:100]}...'"
+                )
+
+            if not context:
+                logger.warning(
+                    f"No context found for collection: {protocol_collection_name}"
+                )
+                context = [
+                    {"text": "No specific protocol context available", "score": 0.0}
+                ]
+
+            # Prepare workflow inputs (like your prototype)
+            workflow_inputs = {
+                "document_id": protocol_collection_name,
+                "document_generator": self.document_generator,  # Pass document generator for individual RAG
+                "document_type": "icf",
+                "context": context,  # Keep for backward compatibility, but each section will do its own retrieval
+                "sections": {},
+                "errors": [],
+                "metadata": protocol_metadata or {},
+            }
+
+            logger.info(f"Executing ICF workflow with {len(context)} context items")
+
+            # Execute the LangGraph workflow
+            result = self.icf_workflow.invoke(workflow_inputs)
+
+            # Extract sections from the result
+            sections = result.get("sections", {})
+            errors = result.get("errors", [])
+            metadata = result.get("metadata", {})
+
+            if errors:
+                logger.warning(f"ICF generation completed with errors: {errors}")
+
+            # Validate that all required sections are present
+            required_sections = [
+                "summary",
+                "background",
+                "participants",
+                "procedures",
+                "alternatives",
+                "risks",
+                "benefits",
+            ]
+
+            missing_sections = [s for s in required_sections if s not in sections]
+            if missing_sections:
+                error_msg = (
+                    f"Missing required ICF sections: {', '.join(missing_sections)}"
+                )
+                logger.error(error_msg)
+                raise DocumentGenerationError(error_msg)
+
+            # Format response
+            import time
+
+            response = {
+                "collection_name": protocol_collection_name,
+                "sections": sections,
+                "metadata": {
+                    **metadata,
+                    "generation_timestamp": time.time(),
+                    "context_items": len(context),
+                    "workflow_name": self.icf_workflow.name,
+                    "llm_config": self.llm_config,
+                },
+                "errors": errors,
+                "status": "completed" if not errors else "completed_with_warnings",
+            }
+
+            logger.info(
+                f"ICF generation successful: {len(sections)} sections generated"
+            )
+            return response
+
+        except Exception as e:
+            logger.error(f"Synchronous ICF generation failed: {e}")
+            raise DocumentGenerationError(f"Failed to generate ICF: {str(e)}")
+
+    async def regenerate_section_async(
+        self,
+        protocol_collection_name: str,
+        section_name: str,
+        protocol_metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Regenerate a specific ICF section asynchronously.
+
+        Args:
+            protocol_collection_name: The Qdrant collection name for the protocol
+            section_name: The specific section to regenerate
+            protocol_metadata: Optional metadata about the protocol
+
+        Returns:
+            Dict containing the regenerated section content
+        """
+        try:
+            logger.info(
+                f"Starting async section regeneration: {section_name} for collection: {protocol_collection_name}"
+            )
+
+            # Run the synchronous generation in a thread pool
+            result = await asyncio.get_event_loop().run_in_executor(
+                self.executor,
+                self._regenerate_section_sync,
+                protocol_collection_name,
+                section_name,
+                protocol_metadata,
+            )
+
+            logger.info(f"Completed async section regeneration: {section_name}")
+            return result
+
+        except Exception as e:
+            logger.error(f"Async section regeneration failed: {e}")
+            raise DocumentGenerationError(f"Failed to regenerate section: {str(e)}")
+
+    def _regenerate_section_sync(
+        self,
+        protocol_collection_name: str,
+        section_name: str,
+        protocol_metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Synchronous section regeneration.
+
+        Args:
+            protocol_collection_name: The Qdrant collection name for the protocol
+            section_name: The specific section to regenerate
+            protocol_metadata: Optional metadata about the protocol
+
+        Returns:
+            Dict containing the regenerated section content
+        """
+        try:
+            # Get protocol context for the specific section using the same queries as initial generation
+            query = ICF_SECTION_QUERIES.get(
+                section_name, f"informed consent form {section_name} requirements"
+            )
+            context = self.document_generator.get_protocol_context(
+                protocol_collection_name,
+                query,
+                min_score=0.3,
+            )
+
+            if not context:
+                logger.warning(
+                    f"No context found for collection: {protocol_collection_name}"
+                )
+                context = [
+                    {"text": "No specific protocol context available", "score": 0.0}
+                ]
+
+            # Format context for LLM consumption
+            context_text = self._format_context_for_llm(context)
+
+            # Get the section prompt
+            prompt = self._get_section_prompt(section_name)
+
+            # Generate the section using LLM
+            section_content = self.icf_workflow._generate_section_with_llm(
+                section_name, context_text, prompt
+            )
+
+            # Format response
+            import time
+
+            response = {
+                "section_name": section_name,
+                "content": section_content,
+                "word_count": len(section_content.split()) if section_content else 0,
+                "metadata": {
+                    "regeneration_timestamp": time.time(),
+                    "context_items": len(context),
+                    "workflow_name": self.icf_workflow.name,
+                    "llm_config": self.llm_config,
+                    **(protocol_metadata or {}),
+                },
+                "status": "completed",
+            }
+
+            logger.info(f"Section regeneration successful: {section_name}")
+            return response
+
+        except Exception as e:
+            logger.error(f"Synchronous section regeneration failed: {e}")
+            raise DocumentGenerationError(f"Failed to regenerate section: {str(e)}")
+
     def _format_context_for_llm(self, context: List[Dict[str, Any]]) -> str:
         """Format context for LLM consumption."""
         if not context:
             return "No specific protocol context available."
 
         formatted = []
-        for item in context[:5]:  # Use top 5 most relevant documents
+        for item in context[:5]:  # Limit to top 5 most relevant
             text = item.get("text", "")
             score = item.get("score", 0)
             formatted.append(f"[Relevance: {score:.2f}] {text}")
@@ -333,11 +525,8 @@ class ICFGenerationService:
 
     def _get_section_prompt(self, section_name: str) -> str:
         """Get the prompt for a specific ICF section."""
-        from ..prompts.icf_prompts import ICF_PROMPTS
-
-        return ICF_PROMPTS.get(
-            section_name, "Generate an appropriate ICF section based on the context."
-        )
+        # Use the same prompts as the workflow
+        return self.icf_workflow._get_section_prompt(section_name)
 
     def get_generation_status(self, task_id: str) -> Dict[str, Any]:
         """
