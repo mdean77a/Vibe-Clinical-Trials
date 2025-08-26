@@ -59,7 +59,7 @@ class DocumentGenerator:
         self.checklist_workflow = checklist_workflow
 
     def get_protocol_context(
-        self, protocol_collection_name: str, query: str, min_score: float = 0.5
+        self, protocol_collection_name: str, query: str, min_score: float = 0.3
     ) -> List[Dict[str, Any]]:
         """Retrieve relevant protocol context for document generation using LangChain."""
         try:
@@ -324,27 +324,22 @@ class StreamingICFWorkflow(WorkflowBase):
                 query = self._get_section_query(section_name)
 
                 # Get section-specific context
-                context_items = self.document_generator.get_protocol_context(
-                    self.document_id, query, min_score=0.3
+                context = self.document_generator.get_protocol_context(
+                    self.document_id, query
                 )
 
-                # Log context items for this section
-                if context_items:
+                # Log context for this section
+                if context:
                     logger.info(
                         f"Context for section '{section_name}' with query '{query}':"
                     )
-                    for i, item in enumerate(context_items[:3]):  # Top 3 items
+                    for i, item in enumerate(context):
                         score = item.get("score", 0)
                         logger.info(f"  Section chunk {i+1} (relevance: {score:.3f})")
 
                 context_text = (
-                    "\n\n".join(
-                        [
-                            item.get("text", "")
-                            for item in context_items[:3]  # Top 3 items
-                        ]
-                    )
-                    if context_items
+                    "\n\n".join([item.get("text", "") for item in context])
+                    if context
                     else f"No specific context for {section_name}"
                 )
 
@@ -367,10 +362,12 @@ class StreamingICFWorkflow(WorkflowBase):
                 if self.event_queue:
                     try:
                         # Use thread-safe queue directly (no asyncio needed)
-                        self.event_queue.put({
-                            "type": "section_start",
-                            "section_name": section_name,
-                        })
+                        self.event_queue.put(
+                            {
+                                "type": "section_start",
+                                "section_name": section_name,
+                            }
+                        )
                         logger.debug(f"Queued section start for {section_name}")
                     except Exception as e:
                         logger.error(
@@ -395,12 +392,14 @@ class StreamingICFWorkflow(WorkflowBase):
                             if self.event_queue:
                                 try:
                                     # Use thread-safe queue directly (no asyncio needed)
-                                    self.event_queue.put({
-                                        "type": "token",
-                                        "section_name": section_name,
-                                        "content": chunk.content,
-                                        "accumulated_content": section_content,
-                                    })
+                                    self.event_queue.put(
+                                        {
+                                            "type": "token",
+                                            "section_name": section_name,
+                                            "content": chunk.content,
+                                            "accumulated_content": section_content,
+                                        }
+                                    )
                                 except Exception as e:
                                     logger.debug(
                                         f"Failed to queue token for {section_name}: {type(e).__name__}: {e}"
@@ -420,11 +419,13 @@ class StreamingICFWorkflow(WorkflowBase):
                 if self.event_queue:
                     try:
                         # Use thread-safe queue directly (no asyncio needed)
-                        self.event_queue.put({
-                            "type": "section_complete",
-                            "section_name": section_name,
-                            "content": section_content,
-                        })
+                        self.event_queue.put(
+                            {
+                                "type": "section_complete",
+                                "section_name": section_name,
+                                "content": section_content,
+                            }
+                        )
                         logger.debug(f"Queued section complete for {section_name}")
                     except Exception as queue_error:
                         logger.error(
@@ -454,11 +455,13 @@ class StreamingICFWorkflow(WorkflowBase):
                 if self.event_queue:
                     try:
                         # Use thread-safe queue directly (no asyncio needed)
-                        self.event_queue.put({
-                            "type": "section_error",
-                            "section_name": section_name,
-                            "error": str(e),
-                        })
+                        self.event_queue.put(
+                            {
+                                "type": "section_error",
+                                "section_name": section_name,
+                                "error": str(e),
+                            }
+                        )
                     except:
                         pass  # Ignore queue errors during error handling
 
@@ -494,7 +497,7 @@ class StreamingICFWorkflow(WorkflowBase):
             return "No specific protocol context available."
 
         formatted = []
-        for item in context[:5]:  # Limit to top 5 most relevant
+        for item in context:
             text = item.get("text", "")
             score = item.get("score", 0)
             formatted.append(f"[Relevance: {score:.2f}] {text}")

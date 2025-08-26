@@ -465,7 +465,7 @@ async def icf_health_check() -> Dict[str, str]:
 
         # Get current LLM model from centralized config
         from ..config import LLM_MODEL
-        
+
         return {
             "status": "healthy",
             "service": "ICF Generation",

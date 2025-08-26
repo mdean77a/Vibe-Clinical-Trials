@@ -58,10 +58,10 @@ class ICFGenerationService:
             Dict with streaming events from parallel section generation
         """
         import asyncio
+        import threading
         import time
         from asyncio import Queue
         from queue import Queue as ThreadQueue
-        import threading
 
         try:
             # Start timing the generation process
@@ -73,9 +73,9 @@ class ICFGenerationService:
             # Create a thread-safe queue that can be accessed from both async and sync contexts
             thread_queue: ThreadQueue[Dict[str, Any]] = ThreadQueue()
             event_queue: Queue[Dict[str, Any]] = Queue()
-            
+
             # Start a background task to transfer events from thread queue to async queue
-            async def queue_transfer():
+            async def queue_transfer() -> None:
                 """Transfer events from thread-safe queue to async queue."""
                 while True:
                     try:
@@ -89,7 +89,7 @@ class ICFGenerationService:
                     except Exception as e:
                         logger.error(f"Queue transfer error: {e}")
                         break
-                        
+
             transfer_task = asyncio.create_task(queue_transfer())
 
             # Get the current event loop to pass to the workflow
@@ -109,7 +109,6 @@ class ICFGenerationService:
             context = self.document_generator.get_protocol_context(
                 protocol_collection_name,
                 "informed consent form requirements eligibility procedures risks benefits",
-                min_score=0.3,
             )
 
             if not context:
@@ -249,7 +248,7 @@ class ICFGenerationService:
                     section_name, f"{section_name} informed consent"
                 )
                 context = self.document_generator.get_protocol_context(
-                    protocol_collection_name, query, min_score=0.3
+                    protocol_collection_name, query
                 )
 
                 if not context:
@@ -263,9 +262,7 @@ class ICFGenerationService:
                 # Generate the section with streaming using LangChain's streaming
                 async for chunk in self._generate_section_with_streaming_llm(
                     section_name=section_name,
-                    context="\n\n".join(
-                        [item.get("text", "") for item in context[:5]]
-                    ),  # Top 5 items for better context
+                    context="\n\n".join([item.get("text", "") for item in context]),
                     section_prompt=self._get_section_prompt(section_name),
                 ):
                     yield chunk
@@ -324,7 +321,7 @@ class ICFGenerationService:
             return "No specific protocol context available."
 
         formatted = []
-        for item in context[:5]:  # Use top 5 most relevant documents
+        for item in context:
             text = item.get("text", "")
             score = item.get("score", 0)
             formatted.append(f"[Relevance: {score:.2f}] {text}")

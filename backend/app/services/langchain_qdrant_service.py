@@ -156,7 +156,7 @@ class LangChainQdrantService:
             vector_store = self.get_vector_store(collection_name)
 
             if search_kwargs is None:
-                search_kwargs = {"k": 5}
+                search_kwargs = {"k": 10}
 
             return vector_store.as_retriever(
                 search_type=search_type,
