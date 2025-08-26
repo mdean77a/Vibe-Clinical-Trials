@@ -15,8 +15,8 @@ import pytest
 from app.services.document_generator import (
     DocumentGenerationError,
     DocumentGenerator,
-    ICFWorkflow,
     SiteChecklistWorkflow,
+    StreamingICFWorkflow,
     generate_icf_sections,
     generate_site_checklist_sections,
 )
@@ -313,10 +313,10 @@ class TestWorkflowClasses:
     @pytest.mark.unit
     @pytest.mark.ai_service
     def test_icf_workflow_init(self):
-        """Test ICFWorkflow initialization."""
-        workflow = ICFWorkflow()
+        """Test StreamingICFWorkflow initialization."""
+        workflow = StreamingICFWorkflow()
 
-        assert workflow.name == "icf_generation"
+        assert workflow.name == "streaming_icf_generation"
 
     @pytest.mark.unit
     @pytest.mark.ai_service

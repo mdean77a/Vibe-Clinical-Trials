@@ -225,128 +225,6 @@ class WorkflowBase(ABC):
             )
 
 
-class ICFWorkflow(WorkflowBase):
-    """Workflow for Informed Consent Form generation."""
-
-    def __init__(self, llm_config: Optional[Dict[str, Any]] = None):
-        super().__init__(llm_config)
-        self.name = "icf_generation"
-        self.sections = [
-            "summary",
-            "background",
-            "participants",
-            "procedures",
-            "alternatives",
-            "risks",
-            "benefits",
-        ]
-
-    def build_graph(self) -> StateGraph:
-        """Build the ICF generation workflow graph with true parallel execution."""
-        workflow = StateGraph(AgentState)
-
-        # Add parallel section generation nodes (like your prototype)
-        for section in self.sections:
-            workflow.add_node(
-                f"generate_{section}", self._create_section_generator(section)
-            )
-
-        # TRUE PARALLEL EXECUTION: All nodes start from START and go directly to END
-        for section in self.sections:
-            workflow.add_edge(START, f"generate_{section}")
-            workflow.add_edge(f"generate_{section}", END)
-
-        return workflow
-
-    def _get_section_query(self, section_name: str) -> str:
-        """Get section-specific queries like your prototype."""
-        return ICF_SECTION_QUERIES.get(
-            section_name, "informed consent form requirements"
-        )
-
-    def _create_section_generator(self, section_name: str) -> Any:
-        """Create a section generator function with individual RAG retrieval like the prototype."""
-
-        def generate_section(state: Dict[str, Any]) -> Dict[str, Any]:
-            try:
-                # Get the document generator for this state
-                document_generator = state.get("document_generator")
-                if not document_generator:
-                    raise ValueError("Document generator not found in state")
-
-                # Get document_id from the workflow inputs (passed via document_generator)
-                document_id = getattr(document_generator, "_current_document_id", None)
-                if not document_id:
-                    raise ValueError("Document ID not found in document_generator")
-
-                # SECTION-SPECIFIC RAG RETRIEVAL (like your prototype)
-                section_query = self._get_section_query(section_name)
-                logger.info(
-                    f"Retrieving context for {section_name} with query: '{section_query}'"
-                )
-
-                # Individual retrieval for this specific section
-                context = document_generator.get_protocol_context(
-                    document_id,
-                    section_query,
-                    min_score=0.2,  # Lower threshold for section-specific content
-                )
-
-                logger.info(
-                    f"Retrieved {len(context)} context items for {section_name}"
-                )
-                if context:
-                    total_text_length = sum(
-                        len(item.get("text", "")) for item in context
-                    )
-                    logger.info(
-                        f"{section_name} context total text length: {total_text_length}"
-                    )
-
-                    # Log first few chunks with relevance
-                    logger.info(f"Top context chunks for section '{section_name}':")
-                    for i, item in enumerate(context[:3]):  # Top 3 items
-                        score = item.get("score", 0)
-                        logger.info(f"  Chunk {i+1} (relevance: {score:.3f})")
-
-                context_text = self._format_context(context)
-                prompt = self._get_section_prompt(section_name)
-
-                section_content = self._generate_section_with_llm(
-                    section_name, context_text, prompt
-                )
-
-                # Return the specific section field in a list (like your prototype: {"summary": [summary]})
-                # This allows for revision history - initial generation appends first item
-                return {section_name: [section_content]}
-
-            except Exception as e:
-                logger.error(f"Failed to generate {section_name}: {e}")
-                # Return empty result - error handling done outside workflow
-                return {}
-
-        return generate_section
-
-    def _format_context(self, context: List[Dict[str, Any]]) -> str:
-        """Format context for LLM consumption."""
-        if not context:
-            return "No specific protocol context available."
-
-        formatted = []
-        for item in context[:5]:  # Limit to top 5 most relevant
-            text = item.get("text", "")
-            score = item.get("score", 0)
-            formatted.append(f"[Relevance: {score:.2f}] {text}")
-
-        return "\n\n".join(formatted)
-
-    def _get_section_prompt(self, section_name: str) -> str:
-        """Get the prompt for a specific ICF section."""
-        return ICF_PROMPTS.get(
-            section_name, "Generate an appropriate ICF section based on the context."
-        )
-
-
 class SiteChecklistWorkflow(WorkflowBase):
     """Workflow for Site Initiation Checklist generation."""
 
@@ -393,7 +271,7 @@ class SiteChecklistWorkflow(WorkflowBase):
         return workflow
 
 
-class StreamingICFWorkflow(ICFWorkflow):
+class StreamingICFWorkflow(WorkflowBase):
     """Streaming version of ICF workflow that sends tokens to a queue."""
 
     def __init__(
@@ -406,6 +284,16 @@ class StreamingICFWorkflow(ICFWorkflow):
         sections_filter: Optional[List[str]] = None,
     ):
         super().__init__(llm_config)
+        self.name = "streaming_icf_generation"
+        self.sections = [
+            "summary",
+            "background",
+            "participants",
+            "procedures",
+            "alternatives",
+            "risks",
+            "benefits",
+        ]
         self.event_queue = event_queue
         self.document_generator = document_generator
         self.document_id = document_id
@@ -475,27 +363,18 @@ class StreamingICFWorkflow(ICFWorkflow):
                     ),
                 ]
 
-                # Send section start event
-                if self.event_queue and self.main_loop:
+                # Send section start event (thread-safe)
+                if self.event_queue:
                     try:
-                        import asyncio
-
-                        if not self.main_loop.is_closed():
-                            future = asyncio.run_coroutine_threadsafe(
-                                self.event_queue.put(
-                                    {
-                                        "type": "section_start",
-                                        "section_name": section_name,
-                                    }
-                                ),
-                                self.main_loop,
-                            )
-                            future.result(
-                                timeout=1.0
-                            )  # Wait up to 1 second for section start
+                        # Use thread-safe queue directly (no asyncio needed)
+                        self.event_queue.put({
+                            "type": "section_start",
+                            "section_name": section_name,
+                        })
+                        logger.debug(f"Queued section start for {section_name}")
                     except Exception as e:
                         logger.error(
-                            f"Failed to queue section start for {section_name}: {e}"
+                            f"Failed to queue section start for {section_name}: {type(e).__name__}: {e}"
                         )
 
                 # Stream tokens from the working LLM
@@ -512,39 +391,19 @@ class StreamingICFWorkflow(ICFWorkflow):
                                 # Handle non-string content (convert to string)
                                 section_content += str(content)
 
-                            # Send each token to the queue
-                            if self.event_queue and self.main_loop:
+                            # Send each token to the queue (thread-safe)
+                            if self.event_queue:
                                 try:
-                                    import asyncio
-
-                                    # Check if the event loop is still running
-                                    if not self.main_loop.is_closed():
-                                        future = asyncio.run_coroutine_threadsafe(
-                                            self.event_queue.put(
-                                                {
-                                                    "type": "token",
-                                                    "section_name": section_name,
-                                                    "content": chunk.content,
-                                                    "accumulated_content": section_content,
-                                                }
-                                            ),
-                                            self.main_loop,
-                                        )
-                                        # Wait briefly for the future to complete to avoid overwhelming the queue
-                                        future.result(timeout=0.1)
-                                    else:
-                                        logger.warning(
-                                            f"Event loop closed, cannot send token for {section_name}"
-                                        )
-                                        break  # Stop streaming if event loop is closed
-                                except asyncio.TimeoutError:
-                                    # Token queuing timeout - continue but log it
-                                    logger.debug(
-                                        f"Token queuing timeout for {section_name}"
-                                    )
+                                    # Use thread-safe queue directly (no asyncio needed)
+                                    self.event_queue.put({
+                                        "type": "token",
+                                        "section_name": section_name,
+                                        "content": chunk.content,
+                                        "accumulated_content": section_content,
+                                    })
                                 except Exception as e:
-                                    logger.error(
-                                        f"Failed to queue token for {section_name}: {e}"
+                                    logger.debug(
+                                        f"Failed to queue token for {section_name}: {type(e).__name__}: {e}"
                                     )
                                     # Continue streaming even if we can't queue individual tokens
 
@@ -557,31 +416,20 @@ class StreamingICFWorkflow(ICFWorkflow):
                         section_name, context_text, section_prompt
                     )
 
-                # Send section complete event
-                if self.event_queue and self.main_loop:
+                # Send section complete event (thread-safe)
+                if self.event_queue:
                     try:
-                        import asyncio
-
-                        if not self.main_loop.is_closed():
-                            future = asyncio.run_coroutine_threadsafe(
-                                self.event_queue.put(
-                                    {
-                                        "type": "section_complete",
-                                        "section_name": section_name,
-                                        "content": section_content,
-                                    }
-                                ),
-                                self.main_loop,
-                            )
-                            future.result(
-                                timeout=1.0
-                            )  # Wait up to 1 second for section complete
+                        # Use thread-safe queue directly (no asyncio needed)
+                        self.event_queue.put({
+                            "type": "section_complete",
+                            "section_name": section_name,
+                            "content": section_content,
+                        })
+                        logger.debug(f"Queued section complete for {section_name}")
                     except Exception as queue_error:
                         logger.error(
-                            f"Failed to queue section complete for {section_name}: {queue_error}"
+                            f"Failed to queue section complete for {section_name}: {type(queue_error).__name__}: {queue_error}"
                         )
-                elif self.event_queue:
-                    logger.warning(f"No main loop available for {section_name}")
 
                 # Update state with the generated content
                 if section_name == "summary":
@@ -603,22 +451,14 @@ class StreamingICFWorkflow(ICFWorkflow):
 
             except Exception as e:
                 logger.error(f"Failed to generate {section_name}: {e}")
-                if self.event_queue and self.main_loop:
+                if self.event_queue:
                     try:
-                        import asyncio
-
-                        if not self.main_loop.is_closed():
-                            future = asyncio.run_coroutine_threadsafe(
-                                self.event_queue.put(
-                                    {
-                                        "type": "section_error",
-                                        "section_name": section_name,
-                                        "error": str(e),
-                                    }
-                                ),
-                                self.main_loop,
-                            )
-                            future.result(timeout=1.0)
+                        # Use thread-safe queue directly (no asyncio needed)
+                        self.event_queue.put({
+                            "type": "section_error",
+                            "section_name": section_name,
+                            "error": str(e),
+                        })
                     except:
                         pass  # Ignore queue errors during error handling
 
@@ -661,13 +501,42 @@ class StreamingICFWorkflow(ICFWorkflow):
 
         return "\n\n".join(formatted)
 
+    def _get_section_query(self, section_name: str) -> str:
+        """Get section-specific queries for RAG retrieval."""
+        return ICF_SECTION_QUERIES.get(
+            section_name, "informed consent form requirements"
+        )
+
+    def _get_section_prompt(self, section_name: str) -> str:
+        """Get the prompt for a specific ICF section."""
+        return ICF_PROMPTS.get(
+            section_name, "Generate an appropriate ICF section based on the context."
+        )
+
+    def build_graph(self) -> StateGraph:
+        """Build the ICF generation workflow graph with parallel execution for efficiency."""
+        workflow = StateGraph(AgentState)
+
+        # Add parallel section generation nodes
+        for section in self.sections:
+            workflow.add_node(
+                f"generate_{section}", self._create_section_generator(section)
+            )
+
+        # PARALLEL EXECUTION: All sections run simultaneously for efficiency
+        for section in self.sections:
+            workflow.add_edge(START, f"generate_{section}")
+            workflow.add_edge(f"generate_{section}", END)
+
+        return workflow
+
 
 def get_langgraph_workflow(
     workflow_type: str, llm_config: Optional[Dict[str, Any]] = None
-) -> Union[ICFWorkflow, SiteChecklistWorkflow]:
+) -> Union[StreamingICFWorkflow, SiteChecklistWorkflow]:
     """Get LangGraph workflow instance."""
     if workflow_type == "icf":
-        return ICFWorkflow(llm_config)
+        return StreamingICFWorkflow(llm_config)
     elif workflow_type == "site_checklist":
         return SiteChecklistWorkflow(llm_config)
     else:
@@ -680,7 +549,7 @@ def generate_icf_sections(
     """Generate ICF sections for a protocol."""
     try:
         if workflow is None:
-            workflow = ICFWorkflow()
+            workflow = StreamingICFWorkflow()
 
         # Get protocol context
         generator = DocumentGenerator(qdrant_client)

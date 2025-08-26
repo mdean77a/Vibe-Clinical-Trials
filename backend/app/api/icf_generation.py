@@ -101,69 +101,6 @@ class GenerationStatusResponse(BaseModel):
 
 
 # API Endpoints
-@router.post("/generate", response_model=ICFGenerationResponse)
-async def generate_icf(
-    request: ICFGenerationRequest,
-    icf_service: ICFGenerationService = Depends(get_icf_service),
-) -> ICFGenerationResponse:
-    """
-    Generate an Informed Consent Form for a protocol.
-
-    This endpoint takes a protocol collection name and generates a complete ICF
-    with all required sections using LangGraph workflows and RAG context retrieval.
-
-    **Required Sections Generated:**
-    - Summary: Overview of the study
-    - Background: Medical/scientific background
-    - Participants: Number and eligibility criteria
-    - Procedures: Study procedures and timeline
-    - Alternatives: Alternative treatment options
-    - Risks: Potential risks and side effects
-    - Benefits: Potential benefits to participants
-
-    **Process:**
-    1. Validates that the protocol collection exists
-    2. Retrieves relevant context using semantic search
-    3. Executes LangGraph workflow with 7 parallel section generators
-    4. Returns structured ICF content ready for review
-    """
-    try:
-        logger.info(
-            f"ICF generation requested for collection: {request.protocol_collection_name}"
-        )
-
-        # Validate collection exists
-        collection_exists = await icf_service.validate_collection_exists(
-            request.protocol_collection_name
-        )
-
-        if not collection_exists:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Protocol collection '{request.protocol_collection_name}' not found",
-            )
-
-        # Generate ICF using the service
-        result = await icf_service.generate_icf_async(
-            protocol_collection_name=request.protocol_collection_name,
-            protocol_metadata=request.protocol_metadata,
-        )
-
-        logger.info(
-            f"ICF generation completed for collection: {request.protocol_collection_name}"
-        )
-        return ICFGenerationResponse(**result)
-
-    except DocumentGenerationError as e:
-        logger.error(f"ICF generation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        logger.error(f"Unexpected error during ICF generation: {e}")
-        raise HTTPException(
-            status_code=500, detail="Internal server error during ICF generation"
-        )
-
-
 @router.post("/generate-stream")
 async def generate_icf_stream(
     request: ICFGenerationRequest,
@@ -526,11 +463,14 @@ async def icf_health_check() -> Dict[str, str]:
         # Test service initialization
         icf_service = get_icf_service()
 
+        # Get current LLM model from centralized config
+        from ..config import LLM_MODEL
+        
         return {
             "status": "healthy",
             "service": "ICF Generation",
-            "workflow": icf_service.icf_workflow.name,
-            "llm_model": str(icf_service.llm_config["model"]),
+            "workflow": "StreamingICFWorkflow",
+            "llm_model": LLM_MODEL,
         }
     except Exception as e:
         logger.error(f"ICF service health check failed: {e}")
