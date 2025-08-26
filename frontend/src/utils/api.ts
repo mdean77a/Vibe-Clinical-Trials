@@ -169,19 +169,6 @@ export const protocolsApi = {
  */
 export const icfApi = {
   /**
-   * Generate ICF for a protocol collection
-   */
-  generate: async (collectionName: string, protocolMetadata?: unknown) => {
-    return apiRequest('icf/generate', {
-      method: 'POST',
-      body: JSON.stringify({
-        protocol_collection_name: collectionName,
-        protocol_metadata: protocolMetadata,
-      }),
-    });
-  },
-
-  /**
    * Get protocol summary
    */
   getProtocolSummary: async (collectionName: string) => {
