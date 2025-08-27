@@ -259,6 +259,12 @@ class LangChainQdrantService:
             return False
 
 
+# Cache for service instance to avoid repeated initialization
+_langchain_service_instance = None
+
 def get_langchain_qdrant_service() -> LangChainQdrantService:
-    """Get configured LangChain Qdrant service instance."""
-    return LangChainQdrantService()
+    """Get configured LangChain Qdrant service instance (singleton pattern)."""
+    global _langchain_service_instance
+    if _langchain_service_instance is None:
+        _langchain_service_instance = LangChainQdrantService()
+    return _langchain_service_instance

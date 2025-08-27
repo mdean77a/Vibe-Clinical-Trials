@@ -315,6 +315,12 @@ def get_qdrant_client() -> QdrantClient:
     return QdrantClient(":memory:")
 
 
+# Cache for service instance to avoid repeated initialization
+_qdrant_service_instance = None
+
 def get_qdrant_service() -> QdrantService:
-    """Get configured Qdrant service instance."""
-    return QdrantService()
+    """Get configured Qdrant service instance (singleton pattern)."""
+    global _qdrant_service_instance
+    if _qdrant_service_instance is None:
+        _qdrant_service_instance = QdrantService()
+    return _qdrant_service_instance

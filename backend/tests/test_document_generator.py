@@ -316,7 +316,7 @@ class TestWorkflowClasses:
         """Test StreamingICFWorkflow initialization."""
         workflow = StreamingICFWorkflow()
 
-        assert workflow.name == "streaming_icf_generation"
+        assert workflow.name == "icf_generation"
 
     @pytest.mark.unit
     @pytest.mark.ai_service
