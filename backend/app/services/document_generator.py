@@ -74,8 +74,6 @@ class DocumentGenerator:
                 query=query,
                 k=10,
             )
-            for i, (doc, score) in enumerate(docs_with_scores):
-                logger.info(f"Chunk {i + 1} (relevance: {score:.3f})")
 
             # Filter by minimum score and format results
             context = []
@@ -90,7 +88,7 @@ class DocumentGenerator:
                     )
 
                     # Log chunk with relevance score
-                    logger.info(f"Chunk {i+1} (relevance: {score:.3f})")
+                    # logger.info(f"Chunk {i+1} (relevance: {score:.3f})")
 
             logger.info(
                 f"Retrieved {len(context)} relevant documents for query: {query[:50]}..."
@@ -447,7 +445,8 @@ class StreamingICFWorkflow(ICFWorkflow):
                     logger.info(
                         f"Context for section '{section_name}' with query '{query}':"
                     )
-                    for i, item in enumerate(context_items[:3]):  # Top 3 items
+                    # for i, item in enumerate(context_items[:3]):  # Top 3 items
+                    for i, item in enumerate(context_items):
                         score = item.get("score", 0)
                         logger.info(f"  Section chunk {i+1} (relevance: {score:.3f})")
 
