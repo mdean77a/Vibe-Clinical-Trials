@@ -74,6 +74,8 @@ class DocumentGenerator:
                 query=query,
                 k=10,
             )
+            for i, (doc, score) in enumerate(docs_with_scores):
+                logger.info(f"Chunk {i + 1} (relevance: {score:.3f})")
 
             # Filter by minimum score and format results
             context = []
@@ -476,23 +478,15 @@ class StreamingICFWorkflow(ICFWorkflow):
                 ]
 
                 # Send section start event
-                if self.event_queue and self.main_loop:
+                if self.event_queue:
                     try:
-                        import asyncio
-
-                        if not self.main_loop.is_closed():
-                            future = asyncio.run_coroutine_threadsafe(
-                                self.event_queue.put(
-                                    {
-                                        "type": "section_start",
-                                        "section_name": section_name,
-                                    }
-                                ),
-                                self.main_loop,
-                            )
-                            future.result(
-                                timeout=1.0
-                            )  # Wait up to 1 second for section start
+                        # Use thread-safe queue directly (it's synchronous)
+                        self.event_queue.put(
+                            {
+                                "type": "section_start",
+                                "section_name": section_name,
+                            }
+                        )
                     except Exception as e:
                         logger.error(
                             f"Failed to queue section start for {section_name}: {e}"
@@ -513,34 +507,16 @@ class StreamingICFWorkflow(ICFWorkflow):
                                 section_content += str(content)
 
                             # Send each token to the queue
-                            if self.event_queue and self.main_loop:
+                            if self.event_queue:
                                 try:
-                                    import asyncio
-
-                                    # Check if the event loop is still running
-                                    if not self.main_loop.is_closed():
-                                        future = asyncio.run_coroutine_threadsafe(
-                                            self.event_queue.put(
-                                                {
-                                                    "type": "token",
-                                                    "section_name": section_name,
-                                                    "content": chunk.content,
-                                                    "accumulated_content": section_content,
-                                                }
-                                            ),
-                                            self.main_loop,
-                                        )
-                                        # Wait briefly for the future to complete to avoid overwhelming the queue
-                                        future.result(timeout=0.1)
-                                    else:
-                                        logger.warning(
-                                            f"Event loop closed, cannot send token for {section_name}"
-                                        )
-                                        break  # Stop streaming if event loop is closed
-                                except asyncio.TimeoutError:
-                                    # Token queuing timeout - continue but log it
-                                    logger.debug(
-                                        f"Token queuing timeout for {section_name}"
+                                    # Use thread-safe queue directly (it's synchronous)
+                                    self.event_queue.put(
+                                        {
+                                            "type": "token",
+                                            "section_name": section_name,
+                                            "content": chunk.content,
+                                            "accumulated_content": section_content,
+                                        }
                                     )
                                 except Exception as e:
                                     logger.error(
@@ -558,30 +534,20 @@ class StreamingICFWorkflow(ICFWorkflow):
                     )
 
                 # Send section complete event
-                if self.event_queue and self.main_loop:
+                if self.event_queue:
                     try:
-                        import asyncio
-
-                        if not self.main_loop.is_closed():
-                            future = asyncio.run_coroutine_threadsafe(
-                                self.event_queue.put(
-                                    {
-                                        "type": "section_complete",
-                                        "section_name": section_name,
-                                        "content": section_content,
-                                    }
-                                ),
-                                self.main_loop,
-                            )
-                            future.result(
-                                timeout=1.0
-                            )  # Wait up to 1 second for section complete
+                        # Use thread-safe queue directly (it's synchronous)
+                        self.event_queue.put(
+                            {
+                                "type": "section_complete",
+                                "section_name": section_name,
+                                "content": section_content,
+                            }
+                        )
                     except Exception as queue_error:
                         logger.error(
                             f"Failed to queue section complete for {section_name}: {queue_error}"
                         )
-                elif self.event_queue:
-                    logger.warning(f"No main loop available for {section_name}")
 
                 # Update state with the generated content
                 if section_name == "summary":
@@ -603,22 +569,16 @@ class StreamingICFWorkflow(ICFWorkflow):
 
             except Exception as e:
                 logger.error(f"Failed to generate {section_name}: {e}")
-                if self.event_queue and self.main_loop:
+                if self.event_queue:
                     try:
-                        import asyncio
-
-                        if not self.main_loop.is_closed():
-                            future = asyncio.run_coroutine_threadsafe(
-                                self.event_queue.put(
-                                    {
-                                        "type": "section_error",
-                                        "section_name": section_name,
-                                        "error": str(e),
-                                    }
-                                ),
-                                self.main_loop,
-                            )
-                            future.result(timeout=1.0)
+                        # Use thread-safe queue directly (it's synchronous)
+                        self.event_queue.put(
+                            {
+                                "type": "section_error",
+                                "section_name": section_name,
+                                "error": str(e),
+                            }
+                        )
                     except:
                         pass  # Ignore queue errors during error handling
 
