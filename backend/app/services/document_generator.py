@@ -333,7 +333,7 @@ class ICFWorkflow(WorkflowBase):
             return "No specific protocol context available."
 
         formatted = []
-        for item in context[:5]:  # Limit to top 5 most relevant
+        for item in context:  # Use all retrieved context
             text = item.get("text", "")
             score = item.get("score", 0)
             formatted.append(f"[Relevance: {score:.2f}] {text}")
@@ -454,7 +454,7 @@ class StreamingICFWorkflow(ICFWorkflow):
                     "\n\n".join(
                         [
                             item.get("text", "")
-                            for item in context_items[:3]  # Top 3 items
+                            for item in context_items  # Use all retrieved items
                         ]
                     )
                     if context_items
@@ -606,20 +606,6 @@ class StreamingICFWorkflow(ICFWorkflow):
 
         logger.info(f"Compiled checklist with {len(sections)} sections")
         return state
-
-    def _format_context(self, context: List[Dict[str, Any]]) -> str:
-        """Format context for LLM consumption."""
-        if not context:
-            return "No specific protocol context available."
-
-        formatted = []
-        for item in context[:5]:  # Limit to top 5 most relevant
-            text = item.get("text", "")
-            score = item.get("score", 0)
-            formatted.append(f"[Relevance: {score:.2f}] {text}")
-
-        return "\n\n".join(formatted)
-
 
 def get_langgraph_workflow(
     workflow_type: str, llm_config: Optional[Dict[str, Any]] = None
