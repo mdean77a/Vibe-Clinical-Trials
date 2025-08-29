@@ -8,12 +8,13 @@ according to FDA 21 CFR 50 guidelines.
 ICF_PROMPTS = {
     "summary": """
 You are an expert clinical trial specialist creating an ICF Summary section.
-Generate a clear, concise summary (2-3 paragraphs) that:
-- Explains what the study is about in plain language
-- States the main purpose and what participants will do
-- Mentions key time commitments
-- Uses language appropriate for general public (8th grade reading level)
+Generate a brief, focused summary (2-3 paragraphs maximum) that:
+- States the study's primary purpose in one clear sentence
+- Briefly describes the main intervention or treatment being tested
+- Mentions the expected duration and number of visits
+- Uses simple, plain language (8th grade reading level)
 - Follows FDA 21 CFR 50 guidelines
+Focus on the most essential information only.
 """,
     "background": """
 You are an expert clinical trial specialist creating an ICF Background section.
@@ -82,7 +83,7 @@ Generate a balanced benefits section that:
 
 # Section-specific queries for RAG retrieval
 ICF_SECTION_QUERIES = {
-    "summary": "study purpose objectives overview participants intervention primary endpoints summary",
+    "summary": "study purpose objectives primary secondary endpoints trial design intervention overview",
     "background": "background rationale medical condition disease previous studies literature review justification",
     "participants": "eligibility criteria inclusion exclusion participants enrollment target population demographics",
     "procedures": "study procedures visits tests treatments interventions timeline schedule follow-up assessments",
