@@ -14,7 +14,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from typing import List
-
+import tiktoken
 from fastapi import APIRouter, HTTPException, status
 
 from ..config import (
@@ -34,6 +34,12 @@ router = APIRouter(prefix="/api/protocols", tags=["protocols"])
 
 # Initialize services
 qdrant_service = get_qdrant_service()
+
+def tiktoken_len(text):
+    tokens = tiktoken.encoding_for_model("gpt-4o").encode(
+        text,
+    )
+    return len(tokens)
 
 
 @router.post("/", response_model=ProtocolResponse, status_code=status.HTTP_201_CREATED)
@@ -248,8 +254,7 @@ async def upload_protocol_text(request: dict) -> ProtocolResponse:
             text_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=TEXT_CHUNK_SIZE,
                 chunk_overlap=TEXT_CHUNK_OVERLAP,
-                length_function=len,
-                separators=["\n\n", "\n", ". ", " ", ""],
+                length_function=tiktoken_len
             )
 
             text_chunks = text_splitter.split_text(extracted_text)
