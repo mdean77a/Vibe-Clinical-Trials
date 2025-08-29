@@ -14,17 +14,13 @@ import logging
 import time
 from datetime import datetime, timezone
 from typing import List
-import tiktoken
+
 from fastapi import APIRouter, HTTPException, status
 
-from ..config import (
-    EMBEDDING_MODEL,
-    MIN_CHUNK_LENGTH,
-    TEXT_CHUNK_OVERLAP,
-    TEXT_CHUNK_SIZE,
-)
+from ..config import EMBEDDING_MODEL
 from ..models import ProtocolCreate, ProtocolResponse
 from ..services.qdrant_service import QdrantError, get_qdrant_service
+from ..services.text_processor import chunk_protocol_text
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -35,11 +31,6 @@ router = APIRouter(prefix="/api/protocols", tags=["protocols"])
 # Initialize services
 qdrant_service = get_qdrant_service()
 
-def tiktoken_len(text):
-    tokens = tiktoken.encoding_for_model("gpt-4o").encode(
-        text,
-    )
-    return len(tokens)
 
 
 @router.post("/", response_model=ProtocolResponse, status_code=status.HTTP_201_CREATED)
@@ -246,29 +237,10 @@ async def upload_protocol_text(request: dict) -> ProtocolResponse:
 
         logger.info(f"Processing text upload for study {study_acronym}")
 
-        # Process the extracted text using the same chunking logic
+        # Process the extracted text using shared chunking logic
         try:
-            from langchain_text_splitters import RecursiveCharacterTextSplitter
-
-            # Use the same text splitter configuration as extract_and_chunk_pdf
-            text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=TEXT_CHUNK_SIZE,
-                chunk_overlap=TEXT_CHUNK_OVERLAP,
-                length_function=tiktoken_len
-            )
-
-            text_chunks = text_splitter.split_text(extracted_text)
-
-            # Filter out very short chunks
-            meaningful_chunks = [
-                chunk.strip()
-                for chunk in text_chunks
-                if len(chunk.strip()) > MIN_CHUNK_LENGTH
-            ]
-
-            if not meaningful_chunks:
-                meaningful_chunks = [extracted_text.strip()]
-
+            meaningful_chunks = chunk_protocol_text(extracted_text)
+            
             logger.info(
                 f"Text processed: {len(meaningful_chunks)} chunks from {page_count} pages"
             )
