@@ -13,7 +13,8 @@ from urllib.parse import urlparse, parse_qs
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
 # Import configuration after adding to path
-from app.config import EMBEDDING_MODEL
+from app.config import EMBEDDING_MODEL, TEXT_CHUNK_SIZE, TEXT_CHUNK_OVERLAP, MIN_CHUNK_LENGTH
+from app.api.protocols import tiktoken_len
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -114,22 +115,21 @@ class handler(BaseHTTPRequestHandler):
             
             print(f"Processing text upload for study {study_acronym}")
             
-            # Process the extracted text using the same chunking logic
+            # Process the extracted text using the same chunking logic as backend
             from langchain_text_splitters import RecursiveCharacterTextSplitter
             
-            # Use the same text splitter configuration as extract_and_chunk_pdf
+            # Use the same text splitter configuration from backend
             text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000,
-                chunk_overlap=200,
-                length_function=len,
-                separators=["\n\n", "\n", ". ", " ", ""],
+                chunk_size=TEXT_CHUNK_SIZE,
+                chunk_overlap=TEXT_CHUNK_OVERLAP,
+                length_function=tiktoken_len
             )
             
             text_chunks = text_splitter.split_text(extracted_text)
             
-            # Filter out very short chunks
+            # Filter out very short chunks (using character count for now)
             meaningful_chunks = [
-                chunk.strip() for chunk in text_chunks if len(chunk.strip()) > 50
+                chunk.strip() for chunk in text_chunks if len(chunk.strip()) > MIN_CHUNK_LENGTH
             ]
             
             if not meaningful_chunks:
