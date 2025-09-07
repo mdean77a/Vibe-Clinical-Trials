@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+On startup, check with the user to see if they want to start a new session using the /session-start command.
+
 ## Project Overview
 
 Clinical Trial Accelerator is an AI-powered web application that processes clinical trial protocol PDFs and generates regulatory documents (Informed Consent Forms, site checklists) using LangGraph workflows. Recently migrated from Vite to Next.js 15 with App Router.
