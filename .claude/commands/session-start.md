@@ -11,3 +11,5 @@ After creating the file, create or update `.claude/sessions/.current-session` to
 Confirm the session has started and remind the user they can:
 - Update it with `/project:session-update`
 - End it with `/project:session-end`
+
+**IMPORTANT**:  Always offer to create a new branch from main for the work being done in this session.

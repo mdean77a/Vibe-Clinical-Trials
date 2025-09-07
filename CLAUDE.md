@@ -101,6 +101,8 @@ uv run mypy app/        # Type checking
 
 **IMPORTANT**: When merging branches, ALWAYS preserve commit history using `git merge --no-ff` to maintain a complete development record. Never use fast-forward merges that lose branch context.
 
+**IMPORTANT**:  When starting a new feature always create a new branch from main.
+
 ## Environment Setup
 
 Copy `.env.example` to `.env` and configure:
