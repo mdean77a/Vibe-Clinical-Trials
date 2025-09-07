@@ -60,7 +60,7 @@ def get_llm_chat_model(
         )
 
 
-# Text splitting configuration for document chunking (token-based using tiktoken)
-TEXT_CHUNK_SIZE = 2000  # Number of tokens per chunk (~8000 chars or ~1500 words)
-TEXT_CHUNK_OVERLAP = 200  # Token overlap between chunks
-MIN_CHUNK_LENGTH = 50  # Minimum tokens to keep a chunk
+# Text splitting configuration for document chunking
+TEXT_CHUNK_SIZE = 2000
+TEXT_CHUNK_OVERLAP = 200
+MIN_CHUNK_LENGTH = 50

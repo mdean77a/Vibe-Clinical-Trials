@@ -643,6 +643,7 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
                 {sections.some(s => s.status === 'ready_for_review') && (
                   <button
                     onClick={handleApproveAll}
+                    disabled={anySectionGenerating}
                     style={{
                       padding: '12px 24px',
                       fontSize: '0.875rem',
@@ -650,15 +651,21 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
                       borderRadius: '8px',
                       backgroundColor: '#10b981',
                       color: '#ffffff',
-                      cursor: 'pointer',
+                      cursor: anySectionGenerating ? 'not-allowed' : 'pointer',
                       transition: 'all 0.2s',
+                      opacity: anySectionGenerating ? 0.6 : 1,
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#059669';
+                      if (!anySectionGenerating) {
+                        e.currentTarget.style.backgroundColor = '#059669';
+                      }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#10b981';
+                      if (!anySectionGenerating) {
+                        e.currentTarget.style.backgroundColor = '#10b981';
+                      }
                     }}
+                    title={anySectionGenerating ? 'Wait for all sections to finish generating' : 'Approve all sections that are ready for review'}
                   >
                     ✓ Approve All Sections
                   </button>
