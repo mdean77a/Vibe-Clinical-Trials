@@ -20,6 +20,10 @@ from .services.qdrant_service import get_qdrant_service
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
+
+# Suppress httpx INFO logs that appear as errors in Vercel
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 import os
