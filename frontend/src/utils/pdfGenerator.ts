@@ -257,17 +257,17 @@ const createPDFDocument = async (sections: ICFSectionData[], protocol: Protocol)
       color: '#9ca3af',
     },
     bold: {
+      fontFamily: 'Helvetica',
       fontWeight: 'bold',
-      fontFamily: 'Helvetica-Bold',
     },
     italic: {
+      fontFamily: 'Helvetica',
       fontStyle: 'italic',
-      fontFamily: 'Helvetica-Oblique',
     },
     boldItalic: {
+      fontFamily: 'Helvetica',
       fontWeight: 'bold',
       fontStyle: 'italic',
-      fontFamily: 'Helvetica-BoldOblique',
     },
     code: {
       fontFamily: 'Courier',
