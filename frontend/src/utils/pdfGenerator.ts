@@ -26,10 +26,15 @@ const loadPDFModule = async () => {
  * Parse markdown content into structured elements for PDF rendering
  */
 interface ParsedContent {
-  type: 'paragraph' | 'heading' | 'list' | 'listItem';
-  content: string | TextSegment[];
+  type: 'paragraph' | 'heading' | 'list' | 'listItem' | 'horizontalRule' | 'table';
+  content: string | TextSegment[] | TableData;
   level?: number; // for headings
   children?: ParsedContent[];
+}
+
+interface TableData {
+  headers: string[];
+  rows: string[][];
 }
 
 interface TextSegment {
@@ -118,6 +123,28 @@ const parseMarkdownToStructure = (content: string): ParsedContent[] => {
     
     if (!line) continue;
     
+    // Handle horizontal rules (---, ***, ___)
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) {
+      parsed.push({
+        type: 'horizontalRule',
+        content: ''
+      });
+      continue;
+    }
+    
+    // Handle tables
+    if (line.includes('|')) {
+      const tableData = parseTable(lines, i);
+      if (tableData.table) {
+        parsed.push({
+          type: 'table',
+          content: tableData.table
+        });
+        i = tableData.endIndex; // Skip the processed table lines
+        continue;
+      }
+    }
+    
     // Handle headings
     if (line.startsWith('#')) {
       const level = (line.match(/^#+/) || [''])[0].length;
@@ -146,6 +173,50 @@ const parseMarkdownToStructure = (content: string): ParsedContent[] => {
   }
   
   return parsed;
+};
+
+/**
+ * Parse a table from markdown lines starting at the given index
+ */
+const parseTable = (lines: string[], startIndex: number): { table: TableData | null, endIndex: number } => {
+  let i = startIndex;
+  const tableLines: string[] = [];
+  
+  // Collect all consecutive lines that contain '|'
+  while (i < lines.length && lines[i].trim().includes('|')) {
+    tableLines.push(lines[i].trim());
+    i++;
+  }
+  
+  if (tableLines.length < 2) {
+    return { table: null, endIndex: startIndex };
+  }
+  
+  // Check if second line is a separator (contains only |, -, :, spaces)
+  const separatorLine = tableLines[1];
+  if (!/^[\|\-\:\s]+$/.test(separatorLine)) {
+    return { table: null, endIndex: startIndex };
+  }
+  
+  // Parse header row
+  const headerCells = tableLines[0].split('|').map(cell => cell.trim()).filter(cell => cell);
+  
+  // Parse data rows (skip separator line)
+  const rows: string[][] = [];
+  for (let j = 2; j < tableLines.length; j++) {
+    const rowCells = tableLines[j].split('|').map(cell => cell.trim()).filter(cell => cell);
+    if (rowCells.length > 0) {
+      rows.push(rowCells);
+    }
+  }
+  
+  return {
+    table: {
+      headers: headerCells,
+      rows: rows
+    },
+    endIndex: i - 1
+  };
 };
 
 /**
@@ -275,6 +346,39 @@ const createPDFDocument = async (sections: ICFSectionData[], protocol: Protocol)
       backgroundColor: '#f3f4f6',
       padding: 1,
     },
+    horizontalRule: {
+      marginTop: 12,
+      marginBottom: 12,
+      borderBottom: '1pt solid #d1d5db',
+      width: '100%',
+    },
+    table: {
+      marginTop: 12,
+      marginBottom: 12,
+      border: '1pt solid #d1d5db',
+    },
+    tableHeader: {
+      flexDirection: 'row',
+      backgroundColor: '#f9fafb',
+      borderBottom: '1pt solid #d1d5db',
+    },
+    tableRow: {
+      flexDirection: 'row',
+      borderBottom: '0.5pt solid #e5e7eb',
+    },
+    tableCell: {
+      flex: 1,
+      padding: 8,
+      fontSize: 10,
+      borderRight: '0.5pt solid #e5e7eb',
+    },
+    tableCellHeader: {
+      flex: 1,
+      padding: 8,
+      fontSize: 10,
+      fontWeight: 'bold',
+      borderRight: '0.5pt solid #d1d5db',
+    },
   });
 
   // Function to render text segments with inline formatting
@@ -302,7 +406,7 @@ const createPDFDocument = async (sections: ICFSectionData[], protocol: Protocol)
   };
 
   // Function to render parsed markdown content
-  const renderParsedContent = (parsedContent: ParsedContent[], Text: any) => {
+  const renderParsedContent = (parsedContent: ParsedContent[], Text: any, View: any) => {
     return parsedContent.map((item, index) => {
       switch (item.type) {
         case 'heading':
@@ -310,30 +414,63 @@ const createPDFDocument = async (sections: ICFSectionData[], protocol: Protocol)
                               item.level === 2 ? styles.heading2 : styles.heading3;
           if (typeof item.content === 'string') {
             return React.createElement(Text, { key: index, style: headingStyle }, item.content);
-          } else {
+          } else if (Array.isArray(item.content)) {
             return React.createElement(Text, { key: index, style: headingStyle }, 
               renderTextSegments(item.content, {}, Text)
             );
           }
+          break;
         case 'listItem':
           if (typeof item.content === 'string') {
             return React.createElement(Text, { key: index, style: styles.listItem }, `• ${item.content}`);
-          } else {
+          } else if (Array.isArray(item.content)) {
             return React.createElement(Text, { key: index, style: styles.listItem }, 
               ['• ', ...renderTextSegments(item.content, {}, Text)]
             );
           }
+          break;
+        case 'horizontalRule':
+          return React.createElement(View, { key: index, style: styles.horizontalRule });
+        case 'table':
+          if (typeof item.content === 'object' && !Array.isArray(item.content) && item.content !== null) {
+            const table = item.content as TableData;
+            return React.createElement(View, { key: index, style: styles.table }, [
+              // Header row
+              React.createElement(View, { key: 'header', style: styles.tableHeader }, 
+                table.headers.map((header, cellIndex) =>
+                  React.createElement(Text, { 
+                    key: cellIndex, 
+                    style: styles.tableCellHeader 
+                  }, header)
+                )
+              ),
+              // Data rows
+              ...table.rows.map((row, rowIndex) =>
+                React.createElement(View, { key: rowIndex, style: styles.tableRow },
+                  row.map((cell, cellIndex) =>
+                    React.createElement(Text, { 
+                      key: cellIndex, 
+                      style: styles.tableCell 
+                    }, cell)
+                  )
+                )
+              )
+            ]);
+          }
+          break;
         case 'paragraph':
         default:
           if (typeof item.content === 'string') {
             return React.createElement(Text, { key: index, style: styles.paragraph }, item.content);
-          } else {
+          } else if (Array.isArray(item.content)) {
             return React.createElement(Text, { key: index, style: styles.paragraph }, 
               renderTextSegments(item.content, {}, Text)
             );
           }
+          break;
       }
-    });
+      return null;
+    }).filter(Boolean);
   };
 
   // Filter sections to include only those that are ready for review or approved
@@ -391,7 +528,7 @@ const createPDFDocument = async (sections: ICFSectionData[], protocol: Protocol)
             `${index + 1}. ${section.title}`
           ),
           React.createElement(View, { key: 'content' }, 
-            renderParsedContent(parsedContent, Text)
+            renderParsedContent(parsedContent, Text, View)
           ),
           React.createElement(View, { 
             key: 'status', 
