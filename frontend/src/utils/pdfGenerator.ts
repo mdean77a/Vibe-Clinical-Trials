@@ -28,7 +28,7 @@ const loadPDFModule = async () => {
 interface ParsedContent {
   type: 'paragraph' | 'heading' | 'list' | 'listItem' | 'horizontalRule' | 'table';
   content: string | TextSegment[] | TableData;
-  level?: number; // for headings
+  level?: number; // for headings and list indentation
   children?: ParsedContent[];
 }
 
@@ -155,12 +155,15 @@ const parseMarkdownToStructure = (content: string): ParsedContent[] => {
         level: level
       });
     }
-    // Handle list items
-    else if (line.startsWith('- ') || line.startsWith('* ') || /^\d+\.\s/.test(line)) {
-      const listContent = line.replace(/^[-*]\s|^\d+\.\s/, '');
+    // Handle list items with indentation detection
+    else if (/^(\s*)[-*]\s/.test(line) || /^(\s*)\d+\.\s/.test(line)) {
+      const indentMatch = line.match(/^(\s*)/);
+      const indentLevel = indentMatch ? Math.floor(indentMatch[1].length / 2) : 0; // 2 spaces = 1 level
+      const listContent = line.replace(/^\s*[-*]\s|\s*\d+\.\s/, '');
       parsed.push({
         type: 'listItem',
-        content: parseInlineMarkdown(listContent)
+        content: parseInlineMarkdown(listContent),
+        level: indentLevel
       });
     }
     // Handle paragraphs
@@ -309,6 +312,21 @@ const createPDFDocument = async (sections: ICFSectionData[], protocol: Protocol)
       marginBottom: 4,
       color: '#1f2937',
     },
+    listItemLevel1: {
+      marginLeft: 30,
+      marginBottom: 4,
+      color: '#1f2937',
+    },
+    listItemLevel2: {
+      marginLeft: 45,
+      marginBottom: 4,
+      color: '#1f2937',
+    },
+    listItemLevel3: {
+      marginLeft: 60,
+      marginBottom: 4,
+      color: '#1f2937',
+    },
     footer: {
       position: 'absolute',
       bottom: 30,
@@ -381,6 +399,16 @@ const createPDFDocument = async (sections: ICFSectionData[], protocol: Protocol)
     },
   });
 
+  // Function to get appropriate bullet character based on indentation level
+  const getBulletCharacter = (level: number): string => {
+    switch (level) {
+      case 0: return '•';
+      case 1: return '◦';
+      case 2: return '▪';
+      default: return '▫';
+    }
+  };
+
   // Function to render text segments with inline formatting
   const renderTextSegments = (segments: TextSegment[], baseStyle: any, Text: any) => {
     if (typeof segments === 'string') {
@@ -421,11 +449,20 @@ const createPDFDocument = async (sections: ICFSectionData[], protocol: Protocol)
           }
           break;
         case 'listItem':
+          // Determine the appropriate style based on indentation level
+          let listStyle = styles.listItem;
+          if (item.level === 1) listStyle = styles.listItemLevel1;
+          else if (item.level === 2) listStyle = styles.listItemLevel2;
+          else if (item.level && item.level >= 3) listStyle = styles.listItemLevel3;
+          
+          // Determine bullet character based on level
+          const bulletChar = getBulletCharacter(item.level || 0);
+          
           if (typeof item.content === 'string') {
-            return React.createElement(Text, { key: index, style: styles.listItem }, `• ${item.content}`);
+            return React.createElement(Text, { key: index, style: listStyle }, `${bulletChar} ${item.content}`);
           } else if (Array.isArray(item.content)) {
-            return React.createElement(Text, { key: index, style: styles.listItem }, 
-              ['• ', ...renderTextSegments(item.content, {}, Text)]
+            return React.createElement(Text, { key: index, style: listStyle }, 
+              [`${bulletChar} `, ...renderTextSegments(item.content, {}, Text)]
             );
           }
           break;
