@@ -26,11 +26,93 @@ const loadPDFModule = async () => {
  * Parse markdown content into structured elements for PDF rendering
  */
 interface ParsedContent {
-  type: 'paragraph' | 'heading' | 'list' | 'listItem';
-  content: string;
-  level?: number; // for headings
+  type: 'paragraph' | 'heading' | 'list' | 'listItem' | 'horizontalRule' | 'table';
+  content: string | TextSegment[] | TableData;
+  level?: number; // for headings and list indentation
   children?: ParsedContent[];
 }
+
+interface TableData {
+  headers: string[];
+  rows: string[][];
+}
+
+interface TextSegment {
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+  code?: boolean;
+}
+
+/**
+ * Parse inline markdown formatting (bold, italic, code) into segments
+ */
+const parseInlineMarkdown = (text: string): TextSegment[] => {
+  const segments: TextSegment[] = [];
+  let remaining = text;
+  
+  while (remaining.length > 0) {
+    let matched = false;
+    
+    // Check for bold text (**text** or __text__)
+    const boldMatch = remaining.match(/^(\*\*|__)([^*_]+)(\*\*|__)/);
+    if (boldMatch) {
+      if (boldMatch.index! > 0) {
+        segments.push({ text: remaining.substring(0, boldMatch.index!) });
+      }
+      segments.push({ text: boldMatch[2], bold: true });
+      remaining = remaining.substring(boldMatch.index! + boldMatch[0].length);
+      matched = true;
+    }
+    
+    // Check for italic text (*text* or _text_) - only if not bold
+    if (!matched) {
+      const italicMatch = remaining.match(/^(\*|_)([^*_]+)(\*|_)/);
+      if (italicMatch) {
+        if (italicMatch.index! > 0) {
+          segments.push({ text: remaining.substring(0, italicMatch.index!) });
+        }
+        segments.push({ text: italicMatch[2], italic: true });
+        remaining = remaining.substring(italicMatch.index! + italicMatch[0].length);
+        matched = true;
+      }
+    }
+    
+    // Check for inline code (`code`)
+    if (!matched) {
+      const codeMatch = remaining.match(/^`([^`]+)`/);
+      if (codeMatch) {
+        if (codeMatch.index! > 0) {
+          segments.push({ text: remaining.substring(0, codeMatch.index!) });
+        }
+        segments.push({ text: codeMatch[1], code: true });
+        remaining = remaining.substring(codeMatch.index! + codeMatch[0].length);
+        matched = true;
+      }
+    }
+    
+    // If no markdown found, take the next character
+    if (!matched) {
+      // Find the next potential markdown character
+      const nextMarkdown = remaining.search(/[\*_`]/);
+      if (nextMarkdown === -1) {
+        // No more markdown, add the rest as plain text
+        segments.push({ text: remaining });
+        break;
+      } else if (nextMarkdown === 0) {
+        // Markdown character at start but didn't match pattern, skip it
+        segments.push({ text: remaining[0] });
+        remaining = remaining.substring(1);
+      } else {
+        // Add plain text up to next markdown character
+        segments.push({ text: remaining.substring(0, nextMarkdown) });
+        remaining = remaining.substring(nextMarkdown);
+      }
+    }
+  }
+  
+  return segments;
+};
 
 const parseMarkdownToStructure = (content: string): ParsedContent[] => {
   const lines = content.split('\n');
@@ -41,34 +123,103 @@ const parseMarkdownToStructure = (content: string): ParsedContent[] => {
     
     if (!line) continue;
     
+    // Handle horizontal rules (---, ***, ___)
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) {
+      parsed.push({
+        type: 'horizontalRule',
+        content: ''
+      });
+      continue;
+    }
+    
+    // Handle tables
+    if (line.includes('|')) {
+      const tableData = parseTable(lines, i);
+      if (tableData.table) {
+        parsed.push({
+          type: 'table',
+          content: tableData.table
+        });
+        i = tableData.endIndex; // Skip the processed table lines
+        continue;
+      }
+    }
+    
     // Handle headings
     if (line.startsWith('#')) {
       const level = (line.match(/^#+/) || [''])[0].length;
       const headingText = line.replace(/^#+\s*/, '');
       parsed.push({
         type: 'heading',
-        content: headingText,
+        content: parseInlineMarkdown(headingText),
         level: level
       });
     }
-    // Handle list items
-    else if (line.startsWith('- ') || line.startsWith('* ') || /^\d+\.\s/.test(line)) {
-      const listContent = line.replace(/^[-*]\s|^\d+\.\s/, '');
+    // Handle list items with indentation detection
+    else if (/^(\s*)[-*]\s/.test(line) || /^(\s*)\d+\.\s/.test(line)) {
+      const indentMatch = line.match(/^(\s*)/);
+      const indentLevel = indentMatch ? Math.floor(indentMatch[1].length / 2) : 0; // 2 spaces = 1 level
+      const listContent = line.replace(/^\s*[-*]\s|\s*\d+\.\s/, '');
       parsed.push({
         type: 'listItem',
-        content: listContent
+        content: parseInlineMarkdown(listContent),
+        level: indentLevel
       });
     }
     // Handle paragraphs
     else {
       parsed.push({
         type: 'paragraph',
-        content: line
+        content: parseInlineMarkdown(line)
       });
     }
   }
   
   return parsed;
+};
+
+/**
+ * Parse a table from markdown lines starting at the given index
+ */
+const parseTable = (lines: string[], startIndex: number): { table: TableData | null, endIndex: number } => {
+  let i = startIndex;
+  const tableLines: string[] = [];
+  
+  // Collect all consecutive lines that contain '|'
+  while (i < lines.length && lines[i].trim().includes('|')) {
+    tableLines.push(lines[i].trim());
+    i++;
+  }
+  
+  if (tableLines.length < 2) {
+    return { table: null, endIndex: startIndex };
+  }
+  
+  // Check if second line is a separator (contains only |, -, :, spaces)
+  const separatorLine = tableLines[1];
+  if (!/^[\|\-\:\s]+$/.test(separatorLine)) {
+    return { table: null, endIndex: startIndex };
+  }
+  
+  // Parse header row
+  const headerCells = tableLines[0].split('|').map(cell => cell.trim()).filter(cell => cell);
+  
+  // Parse data rows (skip separator line)
+  const rows: string[][] = [];
+  for (let j = 2; j < tableLines.length; j++) {
+    const rowCells = tableLines[j].split('|').map(cell => cell.trim()).filter(cell => cell);
+    if (rowCells.length > 0) {
+      rows.push(rowCells);
+    }
+  }
+  
+  return {
+    table: {
+      headers: headerCells,
+      rows: rows
+    },
+    endIndex: i - 1
+  };
 };
 
 /**
@@ -161,6 +312,21 @@ const createPDFDocument = async (sections: ICFSectionData[], protocol: Protocol)
       marginBottom: 4,
       color: '#1f2937',
     },
+    listItemLevel1: {
+      marginLeft: 30,
+      marginBottom: 4,
+      color: '#1f2937',
+    },
+    listItemLevel2: {
+      marginLeft: 45,
+      marginBottom: 4,
+      color: '#1f2937',
+    },
+    listItemLevel3: {
+      marginLeft: 60,
+      marginBottom: 4,
+      color: '#1f2937',
+    },
     footer: {
       position: 'absolute',
       bottom: 30,
@@ -179,23 +345,169 @@ const createPDFDocument = async (sections: ICFSectionData[], protocol: Protocol)
       fontSize: 9,
       color: '#9ca3af',
     },
+    bold: {
+      fontFamily: 'Helvetica',
+      fontWeight: 'bold',
+    },
+    italic: {
+      fontFamily: 'Helvetica',
+      fontStyle: 'italic',
+    },
+    boldItalic: {
+      fontFamily: 'Helvetica',
+      fontWeight: 'bold',
+      fontStyle: 'italic',
+    },
+    code: {
+      fontFamily: 'Courier',
+      fontSize: 10,
+      backgroundColor: '#f3f4f6',
+      padding: 1,
+    },
+    horizontalRule: {
+      marginTop: 12,
+      marginBottom: 12,
+      borderBottom: '1pt solid #d1d5db',
+      width: '100%',
+    },
+    table: {
+      marginTop: 12,
+      marginBottom: 12,
+      border: '1pt solid #d1d5db',
+    },
+    tableHeader: {
+      flexDirection: 'row',
+      backgroundColor: '#f9fafb',
+      borderBottom: '1pt solid #d1d5db',
+    },
+    tableRow: {
+      flexDirection: 'row',
+      borderBottom: '0.5pt solid #e5e7eb',
+    },
+    tableCell: {
+      flex: 1,
+      padding: 8,
+      fontSize: 10,
+      borderRight: '0.5pt solid #e5e7eb',
+    },
+    tableCellHeader: {
+      flex: 1,
+      padding: 8,
+      fontSize: 10,
+      fontWeight: 'bold',
+      borderRight: '0.5pt solid #d1d5db',
+    },
   });
 
+  // Function to get appropriate bullet character based on indentation level
+  const getBulletCharacter = (level: number): string => {
+    switch (level) {
+      case 0: return '•';
+      case 1: return '◦';
+      case 2: return '▪';
+      default: return '▫';
+    }
+  };
+
+  // Function to render text segments with inline formatting
+  const renderTextSegments = (segments: TextSegment[], baseStyle: any, Text: any) => {
+    if (typeof segments === 'string') {
+      // Fallback for plain string content
+      return segments;
+    }
+    
+    return segments.map((segment, idx) => {
+      let segmentStyle = { ...baseStyle };
+      
+      if (segment.bold && segment.italic) {
+        segmentStyle = { ...segmentStyle, ...styles.boldItalic };
+      } else if (segment.bold) {
+        segmentStyle = { ...segmentStyle, ...styles.bold };
+      } else if (segment.italic) {
+        segmentStyle = { ...segmentStyle, ...styles.italic };
+      } else if (segment.code) {
+        segmentStyle = { ...segmentStyle, ...styles.code };
+      }
+      
+      return React.createElement(Text, { key: idx, style: segmentStyle }, segment.text);
+    });
+  };
+
   // Function to render parsed markdown content
-  const renderParsedContent = (parsedContent: ParsedContent[], Text: any) => {
+  const renderParsedContent = (parsedContent: ParsedContent[], Text: any, View: any) => {
     return parsedContent.map((item, index) => {
       switch (item.type) {
         case 'heading':
           const headingStyle = item.level === 1 ? styles.heading1 : 
                               item.level === 2 ? styles.heading2 : styles.heading3;
-          return React.createElement(Text, { key: index, style: headingStyle }, item.content);
+          if (typeof item.content === 'string') {
+            return React.createElement(Text, { key: index, style: headingStyle }, item.content);
+          } else if (Array.isArray(item.content)) {
+            return React.createElement(Text, { key: index, style: headingStyle }, 
+              renderTextSegments(item.content, {}, Text)
+            );
+          }
+          break;
         case 'listItem':
-          return React.createElement(Text, { key: index, style: styles.listItem }, `• ${item.content}`);
+          // Determine the appropriate style based on indentation level
+          let listStyle = styles.listItem;
+          if (item.level === 1) listStyle = styles.listItemLevel1;
+          else if (item.level === 2) listStyle = styles.listItemLevel2;
+          else if (item.level && item.level >= 3) listStyle = styles.listItemLevel3;
+          
+          // Determine bullet character based on level
+          const bulletChar = getBulletCharacter(item.level || 0);
+          
+          if (typeof item.content === 'string') {
+            return React.createElement(Text, { key: index, style: listStyle }, `${bulletChar} ${item.content}`);
+          } else if (Array.isArray(item.content)) {
+            return React.createElement(Text, { key: index, style: listStyle }, 
+              [`${bulletChar} `, ...renderTextSegments(item.content, {}, Text)]
+            );
+          }
+          break;
+        case 'horizontalRule':
+          return React.createElement(View, { key: index, style: styles.horizontalRule });
+        case 'table':
+          if (typeof item.content === 'object' && !Array.isArray(item.content) && item.content !== null) {
+            const table = item.content as TableData;
+            return React.createElement(View, { key: index, style: styles.table }, [
+              // Header row
+              React.createElement(View, { key: 'header', style: styles.tableHeader }, 
+                table.headers.map((header, cellIndex) =>
+                  React.createElement(Text, { 
+                    key: cellIndex, 
+                    style: styles.tableCellHeader 
+                  }, header)
+                )
+              ),
+              // Data rows
+              ...table.rows.map((row, rowIndex) =>
+                React.createElement(View, { key: rowIndex, style: styles.tableRow },
+                  row.map((cell, cellIndex) =>
+                    React.createElement(Text, { 
+                      key: cellIndex, 
+                      style: styles.tableCell 
+                    }, cell)
+                  )
+                )
+              )
+            ]);
+          }
+          break;
         case 'paragraph':
         default:
-          return React.createElement(Text, { key: index, style: styles.paragraph }, item.content);
+          if (typeof item.content === 'string') {
+            return React.createElement(Text, { key: index, style: styles.paragraph }, item.content);
+          } else if (Array.isArray(item.content)) {
+            return React.createElement(Text, { key: index, style: styles.paragraph }, 
+              renderTextSegments(item.content, {}, Text)
+            );
+          }
+          break;
       }
-    });
+      return null;
+    }).filter(Boolean);
   };
 
   // Filter sections to include only those that are ready for review or approved
@@ -253,7 +565,7 @@ const createPDFDocument = async (sections: ICFSectionData[], protocol: Protocol)
             `${index + 1}. ${section.title}`
           ),
           React.createElement(View, { key: 'content' }, 
-            renderParsedContent(parsedContent, Text)
+            renderParsedContent(parsedContent, Text, View)
           ),
           React.createElement(View, { 
             key: 'status', 
