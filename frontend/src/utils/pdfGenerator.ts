@@ -27,10 +27,87 @@ const loadPDFModule = async () => {
  */
 interface ParsedContent {
   type: 'paragraph' | 'heading' | 'list' | 'listItem';
-  content: string;
+  content: string | TextSegment[];
   level?: number; // for headings
   children?: ParsedContent[];
 }
+
+interface TextSegment {
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+  code?: boolean;
+}
+
+/**
+ * Parse inline markdown formatting (bold, italic, code) into segments
+ */
+const parseInlineMarkdown = (text: string): TextSegment[] => {
+  const segments: TextSegment[] = [];
+  let remaining = text;
+  
+  while (remaining.length > 0) {
+    let matched = false;
+    
+    // Check for bold text (**text** or __text__)
+    const boldMatch = remaining.match(/^(\*\*|__)([^*_]+)(\*\*|__)/);
+    if (boldMatch) {
+      if (boldMatch.index! > 0) {
+        segments.push({ text: remaining.substring(0, boldMatch.index!) });
+      }
+      segments.push({ text: boldMatch[2], bold: true });
+      remaining = remaining.substring(boldMatch.index! + boldMatch[0].length);
+      matched = true;
+    }
+    
+    // Check for italic text (*text* or _text_) - only if not bold
+    if (!matched) {
+      const italicMatch = remaining.match(/^(\*|_)([^*_]+)(\*|_)/);
+      if (italicMatch) {
+        if (italicMatch.index! > 0) {
+          segments.push({ text: remaining.substring(0, italicMatch.index!) });
+        }
+        segments.push({ text: italicMatch[2], italic: true });
+        remaining = remaining.substring(italicMatch.index! + italicMatch[0].length);
+        matched = true;
+      }
+    }
+    
+    // Check for inline code (`code`)
+    if (!matched) {
+      const codeMatch = remaining.match(/^`([^`]+)`/);
+      if (codeMatch) {
+        if (codeMatch.index! > 0) {
+          segments.push({ text: remaining.substring(0, codeMatch.index!) });
+        }
+        segments.push({ text: codeMatch[1], code: true });
+        remaining = remaining.substring(codeMatch.index! + codeMatch[0].length);
+        matched = true;
+      }
+    }
+    
+    // If no markdown found, take the next character
+    if (!matched) {
+      // Find the next potential markdown character
+      const nextMarkdown = remaining.search(/[\*_`]/);
+      if (nextMarkdown === -1) {
+        // No more markdown, add the rest as plain text
+        segments.push({ text: remaining });
+        break;
+      } else if (nextMarkdown === 0) {
+        // Markdown character at start but didn't match pattern, skip it
+        segments.push({ text: remaining[0] });
+        remaining = remaining.substring(1);
+      } else {
+        // Add plain text up to next markdown character
+        segments.push({ text: remaining.substring(0, nextMarkdown) });
+        remaining = remaining.substring(nextMarkdown);
+      }
+    }
+  }
+  
+  return segments;
+};
 
 const parseMarkdownToStructure = (content: string): ParsedContent[] => {
   const lines = content.split('\n');
@@ -47,7 +124,7 @@ const parseMarkdownToStructure = (content: string): ParsedContent[] => {
       const headingText = line.replace(/^#+\s*/, '');
       parsed.push({
         type: 'heading',
-        content: headingText,
+        content: parseInlineMarkdown(headingText),
         level: level
       });
     }
@@ -56,14 +133,14 @@ const parseMarkdownToStructure = (content: string): ParsedContent[] => {
       const listContent = line.replace(/^[-*]\s|^\d+\.\s/, '');
       parsed.push({
         type: 'listItem',
-        content: listContent
+        content: parseInlineMarkdown(listContent)
       });
     }
     // Handle paragraphs
     else {
       parsed.push({
         type: 'paragraph',
-        content: line
+        content: parseInlineMarkdown(line)
       });
     }
   }
@@ -179,7 +256,50 @@ const createPDFDocument = async (sections: ICFSectionData[], protocol: Protocol)
       fontSize: 9,
       color: '#9ca3af',
     },
+    bold: {
+      fontWeight: 'bold',
+      fontFamily: 'Helvetica-Bold',
+    },
+    italic: {
+      fontStyle: 'italic',
+      fontFamily: 'Helvetica-Oblique',
+    },
+    boldItalic: {
+      fontWeight: 'bold',
+      fontStyle: 'italic',
+      fontFamily: 'Helvetica-BoldOblique',
+    },
+    code: {
+      fontFamily: 'Courier',
+      fontSize: 10,
+      backgroundColor: '#f3f4f6',
+      padding: 1,
+    },
   });
+
+  // Function to render text segments with inline formatting
+  const renderTextSegments = (segments: TextSegment[], baseStyle: any, Text: any) => {
+    if (typeof segments === 'string') {
+      // Fallback for plain string content
+      return segments;
+    }
+    
+    return segments.map((segment, idx) => {
+      let segmentStyle = { ...baseStyle };
+      
+      if (segment.bold && segment.italic) {
+        segmentStyle = { ...segmentStyle, ...styles.boldItalic };
+      } else if (segment.bold) {
+        segmentStyle = { ...segmentStyle, ...styles.bold };
+      } else if (segment.italic) {
+        segmentStyle = { ...segmentStyle, ...styles.italic };
+      } else if (segment.code) {
+        segmentStyle = { ...segmentStyle, ...styles.code };
+      }
+      
+      return React.createElement(Text, { key: idx, style: segmentStyle }, segment.text);
+    });
+  };
 
   // Function to render parsed markdown content
   const renderParsedContent = (parsedContent: ParsedContent[], Text: any) => {
@@ -188,12 +308,30 @@ const createPDFDocument = async (sections: ICFSectionData[], protocol: Protocol)
         case 'heading':
           const headingStyle = item.level === 1 ? styles.heading1 : 
                               item.level === 2 ? styles.heading2 : styles.heading3;
-          return React.createElement(Text, { key: index, style: headingStyle }, item.content);
+          if (typeof item.content === 'string') {
+            return React.createElement(Text, { key: index, style: headingStyle }, item.content);
+          } else {
+            return React.createElement(Text, { key: index, style: headingStyle }, 
+              renderTextSegments(item.content, {}, Text)
+            );
+          }
         case 'listItem':
-          return React.createElement(Text, { key: index, style: styles.listItem }, `• ${item.content}`);
+          if (typeof item.content === 'string') {
+            return React.createElement(Text, { key: index, style: styles.listItem }, `• ${item.content}`);
+          } else {
+            return React.createElement(Text, { key: index, style: styles.listItem }, 
+              ['• ', ...renderTextSegments(item.content, {}, Text)]
+            );
+          }
         case 'paragraph':
         default:
-          return React.createElement(Text, { key: index, style: styles.paragraph }, item.content);
+          if (typeof item.content === 'string') {
+            return React.createElement(Text, { key: index, style: styles.paragraph }, item.content);
+          } else {
+            return React.createElement(Text, { key: index, style: styles.paragraph }, 
+              renderTextSegments(item.content, {}, Text)
+            );
+          }
       }
     });
   };
