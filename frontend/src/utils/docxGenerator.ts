@@ -327,6 +327,7 @@ const convertElementsToDocx = (elements: ParsedElement[], docxModule: any) => {
           spacing: {
             before: 240,
             after: 120,
+            line: 240, // Single spacing
           },
         }));
         break;
@@ -344,8 +345,9 @@ const convertElementsToDocx = (elements: ParsedElement[], docxModule: any) => {
             left: indent,
           },
           spacing: {
-            before: 60,
-            after: 60,
+            before: 0,
+            after: 0,
+            line: 240, // Single spacing
           },
         }));
         break;
@@ -420,9 +422,9 @@ const convertElementsToDocx = (elements: ParsedElement[], docxModule: any) => {
         docxElements.push(new Paragraph({
           children: createTextRuns(element.content, docxModule),
           spacing: {
-            before: 120,
+            before: 0,
             after: 120,
-            line: 360, // 1.5 line spacing
+            line: 240, // Single spacing
           },
         }));
         break;
@@ -443,9 +445,7 @@ const createWordDocument = async (sections: ICFSectionData[], protocol: Protocol
     TextRun, 
     HeadingLevel, 
     AlignmentType, 
-    PageBreak,
-    TableOfContents,
-    StyleLevel
+    PageBreak
   } = docxModule;
 
   // Filter sections to include only completed ones
@@ -536,7 +536,7 @@ const createWordDocument = async (sections: ICFSectionData[], protocol: Protocol
             size: 24,
           }),
         ],
-        spacing: { before: 120, after: 120 },
+        spacing: { before: 60, after: 60, line: 240 },
       })
     ),
   ];
@@ -555,7 +555,7 @@ const createWordDocument = async (sections: ICFSectionData[], protocol: Protocol
       new Paragraph({
         text: `${index + 1}. ${section.title}`,
         heading: HeadingLevel.HEADING_1,
-        spacing: { before: 240, after: 480 },
+        spacing: { before: 240, after: 120, line: 240 },
       })
     );
     
@@ -587,7 +587,7 @@ const createWordDocument = async (sections: ICFSectionData[], protocol: Protocol
             italics: true,
           }),
         ],
-        spacing: { before: 480, after: 240 },
+        spacing: { before: 240, after: 120, line: 240 },
         border: {
           top: { style: 'single', size: 1, color: 'CCCCCC' },
         },
