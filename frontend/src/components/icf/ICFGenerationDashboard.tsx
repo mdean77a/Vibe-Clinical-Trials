@@ -200,6 +200,27 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
         completedSections: new Set(),
         errors: [error instanceof Error ? error.message : 'Unknown error occurred'],
       });
+    } finally {
+      // Ensure any sections still marked as generating are marked as complete
+      // This handles cases where section_complete event is not received
+      setSections(prev => prev.map(section => {
+        if (section.status === 'generating' && section.content) {
+          console.log(`Stream ended - finalizing section ${section.name} that was still marked as generating`);
+          return {
+            ...section,
+            status: 'ready_for_review' as const,
+            wordCount: section.content.split(/\s+/).length,
+          };
+        }
+        return section;
+      }));
+      
+      // Always ensure isGenerating is set to false when stream ends
+      setProgress(prev => ({
+        ...prev,
+        isGenerating: false,
+        currentSection: null,
+      }));
     }
   };
 
@@ -302,6 +323,19 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
           ? { ...section, status: 'error' as const }
           : section
       ));
+    } finally {
+      // Ensure the section is marked as complete if it has content but is still generating
+      setSections(prev => prev.map(section => {
+        if (section.name === sectionName && section.status === 'generating' && section.content) {
+          console.log(`Stream ended - finalizing section ${section.name} that was still marked as generating`);
+          return {
+            ...section,
+            status: 'ready_for_review' as const,
+            wordCount: section.content.split(/\s+/).length,
+          };
+        }
+        return section;
+      }));
     }
   };
 
