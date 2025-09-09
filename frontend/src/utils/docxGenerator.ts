@@ -24,19 +24,152 @@ const loadDocxModule = async () => {
  * Parse markdown content into structured elements for Word rendering
  */
 interface ParsedElement {
-  type: 'paragraph' | 'heading' | 'listItem';
-  content: string;
-  level?: number; // for headings
+  type: 'paragraph' | 'heading' | 'listItem' | 'horizontalRule' | 'table';
+  content: string | TextSegment[] | TableData;
+  level?: number; // for headings and list indentation
 }
+
+interface TextSegment {
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+  code?: boolean;
+}
+
+interface TableData {
+  headers: string[];
+  rows: string[][];
+}
+
+/**
+ * Parse inline markdown (bold, italic, code) into text segments
+ */
+const parseInlineMarkdown = (text: string): TextSegment[] => {
+  const segments: TextSegment[] = [];
+  let remaining = text;
+  
+  while (remaining.length > 0) {
+    // Check for bold (**text** or __text__)
+    const boldMatch = remaining.match(/^\*\*([^*]+)\*\*|^__([^_]+)__/);
+    if (boldMatch) {
+      const boldText = boldMatch[1] || boldMatch[2];
+      segments.push({ text: boldText, bold: true });
+      remaining = remaining.substring(boldMatch[0].length);
+      continue;
+    }
+    
+    // Check for italic (*text* or _text_)
+    const italicMatch = remaining.match(/^\*([^*]+)\*|^_([^_]+)_/);
+    if (italicMatch) {
+      const italicText = italicMatch[1] || italicMatch[2];
+      segments.push({ text: italicText, italic: true });
+      remaining = remaining.substring(italicMatch[0].length);
+      continue;
+    }
+    
+    // Check for inline code (`code`)
+    const codeMatch = remaining.match(/^`([^`]+)`/);
+    if (codeMatch) {
+      segments.push({ text: codeMatch[1], code: true });
+      remaining = remaining.substring(codeMatch[0].length);
+      continue;
+    }
+    
+    // Find next markdown character
+    const nextMarkdown = remaining.search(/[*_`]/);
+    if (nextMarkdown === -1) {
+      // No more markdown, add the rest as plain text
+      segments.push({ text: remaining });
+      break;
+    } else if (nextMarkdown === 0) {
+      // Markdown character at start but didn't match pattern, skip it
+      segments.push({ text: remaining[0] });
+      remaining = remaining.substring(1);
+    } else {
+      // Add plain text up to next markdown character
+      segments.push({ text: remaining.substring(0, nextMarkdown) });
+      remaining = remaining.substring(nextMarkdown);
+    }
+  }
+  
+  return segments;
+};
+
+/**
+ * Parse a table from markdown lines
+ */
+const parseTable = (lines: string[], startIndex: number): { table: TableData | null, endIndex: number } => {
+  let i = startIndex;
+  const tableLines: string[] = [];
+  
+  // Collect all consecutive lines that contain '|'
+  while (i < lines.length && lines[i].includes('|')) {
+    tableLines.push(lines[i]);
+    i++;
+  }
+  
+  if (tableLines.length < 2) {
+    return { table: null, endIndex: startIndex };
+  }
+  
+  // Check if second line is a separator (contains only |, -, :, spaces)
+  const separatorLine = tableLines[1];
+  if (!/^[\|\-\:\s]+$/.test(separatorLine)) {
+    return { table: null, endIndex: startIndex };
+  }
+  
+  // Parse header row
+  const headerCells = tableLines[0].split('|').map(cell => cell.trim()).filter(cell => cell);
+  
+  // Parse data rows (skip separator line)
+  const rows: string[][] = [];
+  for (let j = 2; j < tableLines.length; j++) {
+    const rowCells = tableLines[j].split('|').map(cell => cell.trim()).filter(cell => cell);
+    if (rowCells.length > 0) {
+      rows.push(rowCells);
+    }
+  }
+  
+  return {
+    table: {
+      headers: headerCells,
+      rows: rows
+    },
+    endIndex: i - 1
+  };
+};
 
 const parseMarkdownToElements = (content: string): ParsedElement[] => {
   const lines = content.split('\n');
   const elements: ParsedElement[] = [];
   
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmedLine = line.trim();
     
     if (!trimmedLine) continue;
+    
+    // Handle horizontal rules (---, ***, ___)
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmedLine)) {
+      elements.push({
+        type: 'horizontalRule',
+        content: ''
+      });
+      continue;
+    }
+    
+    // Handle tables
+    if (trimmedLine.includes('|')) {
+      const tableData = parseTable(lines, i);
+      if (tableData.table) {
+        elements.push({
+          type: 'table',
+          content: tableData.table
+        });
+        i = tableData.endIndex; // Skip the processed table lines
+        continue;
+      }
+    }
     
     // Handle headings
     if (trimmedLine.startsWith('#')) {
@@ -44,23 +177,26 @@ const parseMarkdownToElements = (content: string): ParsedElement[] => {
       const headingText = trimmedLine.replace(/^#+\s*/, '');
       elements.push({
         type: 'heading',
-        content: headingText,
+        content: parseInlineMarkdown(headingText),
         level: Math.min(level, 6) // Word supports up to 6 heading levels
       });
     }
-    // Handle list items
-    else if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ') || /^\d+\.\s/.test(trimmedLine)) {
-      const listContent = trimmedLine.replace(/^[-*]\s|^\d+\.\s/, '');
+    // Handle list items with indentation detection
+    else if (/^(\s*)[-*]\s/.test(line) || /^(\s*)\d+\.\s/.test(line)) {
+      const indentMatch = line.match(/^(\s*)/);
+      const indentLevel = indentMatch ? Math.floor(indentMatch[1].length / 2) : 0; // 2 spaces = 1 level
+      const listContent = line.replace(/^\s*[-*]\s|\s*\d+\.\s/, '');
       elements.push({
         type: 'listItem',
-        content: listContent
+        content: parseInlineMarkdown(listContent),
+        level: indentLevel
       });
     }
     // Handle paragraphs
     else {
       elements.push({
         type: 'paragraph',
-        content: trimmedLine
+        content: parseInlineMarkdown(trimmedLine)
       });
     }
   }
@@ -138,12 +274,44 @@ const saveDocxWithDownload = (docxBlob: Blob, filename: string): void => {
 };
 
 /**
+ * Create TextRun elements from text segments with formatting
+ */
+const createTextRuns = (content: string | TextSegment[] | TableData, docxModule: any): any[] => {
+  const { TextRun } = docxModule;
+  
+  if (typeof content === 'string') {
+    return [new TextRun({ text: content, size: 24 })];
+  }
+  
+  if (Array.isArray(content)) {
+    return content.map(segment => {
+      const runOptions: any = {
+        text: segment.text,
+        size: 24, // 12pt font
+      };
+      
+      if (segment.bold) runOptions.bold = true;
+      if (segment.italic) runOptions.italics = true;
+      if (segment.code) {
+        runOptions.font = 'Courier New';
+        runOptions.color = '2563eb'; // Blue color for code
+      }
+      
+      return new TextRun(runOptions);
+    });
+  }
+  
+  return [];
+};
+
+/**
  * Convert parsed markdown elements to docx elements
  */
 const convertElementsToDocx = (elements: ParsedElement[], docxModule: any) => {
-  const { Paragraph, TextRun, HeadingLevel } = docxModule;
+  const { Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, BorderStyle } = docxModule;
+  const docxElements: any[] = [];
   
-  return elements.map(element => {
+  elements.forEach(element => {
     switch (element.type) {
       case 'heading':
         const headingLevel = element.level === 1 ? HeadingLevel.HEADING_1 :
@@ -153,44 +321,117 @@ const convertElementsToDocx = (elements: ParsedElement[], docxModule: any) => {
                            element.level === 5 ? HeadingLevel.HEADING_5 :
                            HeadingLevel.HEADING_6;
         
-        return new Paragraph({
-          text: element.content,
+        docxElements.push(new Paragraph({
+          children: createTextRuns(element.content, docxModule),
           heading: headingLevel,
           spacing: {
             before: 240,
             after: 120,
+            line: 240, // Single spacing
           },
-        });
+        }));
+        break;
         
       case 'listItem':
-        return new Paragraph({
-          text: element.content,
+        // Different indentation levels for nested lists
+        const indent = (element.level || 0) * 720; // 0.5 inch per level
+        
+        docxElements.push(new Paragraph({
+          children: createTextRuns(element.content, docxModule),
           bullet: {
-            level: 0,
+            level: element.level || 0,
+          },
+          indent: {
+            left: indent,
           },
           spacing: {
-            before: 60,
-            after: 60,
+            before: 0,
+            after: 0,
+            line: 240, // Single spacing
           },
-        });
+        }));
+        break;
+        
+      case 'horizontalRule':
+        // Create a horizontal line using a paragraph with a bottom border
+        docxElements.push(new Paragraph({
+          children: [new TextRun({ text: '', size: 1 })],
+          border: {
+            bottom: {
+              color: 'CCCCCC',
+              space: 1,
+              style: BorderStyle.SINGLE,
+              size: 6,
+            },
+          },
+          spacing: {
+            before: 240,
+            after: 240,
+          },
+        }));
+        break;
+        
+      case 'table':
+        if (typeof element.content !== 'string' && 'headers' in element.content) {
+          const tableData = element.content as TableData;
+          
+          // Create header row
+          const headerRow = new TableRow({
+            children: tableData.headers.map(header => 
+              new TableCell({
+                children: [new Paragraph({
+                  children: [new TextRun({ text: header, bold: true, size: 24 })],
+                })],
+                shading: {
+                  fill: 'F3F4F6', // Light gray background for headers
+                },
+              })
+            ),
+          });
+          
+          // Create data rows
+          const dataRows = tableData.rows.map(row => 
+            new TableRow({
+              children: row.map(cell => 
+                new TableCell({
+                  children: [new Paragraph({
+                    children: [new TextRun({ text: cell, size: 24 })],
+                  })],
+                })
+              ),
+            })
+          );
+          
+          // Create table
+          docxElements.push(new Table({
+            rows: [headerRow, ...dataRows],
+            width: {
+              size: 100,
+              type: WidthType.PERCENTAGE,
+            },
+            margins: {
+              top: 120,
+              bottom: 120,
+            },
+          }));
+        }
+        break;
         
       case 'paragraph':
       default:
-        return new Paragraph({
-          children: [
-            new TextRun({
-              text: element.content,
-              size: 24, // 12pt font
-            }),
-          ],
+        docxElements.push(new Paragraph({
+          children: createTextRuns(element.content, docxModule),
           spacing: {
-            before: 120,
+            before: 0,
             after: 120,
-            line: 360, // 1.5 line spacing
+            line: 240, // Single spacing
           },
-        });
+        }));
+        break;
     }
   });
+  
+  return docxElements;
 };
 
 /**
@@ -204,9 +445,7 @@ const createWordDocument = async (sections: ICFSectionData[], protocol: Protocol
     TextRun, 
     HeadingLevel, 
     AlignmentType, 
-    PageBreak,
-    TableOfContents,
-    StyleLevel
+    PageBreak
   } = docxModule;
 
   // Filter sections to include only completed ones
@@ -297,7 +536,7 @@ const createWordDocument = async (sections: ICFSectionData[], protocol: Protocol
             size: 24,
           }),
         ],
-        spacing: { before: 120, after: 120 },
+        spacing: { before: 60, after: 60, line: 240 },
       })
     ),
   ];
@@ -316,7 +555,7 @@ const createWordDocument = async (sections: ICFSectionData[], protocol: Protocol
       new Paragraph({
         text: `${index + 1}. ${section.title}`,
         heading: HeadingLevel.HEADING_1,
-        spacing: { before: 240, after: 480 },
+        spacing: { before: 240, after: 120, line: 240 },
       })
     );
     
@@ -348,7 +587,7 @@ const createWordDocument = async (sections: ICFSectionData[], protocol: Protocol
             italics: true,
           }),
         ],
-        spacing: { before: 480, after: 240 },
+        spacing: { before: 240, after: 120, line: 240 },
         border: {
           top: { style: 'single', size: 1, color: 'CCCCCC' },
         },
