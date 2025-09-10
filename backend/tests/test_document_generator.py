@@ -15,10 +15,8 @@ import pytest
 from app.services.document_generator import (
     DocumentGenerationError,
     DocumentGenerator,
-    SiteChecklistWorkflow,
     StreamingICFWorkflow,
     generate_icf_sections,
-    generate_site_checklist_sections,
 )
 
 
@@ -139,74 +137,6 @@ class TestICFGeneration:
                 )
 
 
-class TestSiteChecklistGeneration:
-    """Test cases for Site Initiation Checklist generation."""
-
-    @pytest.mark.unit
-    @pytest.mark.ai_service
-    def test_generate_site_checklist_success(
-        self, mock_qdrant_client, mock_langgraph_workflow, sample_protocol_metadata
-    ):
-        """Test successful Site Initiation Checklist generation."""
-        document_id = sample_protocol_metadata["document_id"]
-
-        # Mock workflow response
-        mock_langgraph_workflow.invoke.return_value = {
-            "regulatory": "IRB approval required before study initiation...",
-            "training": "All study staff must complete GCP training...",
-            "equipment": "Required equipment includes centrifuge, freezer...",
-            "documentation": "Essential documents checklist includes...",
-            "preparation": "Site preparation tasks include...",
-            "timeline": "Study timeline and milestones...",
-        }
-
-        with patch(
-            "app.services.document_generator.DocumentGenerator.get_protocol_context",
-            return_value=["Site requirements context"],
-        ):
-
-            result = generate_site_checklist_sections(
-                document_id=document_id,
-                qdrant_client=mock_qdrant_client,
-                workflow=mock_langgraph_workflow,
-            )
-
-        assert "regulatory" in result
-        assert "training" in result
-        assert "equipment" in result
-        assert "documentation" in result
-        assert "preparation" in result
-        assert "timeline" in result
-
-        assert "IRB approval" in result["regulatory"]
-        mock_langgraph_workflow.invoke.assert_called_once()
-
-    @pytest.mark.unit
-    @pytest.mark.ai_service
-    def test_generate_site_checklist_missing_sections(
-        self, mock_qdrant_client, mock_langgraph_workflow, sample_protocol_metadata
-    ):
-        """Test site checklist generation with missing sections."""
-        document_id = sample_protocol_metadata["document_id"]
-
-        # Mock incomplete workflow response
-        mock_langgraph_workflow.invoke.return_value = {
-            "regulatory": "IRB approval required...",
-            "training": "GCP training required...",
-            # Missing other required sections
-        }
-
-        with patch(
-            "app.services.document_generator.DocumentGenerator.get_protocol_context",
-            return_value=["Context"],
-        ):
-
-            with pytest.raises(
-                DocumentGenerationError, match="Missing required sections"
-            ):
-                generate_site_checklist_sections(
-                    document_id, mock_qdrant_client, mock_langgraph_workflow
-                )
 
 
 class TestRAGContextRetrieval:
@@ -318,13 +248,6 @@ class TestWorkflowClasses:
 
         assert workflow.name == "icf_generation"
 
-    @pytest.mark.unit
-    @pytest.mark.ai_service
-    def test_site_checklist_workflow_init(self):
-        """Test SiteChecklistWorkflow initialization."""
-        workflow = SiteChecklistWorkflow()
-
-        assert workflow.name == "site_checklist_generation"
 
 
 class TestIntegrationScenarios:

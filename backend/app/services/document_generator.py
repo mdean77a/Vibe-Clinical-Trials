@@ -347,50 +347,6 @@ class ICFWorkflow(WorkflowBase):
         )
 
 
-class SiteChecklistWorkflow(WorkflowBase):
-    """Workflow for Site Initiation Checklist generation."""
-
-    def __init__(self, llm_config: Optional[Dict[str, Any]] = None):
-        super().__init__(llm_config)
-        self.name = "site_checklist_generation"
-        self.sections = [
-            "regulatory",
-            "training",
-            "equipment",
-            "documentation",
-            "preparation",
-            "timeline",
-        ]
-
-    def build_graph(self) -> StateGraph:
-        """Build the site checklist generation workflow graph."""
-        workflow = StateGraph(AgentState)
-
-        # Add parallel section generation nodes
-        for section in self.sections:
-            workflow.add_node(
-                f"generate_{section}", self._create_section_generator(section)  # type: ignore[attr-defined]
-            )
-
-        # Add compilation node
-        workflow.add_node("compile_checklist", self._compile_checklist)  # type: ignore[attr-defined]
-
-        # Set entry point
-        workflow.set_entry_point("generate_regulatory")
-
-        # Connect nodes in parallel execution pattern
-        for i, section in enumerate(self.sections):
-            if i < len(self.sections) - 1:
-                workflow.add_edge(
-                    f"generate_{section}", f"generate_{self.sections[i+1]}"
-                )
-            else:
-                workflow.add_edge(f"generate_{section}", "compile_checklist")
-
-        # Connect compilation to end
-        workflow.add_edge("compile_checklist", END)
-
-        return workflow
 
 
 class StreamingICFWorkflow(ICFWorkflow):
@@ -586,35 +542,12 @@ class StreamingICFWorkflow(ICFWorkflow):
 
         return generate_section
 
-    def _compile_checklist(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        """Compile all sections into final checklist."""
-        sections = state.get("sections", {})
-        errors = state.get("errors", [])
-
-        # Check if all required sections are present
-        missing_sections = [s for s in self.sections if s not in sections]
-        if missing_sections:
-            error_msg = f"Missing sections: {', '.join(missing_sections)}"
-            errors.append(error_msg)
-            state["errors"] = errors
-
-        # Add metadata
-        metadata = state.get("metadata", {})
-        metadata["generated_sections"] = list(sections.keys())
-        metadata["workflow_name"] = self.name
-        state["metadata"] = metadata
-
-        logger.info(f"Compiled checklist with {len(sections)} sections")
-        return state
-
 def get_langgraph_workflow(
     workflow_type: str, llm_config: Optional[Dict[str, Any]] = None
-) -> Union[ICFWorkflow, SiteChecklistWorkflow]:
+) -> ICFWorkflow:
     """Get LangGraph workflow instance."""
     if workflow_type == "icf":
         return ICFWorkflow(llm_config)
-    elif workflow_type == "site_checklist":
-        return SiteChecklistWorkflow(llm_config)
     else:
         raise DocumentGenerationError(f"Unknown workflow type: {workflow_type}")
 
@@ -665,39 +598,3 @@ def generate_icf_sections(
         raise DocumentGenerationError(f"Failed to generate ICF: {str(e)}")
 
 
-def generate_site_checklist_sections(
-    document_id: str, qdrant_client: QdrantClient, workflow: Optional[Any] = None
-) -> Dict[str, str]:
-    """Generate Site Initiation Checklist sections for a protocol."""
-    try:
-        if workflow is None:
-            workflow = SiteChecklistWorkflow()
-
-        # Get protocol context
-        generator = DocumentGenerator(qdrant_client)
-        context = generator.get_protocol_context(
-            document_id, "site initiation requirements"
-        )
-
-        # Prepare workflow inputs
-        workflow_inputs = {
-            "document_id": document_id,
-            "context": context,
-            "document_type": "site_checklist",
-        }
-
-        # Execute workflow
-        result = workflow.invoke(workflow_inputs)
-
-        # Validate required sections
-        required_sections = ["regulatory", "training", "equipment", "documentation"]
-        for section in required_sections:
-            if section not in result:
-                raise DocumentGenerationError(
-                    f"Missing required sections: {', '.join(required_sections)}"
-                )
-
-        return result
-
-    except Exception as e:
-        raise DocumentGenerationError(f"Failed to generate site checklist: {str(e)}")
