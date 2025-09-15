@@ -137,8 +137,6 @@ class TestICFGeneration:
                 )
 
 
-
-
 class TestRAGContextRetrieval:
     """Test cases for RAG context retrieval."""
 
@@ -247,7 +245,6 @@ class TestWorkflowClasses:
         workflow = StreamingICFWorkflow()
 
         assert workflow.name == "icf_generation"
-
 
 
 class TestIntegrationScenarios:

@@ -166,8 +166,8 @@ def test_client_with_mocks(
     """
     with (
         patch(
-            "app.services.qdrant_service.get_qdrant_client",
-            return_value=mock_qdrant_client,
+            "app.services.qdrant_service.QdrantService",
+            return_value=MagicMock(client=mock_qdrant_client),
         ),
         patch(
             "app.services.embedding_service.get_openai_client",

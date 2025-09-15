@@ -347,8 +347,6 @@ class ICFWorkflow(WorkflowBase):
         )
 
 
-
-
 class StreamingICFWorkflow(ICFWorkflow):
     """Streaming version of ICF workflow that sends tokens to a queue."""
 
@@ -542,6 +540,7 @@ class StreamingICFWorkflow(ICFWorkflow):
 
         return generate_section
 
+
 def get_langgraph_workflow(
     workflow_type: str, llm_config: Optional[Dict[str, Any]] = None
 ) -> ICFWorkflow:
@@ -596,5 +595,3 @@ def generate_icf_sections(
 
     except Exception as e:
         raise DocumentGenerationError(f"Failed to generate ICF: {str(e)}")
-
-

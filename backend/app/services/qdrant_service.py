@@ -284,18 +284,15 @@ class QdrantService:
 
     # update_protocol_status method removed - protocols in Qdrant are always active
 
-    def create_collection(self, collection_name: str) -> bool:
-        """Create a new Qdrant collection."""
+    def delete_collection(self, collection_name: str) -> bool:
+        """Delete a Qdrant collection."""
         try:
-            self.client.create_collection(
-                collection_name=collection_name,
-                vectors_config=VectorParams(
-                    size=EMBEDDING_DIMENSION, distance=Distance.COSINE
-                ),
-            )
+            self.client.delete_collection(collection_name=collection_name)
+            logger.info(f"Deleted collection: {collection_name}")
             return True
         except Exception as e:
-            raise QdrantError(f"Failed to create collection: {str(e)}")
+            logger.error(f"Error deleting collection {collection_name}: {e}")
+            return False
 
     def test_connection(self) -> bool:
         """Test Qdrant connection and log results."""
@@ -310,13 +307,9 @@ class QdrantService:
             return False
 
 
-def get_qdrant_client() -> QdrantClient:
-    """Get Qdrant client instance - using in-memory for migration."""
-    return QdrantClient(":memory:")
-
-
 # Cache for service instance to avoid repeated initialization
 _qdrant_service_instance = None
+
 
 def get_qdrant_service() -> QdrantService:
     """Get configured Qdrant service instance (singleton pattern)."""

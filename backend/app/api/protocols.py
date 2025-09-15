@@ -32,7 +32,6 @@ router = APIRouter(prefix="/api/protocols", tags=["protocols"])
 qdrant_service = get_qdrant_service()
 
 
-
 @router.post("/", response_model=ProtocolResponse, status_code=status.HTTP_201_CREATED)
 async def create_new_protocol(protocol: ProtocolCreate) -> ProtocolResponse:
     """
@@ -240,7 +239,7 @@ async def upload_protocol_text(request: dict) -> ProtocolResponse:
         # Process the extracted text using shared chunking logic
         try:
             meaningful_chunks = chunk_protocol_text(extracted_text)
-            
+
             logger.info(
                 f"Text processed: {len(meaningful_chunks)} chunks from {page_count} pages"
             )

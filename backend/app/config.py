@@ -14,7 +14,7 @@ EMBEDDING_DIMENSION = 1536
 # LLM configuration
 LLM_MODEL = "gpt-4.1"  # Can be any OpenAI or Anthropic model
 LLM_MAX_TOKENS = 8192
-LLM_TEMPERATURE = 1
+LLM_TEMPERATURE = 0.1
 
 
 def get_llm_chat_model(
@@ -44,7 +44,7 @@ def get_llm_chat_model(
         # OpenAI models (gpt-4, gpt-3.5, o1-preview, etc.)
         return ChatOpenAI(
             model=model,
-            # max_tokens=max_tokens,
+            max_tokens=max_tokens,
             temperature=temperature,
         )
     elif model.startswith("claude"):
