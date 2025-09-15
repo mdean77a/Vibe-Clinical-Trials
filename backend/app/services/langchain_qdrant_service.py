@@ -50,32 +50,14 @@ class LangChainQdrantService:
         embeddings: Optional[OpenAIEmbeddings] = None,
     ):
         """Initialize LangChain Qdrant service with appropriate clients."""
-        # Initialize raw Qdrant client for collection management
+        # Reuse Qdrant client from qdrant_service to avoid duplicate initialization
         if client:
             self.client = client
         else:
-            qdrant_url = os.getenv("QDRANT_URL")
-            qdrant_api_key = os.getenv("QDRANT_API_KEY")
-
-            logger.info(
-                f"Environment check - QDRANT_URL: {'SET' if qdrant_url else 'NOT SET'}"
-            )
-            logger.info(
-                f"Environment check - QDRANT_API_KEY: {'SET' if qdrant_api_key else 'NOT SET'}"
-            )
-
-            if qdrant_url:
-                if qdrant_api_key:
-                    self.client = QdrantClient(
-                        url=qdrant_url, api_key=qdrant_api_key, timeout=60
-                    )
-                    logger.info(f"Connected to Qdrant Cloud at {qdrant_url}")
-                else:
-                    self.client = QdrantClient(url=qdrant_url)
-                    logger.info(f"Connected to local Qdrant at {qdrant_url}")
-            else:
-                self.client = QdrantClient(":memory:")
-                logger.warning("Using in-memory Qdrant - data will not persist")
+            # Get the shared Qdrant client from qdrant_service
+            qdrant_service = get_qdrant_service()
+            self.client = qdrant_service.client
+            logger.info("Reusing Qdrant client from qdrant_service")
 
         # Initialize OpenAI embeddings
         if embeddings:
@@ -214,7 +196,7 @@ class LangChainQdrantService:
             )
 
     def list_collections(self) -> List[str]:
-        """List all collections using raw Qdrant client."""
+        """List all collections."""
         try:
             collections = self.client.get_collections()
             return [col.name for col in collections.collections]
@@ -223,7 +205,7 @@ class LangChainQdrantService:
             raise LangChainQdrantError(f"Failed to list collections: {str(e)}")
 
     def delete_collection(self, collection_name: str) -> bool:
-        """Delete a collection using raw Qdrant client."""
+        """Delete a collection."""
         try:
             self.client.delete_collection(collection_name=collection_name)
             logger.info(f"Deleted collection: {collection_name}")
@@ -248,19 +230,14 @@ class LangChainQdrantService:
 
     def test_connection(self) -> bool:
         """Test Qdrant connection."""
-        try:
-            collections = self.client.get_collections()
-            logger.info(
-                f"Connection test successful - found {len(collections.collections)} collections"
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Connection test failed: {e}")
-            return False
+        # Delegate to qdrant_service to avoid duplication
+        qdrant_service = get_qdrant_service()
+        return qdrant_service.test_connection()
 
 
 # Cache for service instance to avoid repeated initialization
 _langchain_service_instance = None
+
 
 def get_langchain_qdrant_service() -> LangChainQdrantService:
     """Get configured LangChain Qdrant service instance (singleton pattern)."""

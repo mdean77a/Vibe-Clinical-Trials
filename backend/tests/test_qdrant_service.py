@@ -32,26 +32,27 @@ class TestQdrantService:
 
     @pytest.mark.unit
     @pytest.mark.qdrant
-    def test_create_collection_success(self, mock_qdrant_client):
-        """Test successful collection creation."""
+    def test_create_protocol_collection_success(self, mock_qdrant_client):
+        """Test successful protocol collection creation."""
         service = QdrantService(client=mock_qdrant_client)
 
-        result = service.create_collection("test_collection")
+        result = service.create_protocol_collection("TEST123", "Test Protocol")
 
-        assert result is True
+        assert result  # Returns collection name
+        assert result.startswith("TEST123-")
         mock_qdrant_client.create_collection.assert_called_once()
 
     @pytest.mark.unit
     @pytest.mark.qdrant
-    def test_create_collection_error(self, mock_qdrant_client):
-        """Test collection creation error handling."""
+    def test_create_protocol_collection_error(self, mock_qdrant_client):
+        """Test protocol collection creation error handling."""
         mock_qdrant_client.create_collection.side_effect = Exception(
             "Connection failed"
         )
         service = QdrantService(client=mock_qdrant_client)
 
-        with pytest.raises(QdrantError, match="Failed to create collection"):
-            service.create_collection("test_collection")
+        with pytest.raises(QdrantError, match="Failed to create protocol collection"):
+            service.create_protocol_collection("TEST123", "Test Protocol")
 
 
 class TestSearchProtocols:
