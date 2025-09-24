@@ -397,64 +397,6 @@ async def get_generation_status(
         )
 
 
-@router.get("/sections/requirements")
-async def get_icf_section_requirements() -> Dict[str, Any]:
-    """
-    Get the required ICF sections and their descriptions.
-
-    This endpoint provides information about the ICF sections that will be generated,
-    useful for frontend display and validation.
-    """
-    return {
-        "required_sections": [
-            {
-                "name": "summary",
-                "title": "Study Summary",
-                "description": "A clear, concise overview of the study purpose and participant involvement",
-                "estimated_length": "2-3 paragraphs",
-            },
-            {
-                "name": "background",
-                "title": "Background and Purpose",
-                "description": "Medical/scientific background explaining why the study is needed",
-                "estimated_length": "3-4 paragraphs",
-            },
-            {
-                "name": "participants",
-                "title": "Number of Participants",
-                "description": "Total participants and eligibility criteria",
-                "estimated_length": "2-3 paragraphs",
-            },
-            {
-                "name": "procedures",
-                "title": "Study Procedures",
-                "description": "Detailed description of all study procedures and timeline",
-                "estimated_length": "4-6 paragraphs",
-            },
-            {
-                "name": "alternatives",
-                "title": "Alternative Procedures",
-                "description": "Alternative treatments available outside the study",
-                "estimated_length": "2-3 paragraphs",
-            },
-            {
-                "name": "risks",
-                "title": "Risks and Discomforts",
-                "description": "Comprehensive list of potential risks and side effects",
-                "estimated_length": "3-5 paragraphs",
-            },
-            {
-                "name": "benefits",
-                "title": "Benefits",
-                "description": "Potential benefits to participants and society",
-                "estimated_length": "2-3 paragraphs",
-            },
-        ],
-        "total_sections": 7,
-        "compliance": "FDA 21 CFR 50 - Protection of Human Subjects",
-        "generation_method": "LangGraph parallel processing with RAG context retrieval",
-    }
-
 
 @router.get("/health")
 async def icf_health_check() -> Dict[str, str]:

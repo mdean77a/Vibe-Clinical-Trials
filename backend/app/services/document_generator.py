@@ -21,7 +21,7 @@ from qdrant_client import QdrantClient
 
 from ..config import get_llm_chat_model
 from ..prompts.generation_prompts import SECTION_GENERATION_PROMPT
-from ..prompts.icf_prompts import ICF_PROMPTS, ICF_SECTION_QUERIES
+from ..prompts.icf_prompts import ICF_PROMPTS
 
 logger = logging.getLogger(__name__)
 
@@ -260,7 +260,7 @@ class ICFWorkflow(WorkflowBase):
 
     def _get_section_query(self, section_name: str) -> str:
         """Get section-specific queries like your prototype."""
-        return ICF_SECTION_QUERIES.get(
+        return ICF_PROMPTS.get(
             section_name, "informed consent form requirements"
         )
 

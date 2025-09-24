@@ -33,39 +33,28 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false);
   const [editingSections, setEditingSections] = useState<Set<string>>(new Set());
 
-  // Initialize sections from API requirements
+  // Initialize sections with static data
   useEffect(() => {
-    const loadSectionRequirements = async () => {
-      try {
-        const requirements = await icfApi.getSectionRequirements() as {
-          required_sections: Array<{
-            name: string;
-            title: string;
-            description: string;
-            estimated_length: string;
-          }>;
-        };
-        
-        // Initialize sections based on requirements
-        const initialSections: ICFSectionData[] = requirements.required_sections.map((req) => ({
-          name: req.name,
-          title: req.title,
-          content: '',
-          status: 'pending' as const,
-          wordCount: 0,
-        }));
-        
-        setSections(initialSections);
-      } catch (error) {
-        console.error('Failed to load section requirements:', error);
-        setProgress(prev => ({
-          ...prev,
-          errors: [...prev.errors, 'Failed to load section requirements'],
-        }));
-      }
-    };
+    // Section requirements are static and defined by the backend prompts
+    const sectionRequirements = [
+      { name: 'summary', title: 'Study Summary' },
+      { name: 'background', title: 'Background and Purpose' },
+      { name: 'participants', title: 'Number of Participants' },
+      { name: 'procedures', title: 'Study Procedures' },
+      { name: 'alternatives', title: 'Alternative Procedures' },
+      { name: 'risks', title: 'Risks and Discomforts' },
+      { name: 'benefits', title: 'Benefits' }
+    ];
 
-    loadSectionRequirements();
+    const initialSections: ICFSectionData[] = sectionRequirements.map((req) => ({
+      name: req.name,
+      title: req.title,
+      content: '',
+      status: 'pending' as const,
+      wordCount: 0,
+    }));
+
+    setSections(initialSections);
   }, []);
 
   const generateICF = async () => {

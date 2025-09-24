@@ -14,7 +14,6 @@ from qdrant_client import QdrantClient
 
 from ..config import get_llm_chat_model
 from ..prompts.generation_prompts import SECTION_GENERATION_PROMPT
-from ..prompts.icf_prompts import ICF_SECTION_QUERIES
 from .document_generator import (
     DocumentGenerationError,
     DocumentGenerator,
@@ -244,9 +243,9 @@ class ICFGenerationService:
         async def stream_section() -> Any:
             try:
                 # Use the same section queries as initial generation for consistency
-                query = ICF_SECTION_QUERIES.get(
-                    section_name, f"{section_name} informed consent"
-                )
+                # Get query from document generator to maintain consistency with workflow
+                workflow = DocumentGenerator()
+                query = workflow._get_section_query(section_name)
                 context = self.document_generator.get_protocol_context(
                     protocol_collection_name, query
                 )

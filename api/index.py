@@ -38,8 +38,6 @@ class handler(BaseHTTPRequestHandler):
                 "version": "0.1.0",
                 "environment": "vercel-serverless"
             }
-        elif parsed_url.path == '/api/icf/sections/requirements':
-            response = self._get_icf_section_requirements()
         elif parsed_url.path.startswith('/api/protocols'):
             response = self._handle_protocols_get(parsed_url.path)
         else:
@@ -178,57 +176,6 @@ class handler(BaseHTTPRequestHandler):
             print(f"Traceback: {traceback.format_exc()}")
             raise
     
-    def _get_icf_section_requirements(self):
-        """Return ICF section requirements"""
-        return {
-            "required_sections": [
-                {
-                    "name": "summary",
-                    "title": "Study Summary",
-                    "description": "A clear, concise overview of the study purpose and participant involvement",
-                    "estimated_length": "2-3 paragraphs"
-                },
-                {
-                    "name": "background",
-                    "title": "Background and Purpose",
-                    "description": "Medical/scientific background explaining why the study is needed",
-                    "estimated_length": "3-4 paragraphs"
-                },
-                {
-                    "name": "participants",
-                    "title": "Number of Participants",
-                    "description": "Total participants and eligibility criteria",
-                    "estimated_length": "2-3 paragraphs"
-                },
-                {
-                    "name": "procedures",
-                    "title": "Study Procedures",
-                    "description": "Detailed description of all study procedures and timeline",
-                    "estimated_length": "4-6 paragraphs"
-                },
-                {
-                    "name": "alternatives",
-                    "title": "Alternative Procedures",
-                    "description": "Alternative treatments available outside the study",
-                    "estimated_length": "2-3 paragraphs"
-                },
-                {
-                    "name": "risks",
-                    "title": "Risks and Discomforts",
-                    "description": "Comprehensive list of potential risks and side effects",
-                    "estimated_length": "3-5 paragraphs"
-                },
-                {
-                    "name": "benefits",
-                    "title": "Benefits",
-                    "description": "Potential benefits to participants and society",
-                    "estimated_length": "2-3 paragraphs"
-                }
-            ],
-            "total_sections": 7,
-            "compliance": "FDA 21 CFR 50 - Protection of Human Subjects",
-            "generation_method": "LangGraph parallel processing with RAG context retrieval"
-        }
     
     def _handle_protocols_get(self, path):
         """Handle GET requests to protocols endpoints"""
