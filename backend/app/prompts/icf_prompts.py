@@ -95,13 +95,3 @@ Generate content that:
 """,
 }
 
-# Section-specific queries for RAG retrieval
-ICF_SECTION_QUERIES = {
-    "summary": "study purpose objectives primary secondary endpoints trial design intervention overview",
-    "background": "background rationale medical condition disease previous studies literature review justification",
-    "participants": "participating institutions, number of participants target enrollment, funding agency",
-    "procedures": "study procedures visits tests treatments interventions timeline schedule follow-up assessments",
-    "alternatives": "alternative treatments standard care options therapy comparisons current practice",
-    "risks": "risks side effects adverse events safety monitoring toxicity complications contraindications",
-    "benefits": "benefits outcomes efficacy potential improvements therapeutic effects clinical benefits",
-}

@@ -21,7 +21,7 @@ from qdrant_client import QdrantClient
 
 from ..config import get_llm_chat_model
 from ..prompts.generation_prompts import SECTION_GENERATION_PROMPT
-from ..prompts.icf_prompts import ICF_PROMPTS, ICF_SECTION_QUERIES
+from ..prompts.icf_prompts import ICF_PROMPTS
 
 logger = logging.getLogger(__name__)
 
