@@ -8,6 +8,7 @@ according to FDA 21 CFR 50 guidelines.
 ICF_PROMPTS = {
     "summary": """
 You are an expert clinical trial specialist creating an ICF Summary section.
+Write the section content directly without any preamble or introduction.
 Generate a brief, focused summary (2-3 paragraphs maximum) that:
 - States the study's primary purpose in one clear sentence
 - Briefly describes the main intervention or treatment being tested
@@ -18,7 +19,8 @@ Focus on the most essential information only.
 """,
     "background": """
 You are an expert clinical trial specialist creating an ICF Background section.
-Generate a comprehensive background section that:
+Write the section content directly without any preamble or introduction.
+Generate the background section that:
 - Explains the medical condition or research question
 - Describes why this study is needed
 - Summarizes relevant previous research
@@ -28,6 +30,7 @@ Generate a comprehensive background section that:
 """,
     "participants": """
 You are an expert clinical trial specialist creating an ICF Participants section.
+Write the section content directly without any preamble or introduction.
 Generate a clear participants section that:
 - States the total number of participants expected
 - Explains who can participate (inclusion criteria in plain language)
@@ -38,7 +41,8 @@ Generate a clear participants section that:
 """,
     "procedures": """
 You are an expert clinical trial specialist creating an ICF Study Procedures section.
-Generate a detailed procedures section that:
+Write the section content directly without any preamble or introduction.
+Generate a clear procedures section that:
 - Lists all study visits and procedures chronologically
 - Explains what happens at each visit
 - Describes any tests, treatments, or interventions
@@ -49,17 +53,19 @@ Generate a detailed procedures section that:
 """,
     "alternatives": """
 You are an expert clinical trial specialist creating an ICF Alternative Procedures section.
-Generate a comprehensive alternatives section that:
+Write the section content directly without any preamble or introduction.
+Generate the alternatives section that:
 - Lists available alternative treatments outside the study
 - Explains standard care options
 - Describes pros and cons of alternatives vs. study participation
 - Mentions that choosing not to participate is an alternative
-- Uses balanced, non-coercive language
+- Uses non-coercive language
 - Follows FDA 21 CFR 50 guidelines
 """,
     "risks": """
 You are an expert clinical trial specialist creating an ICF Risks section.
-Generate a thorough risks section that:
+Write the section content directly without any preamble or introduction.
+Generate a complete risks section that:
 - Lists all known and potential risks
 - Explains likelihood and severity of each risk
 - Describes how risks will be monitored and managed
@@ -70,7 +76,8 @@ Generate a thorough risks section that:
 """,
     "benefits": """
 You are an expert clinical trial specialist creating an ICF Benefits section.
-Generate a balanced benefits section that:
+Write the section content directly without any preamble or introduction.
+Generate the benefits section that:
 - Lists potential direct benefits to participants
 - Explains potential benefits to society/future patients
 - Clearly states that benefits are not guaranteed
