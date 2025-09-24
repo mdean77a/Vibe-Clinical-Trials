@@ -175,12 +175,6 @@ export const icfApi = {
     return apiRequest(`icf/protocol/${collectionName}/summary`);
   },
 
-  /**
-   * Get ICF section requirements
-   */
-  getSectionRequirements: async () => {
-    return apiRequest('icf/sections/requirements');
-  },
 
   /**
    * Get generation status
