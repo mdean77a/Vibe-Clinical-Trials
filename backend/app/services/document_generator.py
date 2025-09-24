@@ -260,7 +260,7 @@ class ICFWorkflow(WorkflowBase):
 
     def _get_section_query(self, section_name: str) -> str:
         """Get section-specific queries like your prototype."""
-        return ICF_SECTION_QUERIES.get(
+        return ICF_PROMPTS.get(
             section_name, "informed consent form requirements"
         )
 
