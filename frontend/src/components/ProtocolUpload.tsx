@@ -94,33 +94,22 @@ const ProtocolUpload: React.FC<ProtocolUploadProps> = ({
         });
       }, 300);
 
-      // Always use client-side text extraction (consistent across dev and production)
-      const useTextEndpoint = true;
-      
-      let uploadResponse;
-      if (useTextEndpoint) {
-        // Use the new text-based upload endpoint
-        uploadResponse = await protocolsApi.uploadText({
-          study_acronym: acronym.trim().toUpperCase(),
-          protocol_title: `Protocol ${acronym.trim().toUpperCase()}`,
-          extracted_text: extractedText,
-          original_filename: selectedFile.name,
-          page_count: extractionProgress?.totalPages || 0
-        });
-      } else {
-        // Fall back to original file upload (for non-Vercel deployments)
-        uploadResponse = await protocolsApi.upload(selectedFile, {
-          study_acronym: acronym.trim().toUpperCase(),
-          protocol_title: `Protocol ${acronym.trim().toUpperCase()}`,
-        });
-      }
+      // Upload protocol with client-side extracted text
+      const uploadResponse = await protocolsApi.uploadText({
+        study_acronym: acronym.trim().toUpperCase(),
+        protocol_title: `Protocol ${acronym.trim().toUpperCase()}`,
+        extracted_text: extractedText,
+        original_filename: selectedFile.name,
+        page_count: extractionProgress?.totalPages || 0
+      }) as { protocol?: unknown } | unknown;
 
       clearInterval(progressInterval);
       setUploadProgress(100);
-      
+
       // Complete upload successfully - pass the created protocol
       setTimeout(() => {
-        onUploadComplete(selectedFile.name, acronym.trim().toUpperCase(), uploadResponse.protocol || uploadResponse);
+        const protocolData = (uploadResponse as { protocol?: unknown })?.protocol || uploadResponse;
+        onUploadComplete(selectedFile.name, acronym.trim().toUpperCase(), protocolData);
       }, 500);
 
     } catch (uploadError) {

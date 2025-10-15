@@ -260,9 +260,7 @@ class ICFWorkflow(WorkflowBase):
 
     def _get_section_query(self, section_name: str) -> str:
         """Get section-specific queries like your prototype."""
-        return ICF_PROMPTS.get(
-            section_name, "informed consent form requirements"
-        )
+        return ICF_PROMPTS.get(section_name, "informed consent form requirements")
 
     def _create_section_generator(self, section_name: str) -> Any:
         """Create a section generator function with individual RAG retrieval like the prototype."""

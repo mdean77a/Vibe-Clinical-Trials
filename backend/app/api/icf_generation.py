@@ -397,7 +397,6 @@ async def get_generation_status(
         )
 
 
-
 @router.get("/health")
 async def icf_health_check() -> Dict[str, str]:
     """Health check endpoint for ICF generation service."""

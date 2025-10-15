@@ -94,4 +94,3 @@ Generate content that:
 - Follows FDA 21 CFR 50 guidelines
 """,
 }
-

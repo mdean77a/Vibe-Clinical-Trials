@@ -66,55 +66,6 @@ export const apiRequest = async <T>(
  */
 export const protocolsApi = {
   /**
-   * Create a new protocol
-   */
-  create: async (protocolData: {
-    study_acronym: string;
-    protocol_title: string;
-    file_path?: string;
-  }) => {
-    return apiRequest('protocols', {
-      method: 'POST',
-      body: JSON.stringify(protocolData),
-    });
-  },
-
-  /**
-   * Upload and process a protocol PDF file
-   */
-  upload: async (file: File, protocolData: {
-    study_acronym: string;
-    protocol_title: string;
-  }) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('study_acronym', protocolData.study_acronym);
-    formData.append('protocol_title', protocolData.protocol_title);
-
-    // Use different endpoints for development vs production
-    const endpoint = 'protocols/upload';
-    const url = getApiUrl(endpoint);
-    
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        body: formData,
-        // Don't set Content-Type header - let browser set it for multipart/form-data
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error(`Protocol upload failed for ${url}:`, error);
-      throw error;
-    }
-  },
-
-  /**
    * Upload protocol with extracted text (for client-side PDF processing)
    */
   uploadText: async (protocolData: {
@@ -131,20 +82,6 @@ export const protocolsApi = {
   },
 
   /**
-   * Get a protocol by ID
-   */
-  getById: async (id: number) => {
-    return apiRequest(`protocols/${id}`);
-  },
-
-  /**
-   * Get a protocol by collection name
-   */
-  getByCollection: async (collectionName: string) => {
-    return apiRequest(`protocols/collection/${collectionName}`);
-  },
-
-  /**
    * List all protocols with optional status filter
    */
   list: async (statusFilter?: string) => {
@@ -152,16 +89,12 @@ export const protocolsApi = {
     return apiRequest(`protocols${params}`);
   },
 
-  /**
-   * Update protocol status
-   */
-  updateStatus: async (id: number, status: string) => {
-    return apiRequest(`protocols/${id}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status }),
-    });
-  },
-
+  // Removed unused methods:
+  // - create() - never called, replaced by uploadText()
+  // - upload() - never called, replaced by uploadText()
+  // - getById() - never called by frontend
+  // - getByCollection() - never called by frontend
+  // - updateStatus() - never called by frontend
 };
 
 /**
