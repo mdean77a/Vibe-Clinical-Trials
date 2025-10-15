@@ -44,6 +44,13 @@ global.IntersectionObserver = jest.fn().mockImplementation(() => ({
   disconnect: jest.fn(),
 }))
 
+// Mock TextEncoder/TextDecoder for streaming API tests
+if (typeof global.TextEncoder === 'undefined') {
+  const { TextEncoder, TextDecoder } = require('util');
+  global.TextEncoder = TextEncoder;
+  global.TextDecoder = TextDecoder as any;
+}
+
 // Console error suppression for expected errors in tests
 const originalError = console.error
 beforeAll(() => {
