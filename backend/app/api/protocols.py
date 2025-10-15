@@ -18,8 +18,8 @@ from typing import List
 from fastapi import APIRouter, HTTPException, status
 
 from ..config import EMBEDDING_MODEL
-from ..models import ProtocolCreate, ProtocolResponse
-from ..services.qdrant_service import QdrantError, get_qdrant_service
+from ..models import ProtocolResponse
+from ..services.qdrant_service import get_qdrant_service
 from ..services.text_processor import chunk_protocol_text
 
 # Configure logging
@@ -32,133 +32,10 @@ router = APIRouter(prefix="/api/protocols", tags=["protocols"])
 qdrant_service = get_qdrant_service()
 
 
-@router.post("/", response_model=ProtocolResponse, status_code=status.HTTP_201_CREATED)
-async def create_new_protocol(protocol: ProtocolCreate) -> ProtocolResponse:
-    """
-    Create a new protocol using Qdrant storage.
-
-    Args:
-        protocol: Protocol data to create
-
-    Returns:
-        ProtocolResponse: Created protocol with metadata
-
-    Raises:
-        HTTPException: 500 for creation errors
-    """
-    try:
-        logger.info(f"Creating new protocol: {protocol.study_acronym}")
-
-        # Create collection and get collection name
-        collection_name = qdrant_service.create_protocol_collection(
-            study_acronym=protocol.study_acronym,
-            protocol_title=protocol.protocol_title,
-            file_path=getattr(protocol, "file_path", None),
-        )
-
-        # Create protocol metadata
-        protocol_metadata = {
-            "protocol_id": f"proto_{int(time.time() * 1000)}",  # Use milliseconds for uniqueness
-            "study_acronym": protocol.study_acronym,
-            "protocol_title": protocol.protocol_title,
-            "collection_name": collection_name,
-            "upload_date": datetime.now(timezone.utc).isoformat(),
-            "file_path": getattr(protocol, "file_path", None),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }
-
-        # Collection is created empty and will be populated when document is uploaded
-        logger.info(f"Successfully created protocol with collection {collection_name}")
-        return ProtocolResponse.model_validate(protocol_metadata)
-
-    except QdrantError as e:
-        logger.error(f"Qdrant error creating protocol: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create protocol",
-        )
-    except Exception as e:
-        logger.error(f"Unexpected error creating protocol: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        )
-
-
-# Legacy PyMuPDF upload endpoint removed - application now uses client-side PDF.js extraction
-# See /upload-text endpoint below for the current implementation
-
-
-@router.get("/{protocol_id}", response_model=ProtocolResponse)
-async def get_protocol(protocol_id: str) -> ProtocolResponse:
-    """
-    Retrieve a protocol by its ID.
-
-    Args:
-        protocol_id: Protocol ID to retrieve
-
-    Returns:
-        ProtocolResponse: Protocol data
-
-    Raises:
-        HTTPException: 404 if protocol not found, 500 for other errors
-    """
-    try:
-        logger.info(f"Retrieving protocol with ID {protocol_id}")
-        protocol_data = qdrant_service.get_protocol_by_id(protocol_id)
-
-        if not protocol_data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Protocol with ID {protocol_id} not found",
-            )
-
-        return ProtocolResponse.model_validate(protocol_data)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error retrieving protocol: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        )
-
-
-@router.get("/collection/{collection_name}", response_model=ProtocolResponse)
-async def get_protocol_by_collection(collection_name: str) -> ProtocolResponse:
-    """
-    Retrieve a protocol by its collection name.
-
-    Args:
-        collection_name: Collection name to search for
-
-    Returns:
-        ProtocolResponse: Protocol data
-
-    Raises:
-        HTTPException: 404 if protocol not found, 500 for other errors
-    """
-    try:
-        logger.info(f"Retrieving protocol with collection name {collection_name}")
-        protocol_data = qdrant_service.get_protocol_by_collection(collection_name)
-
-        if not protocol_data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Protocol with collection {collection_name} not found",
-            )
-
-        return ProtocolResponse.model_validate(protocol_data)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error retrieving protocol: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error",
-        )
+# Unused endpoints removed:
+# - POST / (create_new_protocol) - replaced by upload-text endpoint
+# - GET /{protocol_id} (get_protocol) - never called by frontend
+# - GET /collection/{collection_name} (get_protocol_by_collection) - never called by frontend
 
 
 @router.get("/", response_model=List[ProtocolResponse])

@@ -179,6 +179,28 @@ Copy `.env.example` to `.env` and configure:
 - **Merge Strategy**: Used `--no-ff` merges to preserve development history
 - **Ready**: All changes committed and ready for team collaboration
 
+### ✅ Unused Protocol Routes Cleanup (Completed)
+- **Problem**: 3 unused API endpoints and their client methods cluttering the codebase
+- **Solution**: Removed unused routes and simplified protocol upload architecture
+- **Removed Endpoints**:
+  - `POST /api/protocols/` - `create_new_protocol()` - replaced by `upload_protocol_text()`
+  - `GET /api/protocols/{protocol_id}` - `get_protocol()` - never called by frontend
+  - `GET /api/protocols/collection/{collection_name}` - `get_protocol_by_collection()` - never called by frontend
+- **Key Changes**:
+  - Removed unused backend endpoints from `backend/app/api/protocols.py` (~135 lines)
+  - Removed unused imports: `ProtocolCreate`, `QdrantError`
+  - Removed unused frontend API client methods from `frontend/src/utils/api.ts` (~80 lines)
+  - Simplified `ProtocolUpload.tsx` by removing conditional upload fallback logic
+  - Removed test classes for deleted endpoints from `backend/tests/test_api_protocols.py`
+- **Result**: Cleaner API surface area, ~215 lines of dead code removed, simplified upload flow
+- **Tests**: All 56 backend + 153 frontend tests passing ✅
+- **Files Updated**:
+  - `backend/app/api/protocols.py` - Removed 3 endpoints and unused imports
+  - `frontend/src/utils/api.ts` - Removed 5 unused client methods
+  - `frontend/src/components/ProtocolUpload.tsx` - Simplified upload logic
+  - `backend/tests/test_api_protocols.py` - Removed tests for deleted endpoints
+- **Branch**: Merged `unusedRoutes` to main with `--no-ff` to preserve history
+
 ## Current Status
 
 **✅ Fully Implemented**: ICF generation with streaming, protocol upload system, complete React interface, streaming section regeneration  
