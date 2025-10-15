@@ -8,6 +8,7 @@ This module provides shared fixtures for testing including:
 - Qdrant-only test infrastructure (migrated from SQLite)
 """
 
+import os
 import uuid
 from datetime import datetime
 from typing import Generator
@@ -22,6 +23,34 @@ from qdrant_client import QdrantClient
 from app.main import app
 from app.models import ProtocolCreate, ProtocolInDB
 from app.services.qdrant_service import QdrantService
+
+
+# CRITICAL: Prevent tests from connecting to production Qdrant
+@pytest.fixture(scope="session", autouse=True)
+def prevent_production_qdrant():
+    """
+    Automatically unset Qdrant environment variables for all tests.
+
+    This ensures tests NEVER connect to production Qdrant Cloud.
+    Tests will use in-memory Qdrant clients instead.
+    """
+    # Save original values
+    original_qdrant_url = os.environ.get("QDRANT_URL")
+    original_qdrant_api_key = os.environ.get("QDRANT_API_KEY")
+
+    # Unset production Qdrant variables
+    if "QDRANT_URL" in os.environ:
+        del os.environ["QDRANT_URL"]
+    if "QDRANT_API_KEY" in os.environ:
+        del os.environ["QDRANT_API_KEY"]
+
+    yield
+
+    # Restore original values after all tests (optional, but good practice)
+    if original_qdrant_url:
+        os.environ["QDRANT_URL"] = original_qdrant_url
+    if original_qdrant_api_key:
+        os.environ["QDRANT_API_KEY"] = original_qdrant_api_key
 
 
 class ProtocolCreateFactory(Factory):
