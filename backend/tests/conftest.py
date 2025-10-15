@@ -130,8 +130,9 @@ def test_client() -> TestClient:
     Returns:
         TestClient: FastAPI test client
     """
-    # Patch the Qdrant service to use in-memory client with proper mock configuration
-    with patch("app.api.protocols.qdrant_service") as mock_service:
+    # Patch both Qdrant services to use in-memory clients
+    with patch("app.api.protocols.qdrant_service") as mock_service, \
+         patch("app.services.langchain_qdrant_service.get_langchain_qdrant_service") as mock_get_langchain:
         # Storage for created protocols to maintain consistency
         # Reset for each test to ensure clean state
         created_protocols = {}
@@ -200,6 +201,26 @@ def test_client() -> TestClient:
 
         mock_service.update_protocol_status.side_effect = update_protocol_status
         mock_service.update_protocol.return_value = True
+
+        # Mock LangChain Qdrant service
+        mock_langchain_service = MagicMock()
+
+        def store_documents_mock(documents, study_acronym, ids=None):
+            # Generate collection name similar to real implementation
+            import time
+            timestamp = int(time.time() * 1000)
+            collection_name = f"{study_acronym.upper().replace('-', '')}-{hex(timestamp)[2:10]}"
+
+            # Return mock document IDs and collection name
+            doc_ids = [str(i) for i in range(len(documents))]
+            return doc_ids, collection_name
+
+        mock_langchain_service.store_documents.side_effect = store_documents_mock
+        mock_langchain_service.search_protocol_documents.return_value = []
+        mock_langchain_service.get_retriever.return_value = MagicMock()
+
+        # Make get_langchain_qdrant_service return our mock
+        mock_get_langchain.return_value = mock_langchain_service
 
         yield TestClient(app)
 
