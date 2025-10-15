@@ -1,6 +1,7 @@
 # Environment files
 **/*.env
 **/*.venv
+delete-collections.py
 
 # BMad agent files
 bmad-agent/
