@@ -131,8 +131,12 @@ def test_client() -> TestClient:
         TestClient: FastAPI test client
     """
     # Patch both Qdrant services to use in-memory clients
-    with patch("app.api.protocols.qdrant_service") as mock_service, \
-         patch("app.services.langchain_qdrant_service.get_langchain_qdrant_service") as mock_get_langchain:
+    with (
+        patch("app.api.protocols.qdrant_service") as mock_service,
+        patch(
+            "app.services.langchain_qdrant_service.get_langchain_qdrant_service"
+        ) as mock_get_langchain,
+    ):
         # Storage for created protocols to maintain consistency
         # Reset for each test to ensure clean state
         created_protocols = {}
@@ -208,8 +212,11 @@ def test_client() -> TestClient:
         def store_documents_mock(documents, study_acronym, ids=None):
             # Generate collection name similar to real implementation
             import time
+
             timestamp = int(time.time() * 1000)
-            collection_name = f"{study_acronym.upper().replace('-', '')}-{hex(timestamp)[2:10]}"
+            collection_name = (
+                f"{study_acronym.upper().replace('-', '')}-{hex(timestamp)[2:10]}"
+            )
 
             # Return mock document IDs and collection name
             doc_ids = [str(i) for i in range(len(documents))]

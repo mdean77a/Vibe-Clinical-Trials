@@ -42,7 +42,7 @@ def get_llm_chat_model(
     """
     if model.startswith("gpt") or model.startswith("o1"):
         # OpenAI models (gpt-4, gpt-3.5, o1-preview, etc.)
-        return ChatOpenAI(
+        return ChatOpenAI(  # type: ignore[call-arg]
             model=model,
             max_tokens=max_tokens,
             temperature=temperature,

@@ -72,7 +72,9 @@ class TestChunkProtocolText:
         """Test chunking large text that requires splitting."""
         # Create text larger than TEXT_CHUNK_SIZE (2000 tokens)
         # Need ~3000+ tokens to ensure splitting
-        text = " ".join(["Protocol section with detailed content"] * 2000)  # ~8000 tokens
+        text = " ".join(
+            ["Protocol section with detailed content"] * 2000
+        )  # ~8000 tokens
         chunks = chunk_protocol_text(text)
 
         assert isinstance(chunks, list)
@@ -85,7 +87,12 @@ class TestChunkProtocolText:
     def test_chunk_text_with_overlap(self):
         """Test that chunks have proper overlap."""
         # Create large enough text to ensure multiple chunks (need >2000 tokens)
-        text = " ".join([f"Section {idx} with detailed content for protocol testing" for idx in range(2000)])
+        text = " ".join(
+            [
+                f"Section {idx} with detailed content for protocol testing"
+                for idx in range(2000)
+            ]
+        )
         chunks = chunk_protocol_text(text)
 
         if len(chunks) > 1:
@@ -129,7 +136,9 @@ class TestChunkProtocolText:
 
         # All chunks should be longer than MIN_CHUNK_LENGTH
         for chunk in chunks:
-            assert len(chunk.strip()) >= MIN_CHUNK_LENGTH or chunk.strip() == text.strip()
+            assert (
+                len(chunk.strip()) >= MIN_CHUNK_LENGTH or chunk.strip() == text.strip()
+            )
 
     @pytest.mark.unit
     def test_chunk_preserves_content(self):

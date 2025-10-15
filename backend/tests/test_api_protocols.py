@@ -28,9 +28,10 @@ class TestUploadProtocolTextEndpoint:
         request_data = {
             "study_acronym": "TEST-001",
             "protocol_title": "Test Protocol Title",
-            "extracted_text": "This is extracted protocol text with enough content to be meaningful. " * 20,
+            "extracted_text": "This is extracted protocol text with enough content to be meaningful. "
+            * 20,
             "original_filename": "test_protocol.pdf",
-            "page_count": 10
+            "page_count": 10,
         }
 
         response = test_client.post("/api/protocols/upload-text", json=request_data)
@@ -44,9 +45,6 @@ class TestUploadProtocolTextEndpoint:
         assert "collection_name" in data
         assert "upload_date" in data
         assert data["file_path"] == "test_protocol.pdf"
-        
-        
-        
 
     @pytest.mark.unit
     def test_upload_text_normalizes_acronym(self, test_client):
@@ -56,7 +54,7 @@ class TestUploadProtocolTextEndpoint:
             "protocol_title": "Test Protocol",
             "extracted_text": "Protocol content here. " * 20,
             "original_filename": "test.pdf",
-            "page_count": 5
+            "page_count": 5,
         }
 
         response = test_client.post("/api/protocols/upload-text", json=request_data)
@@ -71,7 +69,7 @@ class TestUploadProtocolTextEndpoint:
         request_data = {
             "protocol_title": "Test Protocol",
             "extracted_text": "Protocol content",
-            "original_filename": "test.pdf"
+            "original_filename": "test.pdf",
         }
 
         response = test_client.post("/api/protocols/upload-text", json=request_data)
@@ -86,7 +84,7 @@ class TestUploadProtocolTextEndpoint:
             "study_acronym": "   ",  # Only whitespace
             "protocol_title": "Test Protocol",
             "extracted_text": "Protocol content",
-            "original_filename": "test.pdf"
+            "original_filename": "test.pdf",
         }
 
         response = test_client.post("/api/protocols/upload-text", json=request_data)
@@ -100,7 +98,7 @@ class TestUploadProtocolTextEndpoint:
         request_data = {
             "study_acronym": "TEST-003",
             "extracted_text": "Protocol content",
-            "original_filename": "test.pdf"
+            "original_filename": "test.pdf",
         }
 
         response = test_client.post("/api/protocols/upload-text", json=request_data)
@@ -115,7 +113,7 @@ class TestUploadProtocolTextEndpoint:
             "study_acronym": "TEST-004",
             "protocol_title": "   ",  # Only whitespace
             "extracted_text": "Protocol content",
-            "original_filename": "test.pdf"
+            "original_filename": "test.pdf",
         }
 
         response = test_client.post("/api/protocols/upload-text", json=request_data)
@@ -126,10 +124,7 @@ class TestUploadProtocolTextEndpoint:
     @pytest.mark.unit
     def test_upload_text_missing_extracted_text(self, test_client):
         """Test upload fails when extracted_text is missing."""
-        request_data = {
-            "study_acronym": "TEST-005",
-            "protocol_title": "Test Protocol"
-        }
+        request_data = {"study_acronym": "TEST-005", "protocol_title": "Test Protocol"}
 
         response = test_client.post("/api/protocols/upload-text", json=request_data)
 
@@ -143,7 +138,7 @@ class TestUploadProtocolTextEndpoint:
             "study_acronym": "TEST-006",
             "protocol_title": "Test Protocol",
             "extracted_text": "   ",  # Only whitespace
-            "original_filename": "test.pdf"
+            "original_filename": "test.pdf",
         }
 
         response = test_client.post("/api/protocols/upload-text", json=request_data)
@@ -157,7 +152,7 @@ class TestUploadProtocolTextEndpoint:
         request_data = {
             "study_acronym": "TEST-007",
             "protocol_title": "Test Protocol",
-            "extracted_text": "Minimal protocol content. " * 20
+            "extracted_text": "Minimal protocol content. " * 20,
             # No original_filename or page_count
         }
 
@@ -179,7 +174,7 @@ class TestUploadProtocolTextEndpoint:
             "protocol_title": "Large Protocol",
             "extracted_text": large_text,
             "original_filename": "large_protocol.pdf",
-            "page_count": 100
+            "page_count": 100,
         }
 
         response = test_client.post("/api/protocols/upload-text", json=request_data)
@@ -194,9 +189,10 @@ class TestUploadProtocolTextEndpoint:
         request_data = {
             "study_acronym": "TEST-009",
             "protocol_title": "Protocol with Special Chars: @#$%",
-            "extracted_text": "Protocol content with special chars: @#$% & * () [] {}. " * 20,
+            "extracted_text": "Protocol content with special chars: @#$% & * () [] {}. "
+            * 20,
             "original_filename": "special_chars.pdf",
-            "page_count": 5
+            "page_count": 5,
         }
 
         response = test_client.post("/api/protocols/upload-text", json=request_data)
@@ -213,7 +209,7 @@ class TestUploadProtocolTextEndpoint:
             "protocol_title": "Protocol 临床试验 🌍",
             "extracted_text": "Protocol content 临床试验方案 with unicode 世界. " * 20,
             "original_filename": "unicode.pdf",
-            "page_count": 3
+            "page_count": 3,
         }
 
         response = test_client.post("/api/protocols/upload-text", json=request_data)

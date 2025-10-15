@@ -244,8 +244,7 @@ class ICFGenerationService:
             try:
                 # Use the same section queries as initial generation for consistency
                 # Get query from document generator to maintain consistency with workflow
-                workflow = DocumentGenerator()
-                query = workflow._get_section_query(section_name)
+                query = self.document_generator._get_section_query(section_name)  # type: ignore[attr-defined]
                 context = self.document_generator.get_protocol_context(
                     protocol_collection_name, query
                 )

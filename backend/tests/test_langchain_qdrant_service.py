@@ -133,7 +133,9 @@ class TestLangChainQdrantServiceMethods:
         result = service.delete_collection("test_collection")
 
         assert result is True
-        mock_qdrant_client.delete_collection.assert_called_once_with(collection_name="test_collection")
+        mock_qdrant_client.delete_collection.assert_called_once_with(
+            collection_name="test_collection"
+        )
 
     @pytest.mark.unit
     def test_delete_collection_failure(self, mock_qdrant_client):
