@@ -159,7 +159,8 @@ export default function SiteChecklistPage() {
           <p style={{ color: '#6b7280', marginBottom: '32px', maxWidth: '600px', margin: '0 auto 32px' }}>
             The Site Initiation Checklist feature is currently and perpetually, I might add, under development. 
             This will generate comprehensive checklists to ensure all necessary steps 
-            are completed before initiating a clinical trial at your site.
+            are completed before initiating a clinical trial at each clinical
+             site.
           </p>
 
           <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
