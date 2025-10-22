@@ -5,7 +5,9 @@ This module contains tests for the ICF generation service that handles
 streaming ICF document generation using LangGraph workflows.
 """
 
-from unittest.mock import MagicMock, patch
+import asyncio
+from queue import Queue
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -176,3 +178,129 @@ class TestICFGenerationService:
         assert summary["collection_name"] == "empty_collection"
         assert summary["status"] == "empty"
         assert "No protocol content found" in summary["message"]
+
+    @pytest.mark.unit
+    @pytest.mark.ai_service
+    async def test_get_protocol_summary_error(self, mock_qdrant_client):
+        """Test protocol summary retrieval with error."""
+        service = ICFGenerationService(mock_qdrant_client)
+
+        # Mock error during scroll
+        mock_qdrant_client.scroll.side_effect = Exception("Database error")
+
+        summary = await service.get_protocol_summary("error_collection")
+
+        assert summary["collection_name"] == "error_collection"
+        assert summary["status"] == "error"
+        assert "Database error" in summary["message"]
+
+
+class TestICFStreamingGeneration:
+    """Test cases for streaming ICF generation methods."""
+
+    @pytest.fixture
+    def mock_qdrant_client(self):
+        """Mock Qdrant client for testing."""
+        return MagicMock()
+
+    @pytest.mark.unit
+    @pytest.mark.ai_service
+    def test_generate_icf_streaming_method_exists(self, mock_qdrant_client):
+        """Test that streaming method exists and is callable."""
+        service = ICFGenerationService(mock_qdrant_client)
+
+        # Verify the method exists
+        assert hasattr(service, 'generate_icf_streaming')
+        assert callable(service.generate_icf_streaming)
+
+
+class TestExecuteStreamingWorkflow:
+    """Test cases for _execute_streaming_workflow method."""
+
+    @pytest.fixture
+    def mock_qdrant_client(self):
+        """Mock Qdrant client for testing."""
+        return MagicMock()
+
+    @pytest.mark.unit
+    @pytest.mark.ai_service
+    async def test_execute_streaming_workflow_success(self, mock_qdrant_client):
+        """Test successful workflow execution."""
+        service = ICFGenerationService(mock_qdrant_client)
+
+        # Mock workflow
+        mock_workflow = MagicMock()
+        mock_workflow.invoke.return_value = {
+            "sections": {"summary": "Test summary"},
+            "errors": [],
+        }
+
+        # Mock event queue
+        event_queue = asyncio.Queue()
+
+        inputs = {"test": "input"}
+
+        result = await service._execute_streaming_workflow(
+            mock_workflow, inputs, event_queue
+        )
+
+        assert result is not None
+        mock_workflow.invoke.assert_called_once_with(inputs)
+
+    @pytest.mark.unit
+    @pytest.mark.ai_service
+    async def test_execute_streaming_workflow_error(self, mock_qdrant_client):
+        """Test workflow execution with error."""
+        service = ICFGenerationService(mock_qdrant_client)
+
+        # Mock workflow that raises error
+        mock_workflow = MagicMock()
+        mock_workflow.invoke.side_effect = Exception("Workflow execution failed")
+
+        event_queue = asyncio.Queue()
+        inputs = {}
+
+        await service._execute_streaming_workflow(mock_workflow, inputs, event_queue)
+
+        # Should have queued an error event
+        error_event = await event_queue.get()
+        assert error_event["type"] == "error"
+        assert "Workflow execution failed" in error_event["error"]
+
+
+class TestGenerateSectionWithStreamingLLM:
+    """Test cases for _generate_section_with_streaming_llm method."""
+
+    @pytest.fixture
+    def mock_qdrant_client(self):
+        """Mock Qdrant client for testing."""
+        return MagicMock()
+
+    @pytest.mark.unit
+    @pytest.mark.ai_service
+    def test_generate_section_with_streaming_llm_method_exists(self, mock_qdrant_client):
+        """Test that streaming LLM method exists."""
+        service = ICFGenerationService(mock_qdrant_client)
+
+        # Verify the method exists
+        assert hasattr(service, '_generate_section_with_streaming_llm')
+        assert callable(service._generate_section_with_streaming_llm)
+
+
+class TestGenerateSectionStreamingSync:
+    """Test cases for _generate_section_streaming_sync method."""
+
+    @pytest.fixture
+    def mock_qdrant_client(self):
+        """Mock Qdrant client for testing."""
+        return MagicMock()
+
+    @pytest.mark.unit
+    @pytest.mark.ai_service
+    def test_generate_section_streaming_sync_method_exists(self, mock_qdrant_client):
+        """Test that streaming sync method exists."""
+        service = ICFGenerationService(mock_qdrant_client)
+
+        # Verify the method exists
+        assert hasattr(service, '_generate_section_streaming_sync')
+        assert callable(service._generate_section_streaming_sync)
