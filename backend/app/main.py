@@ -94,5 +94,3 @@ async def root() -> Dict[str, str]:
 async def health_check() -> Dict[str, str]:
     """Health check endpoint."""
     return {"status": "healthy"}
-
-
