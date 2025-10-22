@@ -626,6 +626,270 @@ class TestDocumentGeneratorErrorHandling:
                 )
 
 
+class TestWorkflowInvokeEdgeCases:
+    """Test edge cases for workflow invoke method."""
+
+    @pytest.mark.unit
+    def test_invoke_with_message_without_content_attribute(self):
+        """Test invoke when result items don't have .content attribute."""
+        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+            mock_llm = MagicMock()
+            # Return plain strings instead of HumanMessage objects
+            mock_llm.invoke.return_value = MagicMock(content="Section content")
+            mock_get_llm.return_value = mock_llm
+
+            workflow = ICFWorkflow()
+
+            # Create mock compiled graph that returns plain strings (no .content)
+            with patch.object(workflow, 'compile_workflow') as mock_compile:
+                mock_compiled = MagicMock()
+
+                # Mock invoke to return state with plain strings (no .content attribute)
+                def mock_invoke(state):
+                    return {
+                        "summary": ["Plain string without content attribute"],
+                        "background": ["Another plain string"],
+                        "participants": [],  # Empty section
+                        "procedures": [],
+                        "alternatives": [],
+                        "risks": [],
+                        "benefits": [],
+                        "document_generator": state.get("document_generator"),
+                    }
+
+                mock_compiled.invoke = mock_invoke
+                mock_compile.return_value = mock_compiled
+
+                mock_doc_gen = MagicMock()
+                inputs = {
+                    "document_generator": mock_doc_gen,
+                    "document_id": "test-doc",
+                }
+
+                result = workflow.invoke(inputs)
+
+                # Should handle strings without .content attribute
+                assert result["sections"]["summary"] == "Plain string without content attribute"
+                assert result["sections"]["background"] == "Another plain string"
+
+    @pytest.mark.unit
+    def test_invoke_with_missing_sections(self):
+        """Test invoke when some sections are missing (empty lists)."""
+        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+            mock_llm = MagicMock()
+            mock_llm.invoke.return_value = MagicMock(content="Content")
+            mock_get_llm.return_value = mock_llm
+
+            workflow = ICFWorkflow()
+
+            with patch.object(workflow, 'compile_workflow') as mock_compile:
+                mock_compiled = MagicMock()
+
+                # Some sections populated, some empty
+                def mock_invoke(state):
+                    return {
+                        "summary": [HumanMessage(content="Summary content")],
+                        "background": [],  # Empty - should trigger error
+                        "participants": [],
+                        "procedures": [],
+                        "alternatives": [],
+                        "risks": [],
+                        "benefits": [],
+                    }
+
+                mock_compiled.invoke = mock_invoke
+                mock_compile.return_value = mock_compiled
+
+                inputs = {
+                    "document_generator": MagicMock(),
+                    "document_id": "test-doc",
+                }
+
+                result = workflow.invoke(inputs)
+
+                # Should have errors for missing sections
+                assert len(result["errors"]) > 0
+                assert any("Missing section" in err for err in result["errors"])
+
+
+class TestStreamingWorkflowSectionBranches:
+    """Test StreamingICFWorkflow section-specific return branches."""
+
+    @pytest.mark.unit
+    def test_streaming_workflow_procedures_section(self):
+        """Test StreamingICFWorkflow generates procedures section correctly."""
+        event_queue = Queue()
+        mock_doc_gen = MagicMock()
+        mock_doc_gen.get_protocol_context.return_value = [
+            {"text": "Procedure context", "score": 0.9}
+        ]
+
+        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+            mock_llm = MagicMock()
+            chunk = MagicMock()
+            chunk.content = "Procedures content"
+            mock_llm.stream.return_value = [chunk]
+            mock_get_llm.return_value = mock_llm
+
+            workflow = StreamingICFWorkflow(
+                event_queue=event_queue,
+                document_generator=mock_doc_gen,
+                document_id="test-doc",
+                sections_filter=["procedures"],
+            )
+
+            section_gen = workflow._create_section_generator("procedures")
+            result = section_gen({})
+
+            assert "procedures" in result
+            assert result["procedures"] == ["Procedures content"]
+
+    @pytest.mark.unit
+    def test_streaming_workflow_alternatives_section(self):
+        """Test StreamingICFWorkflow generates alternatives section correctly."""
+        event_queue = Queue()
+        mock_doc_gen = MagicMock()
+        mock_doc_gen.get_protocol_context.return_value = [
+            {"text": "Alternatives context", "score": 0.8}
+        ]
+
+        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+            mock_llm = MagicMock()
+            chunk = MagicMock()
+            chunk.content = "Alternatives content"
+            mock_llm.stream.return_value = [chunk]
+            mock_get_llm.return_value = mock_llm
+
+            workflow = StreamingICFWorkflow(
+                event_queue=event_queue,
+                document_generator=mock_doc_gen,
+                document_id="test-doc",
+                sections_filter=["alternatives"],
+            )
+
+            section_gen = workflow._create_section_generator("alternatives")
+            result = section_gen({})
+
+            assert "alternatives" in result
+
+    @pytest.mark.unit
+    def test_streaming_workflow_background_section(self):
+        """Test StreamingICFWorkflow generates background section correctly."""
+        event_queue = Queue()
+        mock_doc_gen = MagicMock()
+        mock_doc_gen.get_protocol_context.return_value = [
+            {"text": "Background context", "score": 0.85}
+        ]
+
+        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+            mock_llm = MagicMock()
+            chunk = MagicMock()
+            chunk.content = "Background content"
+            mock_llm.stream.return_value = [chunk]
+            mock_get_llm.return_value = mock_llm
+
+            workflow = StreamingICFWorkflow(
+                event_queue=event_queue,
+                document_generator=mock_doc_gen,
+                document_id="test-doc",
+                sections_filter=["background"],
+            )
+
+            section_gen = workflow._create_section_generator("background")
+            result = section_gen({})
+
+            assert "background" in result
+
+    @pytest.mark.unit
+    def test_streaming_workflow_participants_section(self):
+        """Test StreamingICFWorkflow generates participants section correctly."""
+        event_queue = Queue()
+        mock_doc_gen = MagicMock()
+        mock_doc_gen.get_protocol_context.return_value = [
+            {"text": "Participants context", "score": 0.75}
+        ]
+
+        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+            mock_llm = MagicMock()
+            chunk = MagicMock()
+            chunk.content = "Participants content"
+            mock_llm.stream.return_value = [chunk]
+            mock_get_llm.return_value = mock_llm
+
+            workflow = StreamingICFWorkflow(
+                event_queue=event_queue,
+                document_generator=mock_doc_gen,
+                document_id="test-doc",
+                sections_filter=["participants"],
+            )
+
+            section_gen = workflow._create_section_generator("participants")
+            result = section_gen({})
+
+            assert "participants" in result
+
+    @pytest.mark.unit
+    def test_streaming_workflow_benefits_section(self):
+        """Test StreamingICFWorkflow generates benefits section correctly."""
+        event_queue = Queue()
+        mock_doc_gen = MagicMock()
+        mock_doc_gen.get_protocol_context.return_value = [
+            {"text": "Benefits context", "score": 0.88}
+        ]
+
+        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+            mock_llm = MagicMock()
+            chunk = MagicMock()
+            chunk.content = "Benefits content"
+            mock_llm.stream.return_value = [chunk]
+            mock_get_llm.return_value = mock_llm
+
+            workflow = StreamingICFWorkflow(
+                event_queue=event_queue,
+                document_generator=mock_doc_gen,
+                document_id="test-doc",
+                sections_filter=["benefits"],
+            )
+
+            section_gen = workflow._create_section_generator("benefits")
+            result = section_gen({})
+
+            assert "benefits" in result
+
+    @pytest.mark.unit
+    def test_streaming_workflow_stream_fallback_on_error(self):
+        """Test StreamingICFWorkflow falls back to non-streaming on stream error."""
+        event_queue = Queue()
+        mock_doc_gen = MagicMock()
+        mock_doc_gen.get_protocol_context.return_value = [
+            {"text": "Context", "score": 0.9}
+        ]
+
+        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+            mock_llm = MagicMock()
+            # Stream fails
+            mock_llm.stream.side_effect = Exception("Streaming failed")
+            # But invoke works
+            mock_response = MagicMock()
+            mock_response.content = "Fallback content"
+            mock_llm.invoke.return_value = mock_response
+            mock_get_llm.return_value = mock_llm
+
+            workflow = StreamingICFWorkflow(
+                event_queue=event_queue,
+                document_generator=mock_doc_gen,
+                document_id="test-doc",
+                sections_filter=["summary"],
+            )
+
+            section_gen = workflow._create_section_generator("summary")
+            result = section_gen({})
+
+            # Should fall back to non-streaming
+            assert "summary" in result
+            assert result["summary"] == ["Fallback content"]
+
+
 class TestIntegrationScenarios:
     """Integration test scenarios for document generation."""
 
