@@ -275,7 +275,9 @@ Copy `.env.example` to `.env` and configure:
 **Frontend**: 153/153 tests passing ✅
 **Backend**: 198/198 tests passing ✅
 **E2E**: Ready for Playwright testing on Vercel deployment
+
 **Coverage**:
+
 - Frontend: >80% ✅
 - Backend: 83% (exceeded 80% target) ✅
   - main.py: 97%
