@@ -128,13 +128,75 @@ Copy `.env.example` to `.env` and configure:
 
 ## Recent Updates (Latest Session)
 
+### ✅ Backend Test Coverage Increased to 83% (Completed - 2025-10-22)
+- **Goal**: Increase backend test coverage from 77% to 80%+
+- **Achievement**: Reached **83% coverage** (+6 percentage points, exceeded target by 3%)
+- **Test Statistics**:
+  - Total tests: 198 (was 160)
+  - New tests added: 38
+  - All tests passing in 2.08 seconds ✅
+  - Zero production code changes (test-only improvements)
+
+#### Module-Specific Coverage Improvements
+- **main.py**: 0% → 97% (+97%) - NEW test file with 12 tests
+- **qdrant_service.py**: 71% → 99% (+28%) - Added 18 edge case tests
+- **document_generator.py**: 78% → 86% (+8%) - Added 8 workflow tests
+- **Overall backend**: 77% → 83% (+6%)
+
+#### New Test Files Created
+**tests/test_main.py** (12 tests, 274 lines):
+- Application lifespan manager (startup/shutdown)
+- Root and health check endpoints
+- CORS middleware and router configuration
+- Confirmed lifespan manager is active code (not dead code)
+
+#### Enhanced Test Files
+**tests/test_qdrant_service.py** (+18 tests, +341 lines):
+- Protocol retrieval by collection (raw and LangChain metadata)
+- Collection name lookup and deletion
+- Protocol collection pattern validation
+- Edge cases: empty collections, read errors, connection failures
+
+**tests/test_document_generator.py** (+8 tests, +226 lines):
+- Workflow invoke edge cases (messages without .content)
+- Missing section error handling
+- StreamingICFWorkflow section branches (all 7 sections)
+- Streaming fallback on error
+
+#### Testing Strategy
+- Mock-based unit tests (no external dependencies)
+- FastAPI dependency override pattern
+- Comprehensive edge case coverage
+- Both success and failure path testing
+
+#### Files Modified (Test-Only)
+- `backend/tests/test_main.py` (NEW)
+- `backend/tests/test_qdrant_service.py` (ENHANCED)
+- `backend/tests/test_document_generator.py` (ENHANCED)
+- **No production code touched** ✅
+
+#### Branch Management
+- Branch: `increaseCoverage`
+- Merged to main with `--no-ff` (preserves commit history)
+- Commits: 2 comprehensive commits
+- Merge commit: d6fc24b
+- Branch cleaned up (deleted locally and remotely)
+
+#### Acceptable Gaps
+- **icf_service.py** (43%): Complex async streaming (integration-tested)
+- **handler.py** (0%): Vercel serverless entry point (deployment-tested)
+
+---
+
+## Previous Sessions
+
 ### ✅ LLM Configuration Consolidation (Completed)
 - **Problem**: LLM model names and configurations scattered across multiple files with redundant fallback logic
 - **Solution**: Centralized all LLM configurations and implemented proper working model pattern
 - **Key Changes**:
   - Added centralized LLM constants to `backend/app/config.py`:
     - `PRIMARY_LLM_MODEL = "gpt-4o-mini"` (OpenAI primary model)
-    - `FALLBACK_LLM_MODEL = "claude-sonnet-4-20250514"` (Anthropic fallback model)  
+    - `FALLBACK_LLM_MODEL = "claude-sonnet-4-20250514"` (Anthropic fallback model)
     - `LLM_MAX_TOKENS = 8192`, `LLM_TEMPERATURE = 0.1`
   - Implemented proper working model initialization in `document_generator.py`:
     - Try PRIMARY_LLM_MODEL first, then FALLBACK_LLM_MODEL
@@ -210,7 +272,15 @@ Copy `.env.example` to `.env` and configure:
 
 ## Testing Status
 
-**Frontend**: 153/153 tests passing ✅  
-**Backend**: 98/98 functional tests passing ✅  
-**E2E**: Ready for Playwright testing on Vercel deployment  
-**Coverage**: Frontend >80%, Backend functional coverage complete
+**Frontend**: 153/153 tests passing ✅
+**Backend**: 198/198 tests passing ✅
+**E2E**: Ready for Playwright testing on Vercel deployment
+**Coverage**:
+- Frontend: >80% ✅
+- Backend: 83% (exceeded 80% target) ✅
+  - main.py: 97%
+  - qdrant_service.py: 99%
+  - langchain_qdrant_service.py: 96%
+  - document_generator.py: 86%
+  - icf_generation.py: 89%
+  - protocols.py: 82%
