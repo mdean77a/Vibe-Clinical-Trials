@@ -7,7 +7,10 @@ import { generateICFPdf, getPdfStats, validateSectionsForPdf, getFileSystemCapab
 import { generateICFDocx, validateSectionsForDocx, getDocxFileSystemCapabilities } from '../../utils/docxGenerator';
 import { generateICFMarkdown, validateSectionsForMarkdown, getMarkdownFileSystemCapabilities } from '../../utils/markdownGenerator';
 import DashboardContainer from '@/components/shared/DashboardContainer';
+import DashboardHeader from '@/components/shared/DashboardHeader';
 import ProtocolInfoCard from '@/components/shared/ProtocolInfoCard';
+import IconBadge from '@/components/shared/IconBadge';
+import GradientButton from '@/components/shared/GradientButton';
 import BackToSelectionButton from '@/components/shared/BackToSelectionButton';
 
 interface ICFGenerationDashboardProps {
@@ -488,25 +491,11 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
 
   return (
     <DashboardContainer maxWidth="1200px">
-      {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-        <h1 style={{
-          fontSize: '2.5rem',
-          fontWeight: 'bold',
-          background: 'linear-gradient(to right, #2563eb, #9333ea)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-          marginBottom: '8px'
-        }}>
-          ICF Generation Dashboard
-        </h1>
-        <p style={{ color: '#6b7280', fontSize: '1.125rem' }}>
-          Generate and review informed consent form sections
-        </p>
-      </div>
+      <DashboardHeader
+        title="ICF Generation Dashboard"
+        subtitle="Generate and review informed consent form sections"
+      />
 
-      {/* Protocol Info */}
       <ProtocolInfoCard protocol={protocol} />
 
       {/* Generation Controls */}
@@ -519,52 +508,21 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
           marginBottom: '24px',
           textAlign: 'center',
         }}>
-          <div style={{
-            width: '64px',
-            height: '64px',
-            background: '#e9d5ff',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 16px',
-          }}>
-            <span style={{ fontSize: '2rem' }}>🚀</span>
-          </div>
+          <IconBadge size="md">🚀</IconBadge>
+
           <h3 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#1f2937', marginBottom: '8px' }}>
             Ready to Generate ICF
           </h3>
           <p style={{ color: '#6b7280', marginBottom: '24px' }}>
             Generate all 7 ICF sections using AI with protocol-specific context
           </p>
-          <button
+
+          <GradientButton
             onClick={generateICF}
             disabled={progress.isGenerating}
-            style={{
-              background: 'linear-gradient(to right, #8b5cf6, #7c3aed)',
-              color: 'white',
-              fontWeight: '600',
-              padding: '16px 32px',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: progress.isGenerating ? 'not-allowed' : 'pointer',
-              fontSize: '1rem',
-              opacity: progress.isGenerating ? 0.6 : 1,
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={(e) => {
-              if (!progress.isGenerating) {
-                e.currentTarget.style.background = 'linear-gradient(to right, #7c3aed, #6d28d9)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!progress.isGenerating) {
-                e.currentTarget.style.background = 'linear-gradient(to right, #8b5cf6, #7c3aed)';
-              }
-            }}
           >
             {progress.isGenerating ? '🔄 Generating ICF...' : '🚀 Generate ICF'}
-          </button>
+          </GradientButton>
         </div>
       )}
 
