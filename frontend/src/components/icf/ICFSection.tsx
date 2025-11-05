@@ -14,7 +14,7 @@ interface ICFSectionProps {
   onApprove?: (sectionName: string) => void;
   onEdit?: (sectionName: string, newContent: string) => void;
   onRegenerate?: (sectionName: string) => void;
-  onEditingChange?: (sectionName: string, isEditing: boolean, hasUnsavedChanges: boolean) => void;
+  onEditingChange?: (sectionName: string, isEditing: boolean) => void;
 }
 
 const ICFSection: React.FC<ICFSectionProps> = ({
@@ -35,10 +35,9 @@ const ICFSection: React.FC<ICFSectionProps> = ({
   // Notify parent of editing state changes
   React.useEffect(() => {
     if (onEditingChange) {
-      const hasUnsavedChanges = isEditing && editContent !== section.content;
-      onEditingChange(section.name, isEditing, hasUnsavedChanges);
+      onEditingChange(section.name, isEditing);
     }
-  }, [isEditing, editContent, section.content, section.name, onEditingChange]);
+  }, [isEditing, section.name, onEditingChange]);
 
   const handleStartEdit = () => {
     setIsEditing(true);

@@ -38,7 +38,6 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
   });
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false);
   const [editingSections, setEditingSections] = useState<Set<string>>(new Set());
-  const [sectionsWithUnsavedChanges, setSectionsWithUnsavedChanges] = useState<Set<string>>(new Set());
 
   // Initialize sections with static data
   useEffect(() => {
@@ -335,20 +334,10 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
     }
   };
 
-  const handleEditingChange = (sectionName: string, isEditing: boolean, hasUnsavedChanges: boolean) => {
+  const handleEditingChange = (sectionName: string, isEditing: boolean) => {
     setEditingSections(prev => {
       const updated = new Set(prev);
       if (isEditing) {
-        updated.add(sectionName);
-      } else {
-        updated.delete(sectionName);
-      }
-      return updated;
-    });
-
-    setSectionsWithUnsavedChanges(prev => {
-      const updated = new Set(prev);
-      if (hasUnsavedChanges) {
         updated.add(sectionName);
       } else {
         updated.delete(sectionName);
@@ -614,7 +603,7 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
                 {sections.some(s => s.status === 'ready_for_review') && (
                   <button
                     onClick={handleApproveAll}
-                    disabled={anySectionGenerating || sectionsWithUnsavedChanges.size > 0}
+                    disabled={anySectionGenerating || editingSections.size > 0}
                     style={{
                       padding: '12px 24px',
                       fontSize: '0.875rem',
@@ -622,24 +611,24 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
                       borderRadius: '8px',
                       backgroundColor: '#10b981',
                       color: '#ffffff',
-                      cursor: (anySectionGenerating || sectionsWithUnsavedChanges.size > 0) ? 'not-allowed' : 'pointer',
+                      cursor: (anySectionGenerating || editingSections.size > 0) ? 'not-allowed' : 'pointer',
                       transition: 'all 0.2s',
-                      opacity: (anySectionGenerating || sectionsWithUnsavedChanges.size > 0) ? 0.6 : 1,
+                      opacity: (anySectionGenerating || editingSections.size > 0) ? 0.6 : 1,
                     }}
                     onMouseEnter={(e) => {
-                      if (!anySectionGenerating && sectionsWithUnsavedChanges.size === 0) {
+                      if (!anySectionGenerating && editingSections.size === 0) {
                         e.currentTarget.style.backgroundColor = '#059669';
                       }
                     }}
                     onMouseLeave={(e) => {
-                      if (!anySectionGenerating && sectionsWithUnsavedChanges.size === 0) {
+                      if (!anySectionGenerating && editingSections.size === 0) {
                         e.currentTarget.style.backgroundColor = '#10b981';
                       }
                     }}
                     title={
                       anySectionGenerating
                         ? 'Wait for all sections to finish generating'
-                        : sectionsWithUnsavedChanges.size > 0
+                        : editingSections.size > 0
                           ? 'Save or cancel edits before approving all sections'
                           : 'Approve all sections that are ready for review'
                     }
