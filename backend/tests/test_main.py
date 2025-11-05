@@ -189,7 +189,9 @@ class TestApplicationConfiguration:
     def test_app_metadata(self):
         """Test FastAPI application metadata."""
         assert app.title == "Clinical Trial Accelerator API"
-        assert app.description == "AI-powered clinical trial document generation backend"
+        assert (
+            app.description == "AI-powered clinical trial document generation backend"
+        )
         assert app.version == "0.1.0"
 
 

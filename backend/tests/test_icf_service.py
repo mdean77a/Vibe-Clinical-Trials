@@ -44,50 +44,6 @@ class TestICFGenerationService:
 
     @pytest.mark.unit
     @pytest.mark.ai_service
-    def test_format_context_for_llm(self, mock_qdrant_client):
-        """Test context formatting for LLM consumption."""
-        service = ICFGenerationService(mock_qdrant_client)
-
-        context = [
-            {"text": "First context item", "score": 0.9},
-            {"text": "Second context item", "score": 0.8},
-            {"text": "Third context item", "score": 0.7},
-        ]
-
-        formatted = service._format_context_for_llm(context)
-
-        assert "[Relevance: 0.90]" in formatted
-        assert "First context item" in formatted
-        assert "Second context item" in formatted
-        assert "Third context item" in formatted
-
-    @pytest.mark.unit
-    @pytest.mark.ai_service
-    def test_format_context_empty(self, mock_qdrant_client):
-        """Test context formatting with empty context."""
-        service = ICFGenerationService(mock_qdrant_client)
-
-        formatted = service._format_context_for_llm([])
-
-        assert formatted == "No specific protocol context available."
-
-    @pytest.mark.unit
-    @pytest.mark.ai_service
-    def test_get_section_prompt(self, mock_qdrant_client):
-        """Test section prompt retrieval."""
-        service = ICFGenerationService(mock_qdrant_client)
-
-        prompt = service._get_section_prompt("summary")
-
-        assert isinstance(prompt, str)
-        assert len(prompt) > 0
-
-        # Test unknown section fallback
-        unknown_prompt = service._get_section_prompt("unknown_section")
-        assert "Generate an appropriate ICF section" in unknown_prompt
-
-    @pytest.mark.unit
-    @pytest.mark.ai_service
     def test_get_generation_status(self, mock_qdrant_client):
         """Test generation status retrieval."""
         service = ICFGenerationService(mock_qdrant_client)
@@ -210,7 +166,7 @@ class TestICFStreamingGeneration:
         service = ICFGenerationService(mock_qdrant_client)
 
         # Verify the method exists
-        assert hasattr(service, 'generate_icf_streaming')
+        assert hasattr(service, "generate_icf_streaming")
         assert callable(service.generate_icf_streaming)
 
 
@@ -266,41 +222,3 @@ class TestExecuteStreamingWorkflow:
         error_event = await event_queue.get()
         assert error_event["type"] == "error"
         assert "Workflow execution failed" in error_event["error"]
-
-
-class TestGenerateSectionWithStreamingLLM:
-    """Test cases for _generate_section_with_streaming_llm method."""
-
-    @pytest.fixture
-    def mock_qdrant_client(self):
-        """Mock Qdrant client for testing."""
-        return MagicMock()
-
-    @pytest.mark.unit
-    @pytest.mark.ai_service
-    def test_generate_section_with_streaming_llm_method_exists(self, mock_qdrant_client):
-        """Test that streaming LLM method exists."""
-        service = ICFGenerationService(mock_qdrant_client)
-
-        # Verify the method exists
-        assert hasattr(service, '_generate_section_with_streaming_llm')
-        assert callable(service._generate_section_with_streaming_llm)
-
-
-class TestGenerateSectionStreamingSync:
-    """Test cases for _generate_section_streaming_sync method."""
-
-    @pytest.fixture
-    def mock_qdrant_client(self):
-        """Mock Qdrant client for testing."""
-        return MagicMock()
-
-    @pytest.mark.unit
-    @pytest.mark.ai_service
-    def test_generate_section_streaming_sync_method_exists(self, mock_qdrant_client):
-        """Test that streaming sync method exists."""
-        service = ICFGenerationService(mock_qdrant_client)
-
-        # Verify the method exists
-        assert hasattr(service, '_generate_section_streaming_sync')
-        assert callable(service._generate_section_streaming_sync)

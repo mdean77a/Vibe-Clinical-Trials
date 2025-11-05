@@ -258,7 +258,9 @@ class TestWorkflowBase:
     @pytest.mark.unit
     def test_workflow_base_initialization_success(self):
         """Test successful WorkflowBase initialization."""
-        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+        with patch(
+            "app.services.document_generator.get_llm_chat_model"
+        ) as mock_get_llm:
             mock_llm = MagicMock()
             mock_get_llm.return_value = mock_llm
 
@@ -271,18 +273,26 @@ class TestWorkflowBase:
     @pytest.mark.unit
     def test_workflow_base_initialization_failure(self):
         """Test WorkflowBase initialization with LLM failure."""
-        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+        with patch(
+            "app.services.document_generator.get_llm_chat_model"
+        ) as mock_get_llm:
             mock_get_llm.side_effect = Exception("LLM initialization failed")
 
-            with pytest.raises(DocumentGenerationError, match="Failed to initialize LLM"):
+            with pytest.raises(
+                DocumentGenerationError, match="Failed to initialize LLM"
+            ):
                 ICFWorkflow()
 
     @pytest.mark.unit
     def test_workflow_invoke_success(self, mock_qdrant_client):
         """Test successful workflow invocation."""
-        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+        with patch(
+            "app.services.document_generator.get_llm_chat_model"
+        ) as mock_get_llm:
             mock_llm = MagicMock()
-            mock_llm.invoke.return_value = MagicMock(content="Generated section content")
+            mock_llm.invoke.return_value = MagicMock(
+                content="Generated section content"
+            )
             mock_get_llm.return_value = mock_llm
 
             workflow = ICFWorkflow()
@@ -311,7 +321,9 @@ class TestWorkflowBase:
     @pytest.mark.unit
     def test_workflow_invoke_with_errors(self, mock_qdrant_client):
         """Test workflow invocation with generation errors."""
-        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+        with patch(
+            "app.services.document_generator.get_llm_chat_model"
+        ) as mock_get_llm:
             mock_llm = MagicMock()
             mock_llm.invoke.side_effect = Exception("LLM generation failed")
             mock_get_llm.return_value = mock_llm
@@ -335,7 +347,9 @@ class TestWorkflowBase:
     @pytest.mark.unit
     def test_generate_section_with_llm_success(self):
         """Test _generate_section_with_llm success."""
-        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+        with patch(
+            "app.services.document_generator.get_llm_chat_model"
+        ) as mock_get_llm:
             mock_llm = MagicMock()
             mock_response = MagicMock()
             mock_response.content = "Generated ICF summary section content"
@@ -356,14 +370,18 @@ class TestWorkflowBase:
     @pytest.mark.unit
     def test_generate_section_with_llm_failure(self):
         """Test _generate_section_with_llm with LLM failure."""
-        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+        with patch(
+            "app.services.document_generator.get_llm_chat_model"
+        ) as mock_get_llm:
             mock_llm = MagicMock()
             mock_llm.invoke.side_effect = Exception("LLM API error")
             mock_get_llm.return_value = mock_llm
 
             workflow = ICFWorkflow()
 
-            with pytest.raises(DocumentGenerationError, match="Failed to generate summary"):
+            with pytest.raises(
+                DocumentGenerationError, match="Failed to generate summary"
+            ):
                 workflow._generate_section_with_llm(
                     section_name="summary",
                     context="Context",
@@ -467,9 +485,7 @@ class TestStreamingICFWorkflow:
     def test_streaming_workflow_with_sections_filter(self):
         """Test StreamingICFWorkflow with sections filter."""
         with patch("app.services.document_generator.get_llm_chat_model"):
-            workflow = StreamingICFWorkflow(
-                sections_filter=["summary", "risks"]
-            )
+            workflow = StreamingICFWorkflow(sections_filter=["summary", "risks"])
 
             assert len(workflow.sections) == 2
             assert "summary" in workflow.sections
@@ -484,7 +500,9 @@ class TestStreamingICFWorkflow:
             {"text": "Protocol context", "score": 0.9}
         ]
 
-        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+        with patch(
+            "app.services.document_generator.get_llm_chat_model"
+        ) as mock_get_llm:
             # Mock streaming LLM response
             mock_llm = MagicMock()
             chunk1 = MagicMock()
@@ -523,7 +541,9 @@ class TestStreamingICFWorkflow:
         """Test streaming workflow error handling."""
         event_queue = Queue()
         mock_doc_gen = MagicMock()
-        mock_doc_gen.get_protocol_context.side_effect = Exception("Context retrieval failed")
+        mock_doc_gen.get_protocol_context.side_effect = Exception(
+            "Context retrieval failed"
+        )
 
         with patch("app.services.document_generator.get_llm_chat_model"):
             workflow = StreamingICFWorkflow(
@@ -580,7 +600,9 @@ class TestHelperFunctions:
             "app.services.document_generator.DocumentGenerator.get_protocol_context",
             return_value=[{"text": "Context", "score": 0.9}],
         ):
-            with pytest.raises(DocumentGenerationError, match="Missing required ICF section"):
+            with pytest.raises(
+                DocumentGenerationError, match="Missing required ICF section"
+            ):
                 generate_icf_sections(
                     document_id="test-doc",
                     qdrant_client=mock_qdrant_client,
@@ -605,7 +627,9 @@ class TestDocumentGeneratorErrorHandling:
             )
             mock_get_langchain.return_value = mock_service
 
-            with pytest.raises(DocumentGenerationError, match="Failed to retrieve context"):
+            with pytest.raises(
+                DocumentGenerationError, match="Failed to retrieve context"
+            ):
                 generator.get_protocol_context("test-doc", "query")
 
     @pytest.mark.unit
@@ -632,7 +656,9 @@ class TestWorkflowInvokeEdgeCases:
     @pytest.mark.unit
     def test_invoke_with_message_without_content_attribute(self):
         """Test invoke when result items don't have .content attribute."""
-        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+        with patch(
+            "app.services.document_generator.get_llm_chat_model"
+        ) as mock_get_llm:
             mock_llm = MagicMock()
             # Return plain strings instead of HumanMessage objects
             mock_llm.invoke.return_value = MagicMock(content="Section content")
@@ -641,7 +667,7 @@ class TestWorkflowInvokeEdgeCases:
             workflow = ICFWorkflow()
 
             # Create mock compiled graph that returns plain strings (no .content)
-            with patch.object(workflow, 'compile_workflow') as mock_compile:
+            with patch.object(workflow, "compile_workflow") as mock_compile:
                 mock_compiled = MagicMock()
 
                 # Mock invoke to return state with plain strings (no .content attribute)
@@ -669,20 +695,25 @@ class TestWorkflowInvokeEdgeCases:
                 result = workflow.invoke(inputs)
 
                 # Should handle strings without .content attribute
-                assert result["sections"]["summary"] == "Plain string without content attribute"
+                assert (
+                    result["sections"]["summary"]
+                    == "Plain string without content attribute"
+                )
                 assert result["sections"]["background"] == "Another plain string"
 
     @pytest.mark.unit
     def test_invoke_with_missing_sections(self):
         """Test invoke when some sections are missing (empty lists)."""
-        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+        with patch(
+            "app.services.document_generator.get_llm_chat_model"
+        ) as mock_get_llm:
             mock_llm = MagicMock()
             mock_llm.invoke.return_value = MagicMock(content="Content")
             mock_get_llm.return_value = mock_llm
 
             workflow = ICFWorkflow()
 
-            with patch.object(workflow, 'compile_workflow') as mock_compile:
+            with patch.object(workflow, "compile_workflow") as mock_compile:
                 mock_compiled = MagicMock()
 
                 # Some sections populated, some empty
@@ -724,7 +755,9 @@ class TestStreamingWorkflowSectionBranches:
             {"text": "Procedure context", "score": 0.9}
         ]
 
-        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+        with patch(
+            "app.services.document_generator.get_llm_chat_model"
+        ) as mock_get_llm:
             mock_llm = MagicMock()
             chunk = MagicMock()
             chunk.content = "Procedures content"
@@ -753,7 +786,9 @@ class TestStreamingWorkflowSectionBranches:
             {"text": "Alternatives context", "score": 0.8}
         ]
 
-        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+        with patch(
+            "app.services.document_generator.get_llm_chat_model"
+        ) as mock_get_llm:
             mock_llm = MagicMock()
             chunk = MagicMock()
             chunk.content = "Alternatives content"
@@ -781,7 +816,9 @@ class TestStreamingWorkflowSectionBranches:
             {"text": "Background context", "score": 0.85}
         ]
 
-        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+        with patch(
+            "app.services.document_generator.get_llm_chat_model"
+        ) as mock_get_llm:
             mock_llm = MagicMock()
             chunk = MagicMock()
             chunk.content = "Background content"
@@ -809,7 +846,9 @@ class TestStreamingWorkflowSectionBranches:
             {"text": "Participants context", "score": 0.75}
         ]
 
-        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+        with patch(
+            "app.services.document_generator.get_llm_chat_model"
+        ) as mock_get_llm:
             mock_llm = MagicMock()
             chunk = MagicMock()
             chunk.content = "Participants content"
@@ -837,7 +876,9 @@ class TestStreamingWorkflowSectionBranches:
             {"text": "Benefits context", "score": 0.88}
         ]
 
-        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+        with patch(
+            "app.services.document_generator.get_llm_chat_model"
+        ) as mock_get_llm:
             mock_llm = MagicMock()
             chunk = MagicMock()
             chunk.content = "Benefits content"
@@ -865,7 +906,9 @@ class TestStreamingWorkflowSectionBranches:
             {"text": "Context", "score": 0.9}
         ]
 
-        with patch("app.services.document_generator.get_llm_chat_model") as mock_get_llm:
+        with patch(
+            "app.services.document_generator.get_llm_chat_model"
+        ) as mock_get_llm:
             mock_llm = MagicMock()
             # Stream fails
             mock_llm.stream.side_effect = Exception("Streaming failed")

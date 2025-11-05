@@ -195,12 +195,18 @@ class TestStoreDocuments:
     @patch("app.services.langchain_qdrant_service.get_qdrant_service")
     @patch("app.services.langchain_qdrant_service.QdrantVectorStore")
     def test_store_documents_success(
-        self, mock_vector_store, mock_get_qdrant, mock_embeddings_class, mock_qdrant_client
+        self,
+        mock_vector_store,
+        mock_get_qdrant,
+        mock_embeddings_class,
+        mock_qdrant_client,
     ):
         """Test successful document storage."""
         # Setup mocks
         mock_qdrant_service = MagicMock()
-        mock_qdrant_service.generate_collection_name.return_value = "test-collection-123"
+        mock_qdrant_service.generate_collection_name.return_value = (
+            "test-collection-123"
+        )
         mock_get_qdrant.return_value = mock_qdrant_service
 
         mock_embeddings = MagicMock()
@@ -217,8 +223,7 @@ class TestStoreDocuments:
 
         # Call method
         doc_ids, collection_name = service.store_documents(
-            documents=documents,
-            study_acronym="TEST001"
+            documents=documents, study_acronym="TEST001"
         )
 
         # Verify results
@@ -227,12 +232,23 @@ class TestStoreDocuments:
         mock_vector_store.from_documents.assert_called_once()
 
     @pytest.mark.unit
-    @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key", "QDRANT_URL": "http://localhost:6333", "QDRANT_API_KEY": "test-api-key"})
+    @patch.dict(
+        os.environ,
+        {
+            "OPENAI_API_KEY": "test-key",
+            "QDRANT_URL": "http://localhost:6333",
+            "QDRANT_API_KEY": "test-api-key",
+        },
+    )
     @patch("app.services.langchain_qdrant_service.OpenAIEmbeddings")
     @patch("app.services.langchain_qdrant_service.get_qdrant_service")
     @patch("app.services.langchain_qdrant_service.QdrantVectorStore")
     def test_store_documents_with_url_and_api_key(
-        self, mock_vector_store, mock_get_qdrant, mock_embeddings_class, mock_qdrant_client
+        self,
+        mock_vector_store,
+        mock_get_qdrant,
+        mock_embeddings_class,
+        mock_qdrant_client,
     ):
         """Test document storage with URL and API key."""
         mock_qdrant_service = MagicMock()
@@ -249,8 +265,8 @@ class TestStoreDocuments:
 
         # Verify from_documents was called with url and api_key
         call_kwargs = mock_vector_store.from_documents.call_args[1]
-        assert 'url' in call_kwargs
-        assert 'api_key' in call_kwargs
+        assert "url" in call_kwargs
+        assert "api_key" in call_kwargs
 
     @pytest.mark.unit
     @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
@@ -258,7 +274,11 @@ class TestStoreDocuments:
     @patch("app.services.langchain_qdrant_service.get_qdrant_service")
     @patch("app.services.langchain_qdrant_service.QdrantVectorStore")
     def test_store_documents_error(
-        self, mock_vector_store, mock_get_qdrant, mock_embeddings_class, mock_qdrant_client
+        self,
+        mock_vector_store,
+        mock_get_qdrant,
+        mock_embeddings_class,
+        mock_qdrant_client,
     ):
         """Test document storage with error."""
         mock_qdrant_service = MagicMock()
@@ -292,7 +312,7 @@ class TestGetRetriever:
         service = LangChainQdrantService(client=mock_qdrant_client)
 
         # Mock the vector store
-        with patch.object(service, 'get_vector_store') as mock_get_vs:
+        with patch.object(service, "get_vector_store") as mock_get_vs:
             mock_vector_store = MagicMock()
             mock_retriever = MagicMock()
             mock_vector_store.as_retriever.return_value = mock_retriever
@@ -306,26 +326,28 @@ class TestGetRetriever:
     @pytest.mark.unit
     @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
     @patch("app.services.langchain_qdrant_service.OpenAIEmbeddings")
-    def test_get_retriever_with_custom_kwargs(self, mock_embeddings_class, mock_qdrant_client):
+    def test_get_retriever_with_custom_kwargs(
+        self, mock_embeddings_class, mock_qdrant_client
+    ):
         """Test retriever creation with custom search kwargs."""
         mock_embeddings = MagicMock()
         mock_embeddings_class.return_value = mock_embeddings
 
         service = LangChainQdrantService(client=mock_qdrant_client)
 
-        with patch.object(service, 'get_vector_store') as mock_get_vs:
+        with patch.object(service, "get_vector_store") as mock_get_vs:
             mock_vector_store = MagicMock()
             mock_get_vs.return_value = mock_vector_store
 
             service.get_retriever(
                 "test-collection",
                 search_type="mmr",
-                search_kwargs={"k": 5, "fetch_k": 20}
+                search_kwargs={"k": 5, "fetch_k": 20},
             )
 
             call_kwargs = mock_vector_store.as_retriever.call_args[1]
-            assert call_kwargs['search_type'] == "mmr"
-            assert call_kwargs['search_kwargs']['k'] == 5
+            assert call_kwargs["search_type"] == "mmr"
+            assert call_kwargs["search_kwargs"]["k"] == 5
 
     @pytest.mark.unit
     @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
@@ -337,10 +359,12 @@ class TestGetRetriever:
 
         service = LangChainQdrantService(client=mock_qdrant_client)
 
-        with patch.object(service, 'get_vector_store') as mock_get_vs:
+        with patch.object(service, "get_vector_store") as mock_get_vs:
             mock_get_vs.side_effect = Exception("Vector store error")
 
-            with pytest.raises(LangChainQdrantError, match="Failed to create retriever"):
+            with pytest.raises(
+                LangChainQdrantError, match="Failed to create retriever"
+            ):
                 service.get_retriever("test-collection")
 
 
@@ -357,7 +381,7 @@ class TestSimilaritySearch:
 
         service = LangChainQdrantService(client=mock_qdrant_client)
 
-        with patch.object(service, 'get_vector_store') as mock_get_vs:
+        with patch.object(service, "get_vector_store") as mock_get_vs:
             mock_vector_store = MagicMock()
             mock_doc = MagicMock()
             mock_vector_store.similarity_search.return_value = [mock_doc]
@@ -366,19 +390,23 @@ class TestSimilaritySearch:
             results = service.similarity_search("test-collection", "test query", k=3)
 
             assert len(results) == 1
-            mock_vector_store.similarity_search.assert_called_once_with("test query", k=3)
+            mock_vector_store.similarity_search.assert_called_once_with(
+                "test query", k=3
+            )
 
     @pytest.mark.unit
     @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
     @patch("app.services.langchain_qdrant_service.OpenAIEmbeddings")
-    def test_similarity_search_with_score_threshold(self, mock_embeddings_class, mock_qdrant_client):
+    def test_similarity_search_with_score_threshold(
+        self, mock_embeddings_class, mock_qdrant_client
+    ):
         """Test similarity search with score threshold."""
         mock_embeddings = MagicMock()
         mock_embeddings_class.return_value = mock_embeddings
 
         service = LangChainQdrantService(client=mock_qdrant_client)
 
-        with patch.object(service, 'get_vector_store') as mock_get_vs:
+        with patch.object(service, "get_vector_store") as mock_get_vs:
             mock_vector_store = MagicMock()
             mock_doc1 = MagicMock()
             mock_doc2 = MagicMock()
@@ -390,10 +418,7 @@ class TestSimilaritySearch:
             mock_get_vs.return_value = mock_vector_store
 
             results = service.similarity_search(
-                "test-collection",
-                "test query",
-                k=5,
-                score_threshold=0.7
+                "test-collection", "test query", k=5, score_threshold=0.7
             )
 
             # Only doc1 should be returned (score 0.9 >= 0.7)
@@ -410,23 +435,27 @@ class TestSimilaritySearch:
 
         service = LangChainQdrantService(client=mock_qdrant_client)
 
-        with patch.object(service, 'get_vector_store') as mock_get_vs:
+        with patch.object(service, "get_vector_store") as mock_get_vs:
             mock_get_vs.side_effect = Exception("Search error")
 
-            with pytest.raises(LangChainQdrantError, match="Failed to perform similarity search"):
+            with pytest.raises(
+                LangChainQdrantError, match="Failed to perform similarity search"
+            ):
                 service.similarity_search("test-collection", "query")
 
     @pytest.mark.unit
     @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
     @patch("app.services.langchain_qdrant_service.OpenAIEmbeddings")
-    def test_similarity_search_with_score_success(self, mock_embeddings_class, mock_qdrant_client):
+    def test_similarity_search_with_score_success(
+        self, mock_embeddings_class, mock_qdrant_client
+    ):
         """Test similarity search with scores."""
         mock_embeddings = MagicMock()
         mock_embeddings_class.return_value = mock_embeddings
 
         service = LangChainQdrantService(client=mock_qdrant_client)
 
-        with patch.object(service, 'get_vector_store') as mock_get_vs:
+        with patch.object(service, "get_vector_store") as mock_get_vs:
             mock_vector_store = MagicMock()
             mock_doc = MagicMock()
             mock_vector_store.similarity_search_with_score.return_value = [
@@ -434,7 +463,9 @@ class TestSimilaritySearch:
             ]
             mock_get_vs.return_value = mock_vector_store
 
-            results = service.similarity_search_with_score("test-collection", "query", k=3)
+            results = service.similarity_search_with_score(
+                "test-collection", "query", k=3
+            )
 
             assert len(results) == 1
             assert results[0][0] == mock_doc
@@ -443,17 +474,22 @@ class TestSimilaritySearch:
     @pytest.mark.unit
     @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
     @patch("app.services.langchain_qdrant_service.OpenAIEmbeddings")
-    def test_similarity_search_with_score_error(self, mock_embeddings_class, mock_qdrant_client):
+    def test_similarity_search_with_score_error(
+        self, mock_embeddings_class, mock_qdrant_client
+    ):
         """Test similarity search with score error handling."""
         mock_embeddings = MagicMock()
         mock_embeddings_class.return_value = mock_embeddings
 
         service = LangChainQdrantService(client=mock_qdrant_client)
 
-        with patch.object(service, 'get_vector_store') as mock_get_vs:
+        with patch.object(service, "get_vector_store") as mock_get_vs:
             mock_get_vs.side_effect = Exception("Search failed")
 
-            with pytest.raises(LangChainQdrantError, match="Failed to perform similarity search with score"):
+            with pytest.raises(
+                LangChainQdrantError,
+                match="Failed to perform similarity search with score",
+            ):
                 service.similarity_search_with_score("test-collection", "query")
 
 
@@ -464,7 +500,9 @@ class TestGetVectorStore:
     @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
     @patch("app.services.langchain_qdrant_service.OpenAIEmbeddings")
     @patch("app.services.langchain_qdrant_service.QdrantVectorStore")
-    def test_get_vector_store_success(self, mock_vector_store_class, mock_embeddings_class, mock_qdrant_client):
+    def test_get_vector_store_success(
+        self, mock_vector_store_class, mock_embeddings_class, mock_qdrant_client
+    ):
         """Test successful vector store creation."""
         mock_embeddings = MagicMock()
         mock_embeddings_class.return_value = mock_embeddings
@@ -516,7 +554,9 @@ class TestGetCollectionInfo:
     @pytest.mark.unit
     def test_get_collection_info_error(self, mock_qdrant_client):
         """Test collection info retrieval with error."""
-        mock_qdrant_client.get_collection.side_effect = Exception("Collection not found")
+        mock_qdrant_client.get_collection.side_effect = Exception(
+            "Collection not found"
+        )
 
         service = LangChainQdrantService(client=mock_qdrant_client)
         info = service.get_collection_info("nonexistent-collection")
