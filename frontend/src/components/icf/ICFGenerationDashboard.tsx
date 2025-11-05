@@ -38,6 +38,7 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
   });
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false);
   const [editingSections, setEditingSections] = useState<Set<string>>(new Set());
+  const [sectionsWithUnsavedChanges, setSectionsWithUnsavedChanges] = useState<Set<string>>(new Set());
 
   // Initialize sections with static data
   useEffect(() => {
@@ -334,9 +335,31 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
     }
   };
 
+  const handleEditingChange = (sectionName: string, isEditing: boolean, hasUnsavedChanges: boolean) => {
+    setEditingSections(prev => {
+      const updated = new Set(prev);
+      if (isEditing) {
+        updated.add(sectionName);
+      } else {
+        updated.delete(sectionName);
+      }
+      return updated;
+    });
+
+    setSectionsWithUnsavedChanges(prev => {
+      const updated = new Set(prev);
+      if (hasUnsavedChanges) {
+        updated.add(sectionName);
+      } else {
+        updated.delete(sectionName);
+      }
+      return updated;
+    });
+  };
+
   const handleApproveAll = () => {
     console.log('Approved all sections');
-    
+
     // Approve all sections that are ready for review
     setSections(prev => prev.map(section =>
       section.status === 'ready_for_review'
@@ -591,7 +614,7 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
                 {sections.some(s => s.status === 'ready_for_review') && (
                   <button
                     onClick={handleApproveAll}
-                    disabled={anySectionGenerating}
+                    disabled={anySectionGenerating || sectionsWithUnsavedChanges.size > 0}
                     style={{
                       padding: '12px 24px',
                       fontSize: '0.875rem',
@@ -599,21 +622,27 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
                       borderRadius: '8px',
                       backgroundColor: '#10b981',
                       color: '#ffffff',
-                      cursor: anySectionGenerating ? 'not-allowed' : 'pointer',
+                      cursor: (anySectionGenerating || sectionsWithUnsavedChanges.size > 0) ? 'not-allowed' : 'pointer',
                       transition: 'all 0.2s',
-                      opacity: anySectionGenerating ? 0.6 : 1,
+                      opacity: (anySectionGenerating || sectionsWithUnsavedChanges.size > 0) ? 0.6 : 1,
                     }}
                     onMouseEnter={(e) => {
-                      if (!anySectionGenerating) {
+                      if (!anySectionGenerating && sectionsWithUnsavedChanges.size === 0) {
                         e.currentTarget.style.backgroundColor = '#059669';
                       }
                     }}
                     onMouseLeave={(e) => {
-                      if (!anySectionGenerating) {
+                      if (!anySectionGenerating && sectionsWithUnsavedChanges.size === 0) {
                         e.currentTarget.style.backgroundColor = '#10b981';
                       }
                     }}
-                    title={anySectionGenerating ? 'Wait for all sections to finish generating' : 'Approve all sections that are ready for review'}
+                    title={
+                      anySectionGenerating
+                        ? 'Wait for all sections to finish generating'
+                        : sectionsWithUnsavedChanges.size > 0
+                          ? 'Save or cancel edits before approving all sections'
+                          : 'Approve all sections that are ready for review'
+                    }
                   >
                     ✓ Approve All Sections
                   </button>
@@ -717,6 +746,7 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
               onApprove={handleSectionApprove}
               onEdit={handleSectionEdit}
               onRegenerate={handleSectionRegenerate}
+              onEditingChange={handleEditingChange}
             />
           ))}
         </div>

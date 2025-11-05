@@ -14,6 +14,7 @@ interface ICFSectionProps {
   onApprove?: (sectionName: string) => void;
   onEdit?: (sectionName: string, newContent: string) => void;
   onRegenerate?: (sectionName: string) => void;
+  onEditingChange?: (sectionName: string, isEditing: boolean, hasUnsavedChanges: boolean) => void;
 }
 
 const ICFSection: React.FC<ICFSectionProps> = ({
@@ -22,6 +23,7 @@ const ICFSection: React.FC<ICFSectionProps> = ({
   onApprove,
   onEdit,
   onRegenerate,
+  onEditingChange,
 }) => {
   const [isEditing, setIsEditing] = React.useState(false);
   const [editContent, setEditContent] = React.useState(section.content);
@@ -29,6 +31,18 @@ const ICFSection: React.FC<ICFSectionProps> = ({
   React.useEffect(() => {
     setEditContent(section.content);
   }, [section.content]);
+
+  // Notify parent of editing state changes
+  React.useEffect(() => {
+    if (onEditingChange) {
+      const hasUnsavedChanges = isEditing && editContent !== section.content;
+      onEditingChange(section.name, isEditing, hasUnsavedChanges);
+    }
+  }, [isEditing, editContent, section.content, section.name, onEditingChange]);
+
+  const handleStartEdit = () => {
+    setIsEditing(true);
+  };
 
   const handleSaveEdit = () => {
     if (onEdit) {
@@ -143,7 +157,7 @@ const ICFSection: React.FC<ICFSectionProps> = ({
               </button>
             )}
             <button
-              onClick={() => setIsEditing(true)}
+              onClick={handleStartEdit}
               style={{
                 padding: '8px 16px',
                 fontSize: '0.875rem',
