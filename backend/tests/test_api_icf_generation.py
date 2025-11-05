@@ -230,7 +230,11 @@ class TestRegenerateICFSectionEndpoint:
         mock_service = MagicMock()
 
         async def mock_stream():
-            yield {"type": "section_complete", "section_name": "test", "content": "Test"}
+            yield {
+                "type": "section_complete",
+                "section_name": "test",
+                "content": "Test",
+            }
 
         mock_service.generate_icf_streaming.return_value = mock_stream()
         mock_service.validate_collection_exists = AsyncMock(return_value=True)

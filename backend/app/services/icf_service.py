@@ -12,14 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from qdrant_client import QdrantClient
 
-from ..config import get_llm_chat_model
-from ..prompts.generation_prompts import SECTION_GENERATION_PROMPT
-from .document_generator import (
-    DocumentGenerationError,
-    DocumentGenerator,
-    StreamingICFWorkflow,
-    get_langgraph_workflow,
-)
+from .document_generator import DocumentGenerator, StreamingICFWorkflow
 from .qdrant_service import get_qdrant_service
 
 logger = logging.getLogger(__name__)
@@ -56,8 +49,6 @@ class ICFGenerationService:
         Yields:
             Dict with streaming events from parallel section generation
         """
-        import asyncio
-        import threading
         import time
         from asyncio import Queue
         from queue import Queue as ThreadQueue
@@ -219,120 +210,6 @@ class ICFGenerationService:
             await event_queue.put(
                 {"type": "error", "error": f"Workflow execution failed: {str(e)}"}
             )
-
-    def _generate_section_streaming_sync(  # type: ignore[no-untyped-def]
-        self,
-        protocol_collection_name: str,
-        section_name: str,
-        protocol_metadata: Optional[Dict[str, Any]] = None,
-    ):
-        """
-        Generate a single ICF section with token-by-token streaming.
-
-        This is a synchronous method that returns an async generator for streaming.
-
-        Args:
-            protocol_collection_name: The Qdrant collection name for the protocol
-            section_name: Name of the section to generate
-            protocol_metadata: Optional metadata about the protocol
-
-        Returns:
-            Async generator yielding streaming tokens
-        """
-
-        async def stream_section() -> Any:
-            try:
-                # Use the same section queries as initial generation for consistency
-                # Get query from document generator to maintain consistency with workflow
-                query = self.document_generator._get_section_query(section_name)  # type: ignore[attr-defined]
-                context = self.document_generator.get_protocol_context(
-                    protocol_collection_name, query
-                )
-
-                if not context:
-                    context = [
-                        {
-                            "text": f"No specific context available for {section_name}",
-                            "score": 0.0,
-                        }
-                    ]
-
-                # Generate the section with streaming using LangChain's streaming
-                async for chunk in self._generate_section_with_streaming_llm(
-                    section_name=section_name,
-                    context="\n\n".join([item.get("text", "") for item in context]),
-                    section_prompt=self._get_section_prompt(section_name),
-                ):
-                    yield chunk
-
-            except Exception as e:
-                logger.error(f"Failed to stream section {section_name}: {e}")
-                yield {
-                    "type": "error",
-                    "error": f"Failed to generate {section_name}: {str(e)}",
-                }
-
-        return stream_section()
-
-    async def _generate_section_with_streaming_llm(  # type: ignore[no-untyped-def]
-        self, section_name: str, context: str, section_prompt: str
-    ):
-        """
-        Generate a section using the LLM with token streaming.
-
-        Args:
-            section_name: Name of the section being generated
-            context: Protocol context for the section
-            section_prompt: Section-specific prompt
-
-        Yields:
-            Dict with streaming tokens
-        """
-        try:
-            from langchain_core.messages import HumanMessage, SystemMessage
-
-            messages = [
-                SystemMessage(content=section_prompt),
-                HumanMessage(
-                    content=SECTION_GENERATION_PROMPT.format(
-                        context=context, section_name=section_name
-                    )
-                ),
-            ]
-
-            # Stream tokens from the LLM
-            llm = get_llm_chat_model()
-            async for chunk in llm.astream(messages):
-                if hasattr(chunk, "content") and chunk.content:
-                    yield {"type": "token", "content": chunk.content}
-
-        except Exception as e:
-            logger.error(f"Failed to stream {section_name} section: {e}")
-            yield {
-                "type": "error",
-                "error": f"Failed to generate {section_name}: {str(e)}",
-            }
-
-    def _format_context_for_llm(self, context: List[Dict[str, Any]]) -> str:
-        """Format context for LLM consumption."""
-        if not context:
-            return "No specific protocol context available."
-
-        formatted = []
-        for item in context:
-            text = item.get("text", "")
-            score = item.get("score", 0)
-            formatted.append(f"[Relevance: {score:.2f}] {text}")
-
-        return "\n\n".join(formatted)
-
-    def _get_section_prompt(self, section_name: str) -> str:
-        """Get the prompt for a specific ICF section."""
-        from ..prompts.icf_prompts import ICF_PROMPTS
-
-        return ICF_PROMPTS.get(
-            section_name, "Generate an appropriate ICF section based on the context."
-        )
 
     def get_generation_status(self, task_id: str) -> Dict[str, Any]:
         """

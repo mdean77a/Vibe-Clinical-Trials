@@ -431,7 +431,11 @@ class TestListAllProtocolsEdgeCases:
         mock_collection_3.name = "system-cache"  # Invalid - should skip
 
         mock_collections = MagicMock()
-        mock_collections.collections = [mock_collection_1, mock_collection_2, mock_collection_3]
+        mock_collections.collections = [
+            mock_collection_1,
+            mock_collection_2,
+            mock_collection_3,
+        ]
         mock_qdrant_client.get_collections.return_value = mock_collections
 
         # Mock scroll for valid collection
