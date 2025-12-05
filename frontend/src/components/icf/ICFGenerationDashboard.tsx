@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ICFSection, { type ICFSectionData } from './ICFSection';
 import { icfApi } from '../../utils/api';
 import type { Protocol } from '../../types/protocol';
@@ -38,6 +38,9 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
   });
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false);
   const [editingSections, setEditingSections] = useState<Set<string>>(new Set());
+
+  // Memoized derived values
+  const anySectionGenerating = useMemo(() => sections.some(s => s.status === 'generating'), [sections]);
 
   // Initialize sections with static data
   useEffect(() => {
@@ -219,33 +222,33 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
     }
   };
 
-  const handleSectionApprove = (sectionName: string) => {
+  const handleSectionApprove = useCallback((sectionName: string) => {
     console.log(`Approved section: ${sectionName}`);
-    
+
     // Update section status to approved
     setSections(prev => prev.map(section =>
       section.name === sectionName
         ? { ...section, status: 'approved' as const }
         : section
     ));
-  };
+  }, []);
 
-  const handleSectionEdit = (sectionName: string, newContent: string) => {
-    setSections(prev => prev.map(section => 
-      section.name === sectionName 
-        ? { 
-            ...section, 
+  const handleSectionEdit = useCallback((sectionName: string, newContent: string) => {
+    setSections(prev => prev.map(section =>
+      section.name === sectionName
+        ? {
+            ...section,
             content: newContent,
             wordCount: newContent.split(/\s+/).length,
             status: 'ready_for_review' as const, // Reset to ready_for_review after editing
           }
         : section
     ));
-  };
+  }, []);
 
-  const handleSectionRegenerate = async (sectionName: string) => {
+  const handleSectionRegenerate = useCallback(async (sectionName: string) => {
     if (progress.isGenerating) return;
-    
+
     // Check if any section is currently generating
     if (anySectionGenerating) return;
 
@@ -258,10 +261,10 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
 
     try {
       // Use the collection name stored with the protocol
-      const collectionName = protocol.collection_name || 
-        protocol.document_id || 
+      const collectionName = protocol.collection_name ||
+        protocol.document_id ||
         `${getProtocolId(protocol).toUpperCase().replace(/-/g, '')}-${Math.random().toString(36).substr(2, 8)}`;
-      
+
       // Stream the section regeneration
       const streamIterator = icfApi.regenerateSection(collectionName, sectionName, {
         protocol_title: protocol.protocol_title,
@@ -277,8 +280,8 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
           // Update section content in real-time as tokens stream in
           setSections(prev => prev.map(section =>
             section.name === event.data.section_name
-              ? { 
-                  ...section, 
+              ? {
+                  ...section,
                   content: event.data.accumulated_content || event.data.content,
                   status: 'generating' as const
                 }
@@ -288,11 +291,11 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
           // Mark section as completed
           setSections(prev => prev.map(section =>
             section.name === event.data.section_name
-              ? { 
-                  ...section, 
-                  status: 'ready_for_review' as const, 
+              ? {
+                  ...section,
+                  status: 'ready_for_review' as const,
                   content: event.data.content,
-                  wordCount: event.data.word_count 
+                  wordCount: event.data.word_count
                 }
               : section
           ));
@@ -311,7 +314,7 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
       }
     } catch (error) {
       console.error(`Section regeneration failed for ${sectionName}:`, error);
-      
+
       // Set specific section to error state
       setSections(prev => prev.map(section =>
         section.name === sectionName
@@ -332,9 +335,9 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
         return section;
       }));
     }
-  };
+  }, [progress.isGenerating, anySectionGenerating, protocol]);
 
-  const handleEditingChange = (sectionName: string, isEditing: boolean) => {
+  const handleEditingChange = useCallback((sectionName: string, isEditing: boolean) => {
     setEditingSections(prev => {
       const updated = new Set(prev);
       if (isEditing) {
@@ -344,7 +347,7 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
       }
       return updated;
     });
-  };
+  }, []);
 
   const handleApproveAll = () => {
     console.log('Approved all sections');
@@ -491,13 +494,10 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
 
 
   const hasGeneratedSections = sections.some(s => s.status === 'ready_for_review' || s.status === 'approved');
-  
+
   // Check if ALL sections are approved (required for export)
   const allSectionsApproved = sections.length > 0 && sections.every(s => s.status === 'approved');
-  
-  // Check if any section is currently generating
-  const anySectionGenerating = sections.some(s => s.status === 'generating');
-  
+
   // Export buttons should be enabled only when all sections are approved and nothing is generating
   const canExport = allSectionsApproved && !progress.isGenerating && !anySectionGenerating;
 

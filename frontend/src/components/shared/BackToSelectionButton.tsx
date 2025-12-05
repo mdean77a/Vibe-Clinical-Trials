@@ -10,9 +10,20 @@ interface BackToSelectionButtonProps {
  * Used across dashboard components for consistent navigation
  */
 export default function BackToSelectionButton({ onClick }: BackToSelectionButtonProps) {
+  const handleClick = () => {
+    console.log('[BackToSelectionButton] Button clicked');
+    console.log('[BackToSelectionButton] onClick handler:', onClick);
+
+    if (onClick) {
+      onClick();
+    } else {
+      console.error('[BackToSelectionButton] No onClick handler provided!');
+    }
+  };
+
   return (
     <Button
-      onClick={onClick}
+      onClick={handleClick}
       style={{
         background: 'linear-gradient(to right, #6b7280, #4b5563)',
         color: 'white',
