@@ -63,4 +63,4 @@ def get_llm_chat_model(
 # Text splitting configuration for document chunking
 TEXT_CHUNK_SIZE = 2000
 TEXT_CHUNK_OVERLAP = 200
-MIN_CHUNK_LENGTH = 50
+MIN_CHUNK_LENGTH = 5
