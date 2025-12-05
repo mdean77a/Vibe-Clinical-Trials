@@ -24,14 +24,30 @@ export default function ProtocolPageLayout({
   const router = useRouter();
 
   const handleReturnToDocumentSelection = () => {
-    if (protocol) {
-      const protocolId = getProtocolId(protocol);
-      const params = new URLSearchParams({
-        protocolId: protocolId,
-        studyAcronym: protocol.study_acronym
-      });
-      router.push(`/document-selection?${params.toString()}`);
-    } else {
+    console.log('[ProtocolPageLayout] Back to Document Selection clicked');
+    console.log('[ProtocolPageLayout] Protocol:', protocol);
+
+    try {
+      if (protocol) {
+        const protocolId = getProtocolId(protocol);
+        console.log('[ProtocolPageLayout] Protocol ID:', protocolId);
+
+        const params = new URLSearchParams({
+          protocolId: protocolId,
+          studyAcronym: protocol.study_acronym
+        });
+
+        const targetUrl = `/document-selection?${params.toString()}`;
+        console.log('[ProtocolPageLayout] Navigating to:', targetUrl);
+
+        router.push(targetUrl);
+      } else {
+        console.log('[ProtocolPageLayout] No protocol, navigating to /document-selection');
+        router.push('/document-selection');
+      }
+    } catch (error) {
+      console.error('[ProtocolPageLayout] Navigation error:', error);
+      // Fallback: navigate without params
       router.push('/document-selection');
     }
   };
