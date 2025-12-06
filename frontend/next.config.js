@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Configure for monorepo structure
+  outputFileTracingRoot: require('path').join(__dirname, '..'),
   experimental: {
     // Enable if you need server actions
     serverActions: {
