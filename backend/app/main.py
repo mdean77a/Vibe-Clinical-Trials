@@ -64,6 +64,7 @@ app = FastAPI(
     description="AI-powered clinical trial document generation backend",
     version="0.1.0",
     lifespan=lifespan,
+    redoc_url=None,  # Disabled - use /docs for API documentation
 )
 
 # Configure CORS
