@@ -13,7 +13,7 @@ This application uses AI to:
 
 ---
 
-## 📁 Project Structure
+## 📁 Project Structure Summary
 
 ```
 /clinical-trial-accelerator
