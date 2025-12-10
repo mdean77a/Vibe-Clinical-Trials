@@ -8,12 +8,31 @@ CanAdvice.png
 scripts
 check_deps.py
 check_sizes.sh
-CLAUDE.md 
+CLAUDE.md
 connections.md
-FLUID_ICF_2025-09-08.pdf 
+FLUID_ICF_2025-09-08.pdf
 QDRANT_SETUP.md
 README.md
 requirements-full.txt
 SETUP.md
 TESTING.md
 .gitignore
+
+# Node modules (Vercel installs fresh)
+node_modules
+frontend/node_modules
+
+# Build outputs and caches
+.next
+frontend/.next
+frontend/coverage
+backend/htmlcov
+backend/.pytest_cache
+backend/.venv
+backend/.mypy_cache
+__pycache__
+*.pyc
+
+# Tests (not needed for deployment)
+backend/tests
+frontend/src/**/__tests__
