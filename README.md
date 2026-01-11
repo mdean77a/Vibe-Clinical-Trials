@@ -1,6 +1,6 @@
 # Clinical Trial Accelerator
 
-An internal web-based tool for automating the generation of clinical trial documents from protocol PDFs. Designed to streamline workflows for academic research organizations and reduce time-to-implementation.
+An internal web-based tool for automating the generation of clinical trial documents from protocol PDFs. Designed to streamline workflows for academic research organizations and reduce time-to-implementation.  Dummy change to trigger deployment.
 
 ---
 
