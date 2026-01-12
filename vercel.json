@@ -15,7 +15,11 @@
   ],
   "routes": [
     {
-      "src": "/api/(?!auth)(.*)",
+      "src": "/api/auth/.*",
+      "continue": true
+    },
+    {
+      "src": "/api/(.*)",
       "dest": "api/index.py"
     },
     {
