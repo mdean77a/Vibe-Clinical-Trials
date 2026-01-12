@@ -623,21 +623,21 @@ const createWordDocument = async (sections: ICFSectionData[], protocol: Protocol
 };
 
 /**
- * Generate and save ICF Word document with user-selectable location
+ * Generate and save ICF Word document
+ * Uses traditional download method for maximum browser compatibility
  */
 export const generateICFDocx = async (
-  sections: ICFSectionData[], 
+  sections: ICFSectionData[],
   protocol: Protocol,
   options: {
     includeAllSections?: boolean;
     filename?: string;
-    useFilePicker?: boolean;
   } = {}
 ): Promise<void> => {
   try {
     // Filter sections based on options
-    const sectionsToInclude = options.includeAllSections 
-      ? sections 
+    const sectionsToInclude = options.includeAllSections
+      ? sections
       : sections.filter(s => s.status === 'ready_for_review' || s.status === 'approved');
 
     if (sectionsToInclude.length === 0) {
@@ -646,33 +646,19 @@ export const generateICFDocx = async (
 
     // Generate filename
     const timestamp = new Date().toISOString().split('T')[0];
-    const defaultFilename = options.filename || `${protocol.study_acronym}_ICF_${timestamp}.docx`;
-    
-    // Determine save method and get file handle first if using file picker
-    const useFilePicker = options.useFilePicker !== false && isFileSystemAccessSupported();
-    let fileHandle: any = null;
-    
-    if (useFilePicker) {
-      // Get file handle first (during user gesture) before generating document
-      fileHandle = await getFileHandleForSaving(defaultFilename);
-    }
+    const filename = options.filename || `${protocol.study_acronym}_ICF_${timestamp}.docx`;
 
     // Load docx module and create document
     const docxModule = await loadDocxModule();
     const { Packer } = docxModule;
     const doc = await createWordDocument(sectionsToInclude, protocol);
-    
+
     // Generate Word document blob
     const docxBlob = await Packer.toBlob(doc);
-    
-    if (fileHandle) {
-      // Save to user-selected location
-      await saveDocxToFileHandle(docxBlob, fileHandle);
-    } else {
-      // Fallback to traditional download
-      saveDocxWithDownload(docxBlob, defaultFilename);
-    }
-    
+
+    // Use traditional download for maximum compatibility
+    saveDocxWithDownload(docxBlob, filename);
+
   } catch (error) {
     console.error('Error generating Word document:', error);
     throw error;

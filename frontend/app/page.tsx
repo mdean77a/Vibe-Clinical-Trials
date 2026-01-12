@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LoginLink, LogoutLink, useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 import ProtocolSelector from '@/components/ProtocolSelector';
 import ProtocolUpload from '@/components/ProtocolUpload';
 import type { Protocol, HealthResponse, ProtocolsListResponse } from '@/types/protocol';
@@ -15,6 +16,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [apiHealthy, setApiHealthy] = useState<boolean | null>(null);
   const router = useRouter();
+  const { user, isAuthenticated, isLoading: authLoading } = useKindeBrowserClient();
 
   // Load protocols from API or fallback to localStorage
   useEffect(() => {
@@ -131,13 +133,95 @@ export default function HomePage() {
   };
 
 
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div style={{
+        padding: '24px',
+        maxWidth: '1024px',
+        margin: '0 auto',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ fontSize: '1.125rem', color: '#6b7280' }}>Loading...</div>
+      </div>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div style={{
+        padding: '24px',
+        maxWidth: '1024px',
+        margin: '0 auto',
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <h1 style={{
+          fontSize: '2.5rem',
+          fontWeight: 'bold',
+          background: 'linear-gradient(to right, #2563eb, #9333ea)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+          marginBottom: '16px'
+        }}>
+          Clinical Trial Accelerator
+        </h1>
+        <p style={{ color: '#6b7280', fontSize: '1.125rem', marginBottom: '24px' }}>
+          Please log in to access the application.
+        </p>
+        <LoginLink style={{
+          padding: '12px 24px',
+          backgroundColor: '#2563eb',
+          color: 'white',
+          borderRadius: '8px',
+          textDecoration: 'none',
+          fontSize: '1rem',
+          fontWeight: '600'
+        }}>
+          Log in
+        </LoginLink>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ 
-      padding: '24px', 
-      maxWidth: '1024px', 
+    <div style={{
+      padding: '24px',
+      maxWidth: '1024px',
       margin: '0 auto',
       minHeight: '100vh'
     }}>
+      {/* Auth Header */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        marginBottom: '16px',
+        gap: '12px'
+      }}>
+        <span style={{ color: '#374151', fontSize: '0.875rem' }}>
+          {user?.email}
+        </span>
+        <LogoutLink style={{
+          padding: '8px 16px',
+          backgroundColor: '#f3f4f6',
+          color: '#374151',
+          borderRadius: '6px',
+          textDecoration: 'none',
+          fontSize: '0.875rem'
+        }}>
+          Log out
+        </LogoutLink>
+      </div>
+
       <main role="main">
         <div style={{ textAlign: 'center', marginBottom: '48px' }}>
           <h1 style={{

@@ -23,20 +23,18 @@ export interface PDFExtractionProgress {
  */
 async function initializePDFJS() {
   if (pdfjsLib) return pdfjsLib;
-  
+
   if (typeof window === 'undefined') {
     throw new Error('PDF extraction is only available in the browser');
   }
-  
-  // Dynamic import to avoid SSR issues
-  pdfjsLib = await import('pdfjs-dist');
-  
-  // Configure PDF.js worker - use local worker file
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.mjs',
-    import.meta.url
-  ).toString();
-  
+
+  // Dynamic import for v3.x
+  const pdfjs = await import('pdfjs-dist');
+
+  // Use CDN for worker (matching v3.11.174)
+  pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  pdfjsLib = pdfjs;
   return pdfjsLib;
 }
 

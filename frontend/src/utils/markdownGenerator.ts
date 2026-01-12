@@ -156,21 +156,21 @@ const createMarkdownContent = (sections: ICFSectionData[], protocol: Protocol): 
 };
 
 /**
- * Generate and save ICF markdown with user-selectable location
+ * Generate and save ICF markdown
+ * Uses traditional download method for maximum browser compatibility
  */
 export const generateICFMarkdown = async (
-  sections: ICFSectionData[], 
+  sections: ICFSectionData[],
   protocol: Protocol,
   options: {
     includeAllSections?: boolean;
     filename?: string;
-    useFilePicker?: boolean;
   } = {}
 ): Promise<void> => {
   try {
     // Filter sections based on options
-    const sectionsToInclude = options.includeAllSections 
-      ? sections 
+    const sectionsToInclude = options.includeAllSections
+      ? sections
       : sections.filter(s => s.status === 'ready_for_review' || s.status === 'approved');
 
     if (sectionsToInclude.length === 0) {
@@ -179,28 +179,14 @@ export const generateICFMarkdown = async (
 
     // Generate filename
     const timestamp = new Date().toISOString().split('T')[0];
-    const defaultFilename = options.filename || `${protocol.study_acronym}_ICF_${timestamp}.md`;
-    
-    // Determine save method and get file handle first if using file picker
-    const useFilePicker = options.useFilePicker !== false && isFileSystemAccessSupported();
-    let fileHandle: any = null;
-    
-    if (useFilePicker) {
-      // Get file handle first (during user gesture) before generating content
-      fileHandle = await getFileHandleForSaving(defaultFilename);
-    }
+    const filename = options.filename || `${protocol.study_acronym}_ICF_${timestamp}.md`;
 
     // Generate markdown content
     const markdownContent = createMarkdownContent(sectionsToInclude, protocol);
-    
-    if (fileHandle) {
-      // Save to user-selected location
-      await saveMarkdownToFileHandle(markdownContent, fileHandle);
-    } else {
-      // Fallback to traditional download
-      saveMarkdownWithDownload(markdownContent, defaultFilename);
-    }
-    
+
+    // Use traditional download for maximum compatibility
+    saveMarkdownWithDownload(markdownContent, filename);
+
   } catch (error) {
     console.error('Error generating markdown:', error);
     throw error;
