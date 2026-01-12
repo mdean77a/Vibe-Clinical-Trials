@@ -389,7 +389,6 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
       // Generate and save PDF - file picker (if supported) will be shown immediately
       await generateICFPdf(sections, protocol, {
         includeAllSections: false, // Only include ready_for_review and approved sections
-        useFilePicker: true, // Enable file picker if supported
       });
       
       console.log('PDF export completed successfully');
@@ -433,7 +432,6 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
       // Generate and save Word document - file picker (if supported) will be shown immediately
       await generateICFDocx(sections, protocol, {
         includeAllSections: false, // Only include ready_for_review and approved sections
-        useFilePicker: true, // Enable file picker if supported
       });
       
       console.log('Word document export completed successfully');
@@ -477,7 +475,6 @@ const ICFGenerationDashboard: React.FC<ICFGenerationDashboardProps> = ({
       // Generate and save Markdown - file picker (if supported) will be shown immediately
       await generateICFMarkdown(sections, protocol, {
         includeAllSections: false, // Only include ready_for_review and approved sections
-        useFilePicker: true, // Enable file picker if supported
       });
       
       console.log('Markdown export completed successfully');
