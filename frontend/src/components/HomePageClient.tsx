@@ -131,17 +131,19 @@ export default function HomePageClient() {
     <main role="main">
       {/* API Status Indicator */}
       {!loading && apiHealthy === true && (
-        <div style={{ 
-          marginTop: '12px', 
-          padding: '8px 16px', 
-          borderRadius: '20px', 
-          display: 'inline-block',
-          fontSize: '0.875rem',
-          backgroundColor: '#dcfce7',
-          color: '#166534',
-          border: '1px solid #bbf7d0'
-        }}>
-          🟢 Connected to API
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ 
+            marginTop: '12px', 
+            padding: '8px 16px', 
+            borderRadius: '20px', 
+            display: 'inline-block',
+            fontSize: '0.875rem',
+            backgroundColor: '#dcfce7',
+            color: '#166534',
+            border: '1px solid #bbf7d0'
+          }}>
+            🟢 Connected to API
+          </div>
         </div>
       )}
 
