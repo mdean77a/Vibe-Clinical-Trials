@@ -241,12 +241,13 @@ describe('Input Component', () => {
         border: '2px solid red',
         padding: '10px'
       };
-      
+
       render(<Input style={customStyle} />);
-      
+
       const inputElement = screen.getByRole('textbox');
+      // JSDOM returns colors in rgb format
       expect(inputElement).toHaveStyle({
-        backgroundColor: 'yellow',
+        backgroundColor: 'rgb(255, 255, 0)',
         fontSize: '18px',
         border: '2px solid red',
         padding: '10px'
@@ -259,13 +260,14 @@ describe('Input Component', () => {
         color: 'blue',
         fontWeight: 'bold'
       };
-      
+
       render(<Input className={customClass} style={customStyle} />);
-      
+
       const inputElement = screen.getByRole('textbox');
       expect(inputElement).toHaveClass('special-input');
+      // JSDOM returns colors in rgb format
       expect(inputElement).toHaveStyle({
-        color: 'blue',
+        color: 'rgb(0, 0, 255)',
         fontWeight: 'bold'
       });
     });

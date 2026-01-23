@@ -70,16 +70,17 @@ describe('Card Component', () => {
         margin: '10px',
         padding: '20px'
       };
-      
+
       const { container } = render(
         <Card style={customStyle}>
           <span>Content</span>
         </Card>
       );
-      
+
       const cardElement = container.firstChild as HTMLElement;
+      // JSDOM returns colors in rgb format
       expect(cardElement).toHaveStyle({
-        backgroundColor: 'red',
+        backgroundColor: 'rgb(255, 0, 0)',
         border: '2px solid blue',
         margin: '10px',
         padding: '20px'
@@ -92,18 +93,19 @@ describe('Card Component', () => {
         fontSize: '18px',
         color: 'purple'
       };
-      
+
       const { container } = render(
         <Card className={customClass} style={customStyle}>
           <span>Content</span>
         </Card>
       );
-      
+
       const cardElement = container.firstChild as HTMLElement;
       expect(cardElement).toHaveClass('special-card');
+      // JSDOM returns colors in rgb format
       expect(cardElement).toHaveStyle({
         fontSize: '18px',
-        color: 'purple'
+        color: 'rgb(128, 0, 128)'
       });
     });
   });
@@ -368,18 +370,19 @@ describe('Card Component', () => {
           <span>Content</span>
         </Card>
       );
-      
+
       let cardElement = container.firstChild as HTMLElement;
-      expect(cardElement).toHaveStyle({ color: 'red' });
-      
+      // JSDOM returns colors in rgb format
+      expect(cardElement).toHaveStyle({ color: 'rgb(255, 0, 0)' });
+
       rerender(
         <Card style={{ color: 'blue', fontSize: '16px' }}>
           <span>Content</span>
         </Card>
       );
-      
+
       cardElement = container.firstChild as HTMLElement;
-      expect(cardElement).toHaveStyle({ color: 'blue', fontSize: '16px' });
+      expect(cardElement).toHaveStyle({ color: 'rgb(0, 0, 255)', fontSize: '16px' });
     });
   });
 }); 
