@@ -1,10 +1,15 @@
 /**
  * PDF text extraction utility using PDF.js
  * Extracts text from PDF files on the client-side
+ * Uses CDN loading to avoid Webpack bundling issues with pdfjs-dist
  */
 
-// Dynamic import to avoid SSR issues
+// Global reference to loaded PDF.js library
 let pdfjsLib: any = null;
+let loadPromise: Promise<any> | null = null;
+
+const PDFJS_VERSION = '3.11.174';
+const PDFJS_CDN_BASE = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}`;
 
 export interface PDFExtractionResult {
   text: string;
@@ -19,7 +24,28 @@ export interface PDFExtractionProgress {
 }
 
 /**
+ * Load a script from CDN
+ */
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    // Check if script already exists
+    if (document.querySelector(`script[src="${src}"]`)) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+    document.head.appendChild(script);
+  });
+}
+
+/**
  * Initialize PDF.js library (client-side only)
+ * Uses CDN loading to avoid Next.js/Webpack bundling issues
  */
 async function initializePDFJS() {
   if (pdfjsLib) return pdfjsLib;
@@ -28,14 +54,27 @@ async function initializePDFJS() {
     throw new Error('PDF extraction is only available in the browser');
   }
 
-  // Dynamic import for v3.x
-  const pdfjs = await import('pdfjs-dist');
+  // Prevent multiple simultaneous loads
+  if (loadPromise) return loadPromise;
 
-  // Use CDN for worker (matching v3.11.174)
-  pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  loadPromise = (async () => {
+    // Load PDF.js from CDN
+    await loadScript(`${PDFJS_CDN_BASE}/pdf.min.js`);
 
-  pdfjsLib = pdfjs;
-  return pdfjsLib;
+    // Access the global pdfjsLib that PDF.js creates
+    const pdfjs = (window as any).pdfjsLib;
+    if (!pdfjs) {
+      throw new Error('PDF.js failed to initialize');
+    }
+
+    // Set the worker source
+    pdfjs.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN_BASE}/pdf.worker.min.js`;
+
+    pdfjsLib = pdfjs;
+    return pdfjsLib;
+  })();
+
+  return loadPromise;
 }
 
 /**
